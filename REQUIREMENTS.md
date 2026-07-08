@@ -264,7 +264,7 @@ Goal: the core loop is trustworthy across real apps.
 - [ ] Shortcut start/stop is reliable under real-world use
 - [ ] Long dictation doesn't freeze the UI
 - [x] Missing-permission and no-focused-field cases handled gracefully
-- [ ] Remaining cleanup modes (Polished, Prompt, Message, Email)
+- [x] Remaining cleanup modes (Polished, Prompt, Message, Email)
 
 **Success:** core dictation loop is reliable enough to charge for.
 

@@ -77,4 +77,67 @@ final class CleanupEngineTests: XCTestCase {
             "Are we ready?"
         )
     }
+
+    func testPolishedAppliesLightCasingAndQuestionPunctuation() {
+        XCTAssertEqual(
+            engine.clean("can i ship this now", mode: .polished),
+            "Can I ship this now?"
+        )
+    }
+
+    func testPromptNormalizesLeadingInstructionWithoutSemanticRewrite() {
+        XCTAssertEqual(
+            engine.clean("can you please update the SwiftUI view to use JSON", mode: .prompt),
+            "Please update the SwiftUI view to use JSON."
+        )
+    }
+
+    func testPromptRemovesAssistantAddress() {
+        XCTAssertEqual(
+            engine.clean("Claude, explain this TypeScript error", mode: .prompt),
+            "Explain this TypeScript error."
+        )
+    }
+
+    func testMessageKeepsChatStyleConcise() {
+        XCTAssertEqual(
+            engine.clean("hey, could you please review this when you have a chance", mode: .message),
+            "Could you review this when you have a chance?"
+        )
+    }
+
+    func testEmailFormatsBlockOnlyWhenEmailCuesExist() {
+        XCTAssertEqual(
+            engine.clean("hi Sam, please review the draft thanks", mode: .email),
+            "Hi Sam,\n\nPlease review the draft.\n\nThanks"
+        )
+    }
+
+    func testEmailFallsBackToPolishedTextWithoutEmailCues() {
+        XCTAssertEqual(
+            engine.clean("can i send this now", mode: .email),
+            "Can I send this now?"
+        )
+    }
+
+    func testCleanupModeSelectionStoreDefaultsToCleanForMissingOrUnknownValue() {
+        let defaults = UserDefaults(suiteName: "CleanupModeSelectionStoreTests.missing")!
+        defaults.removePersistentDomain(forName: "CleanupModeSelectionStoreTests.missing")
+        let store = CleanupModeSelectionStore(defaults: defaults, key: "mode")
+
+        XCTAssertEqual(store.load(), .clean)
+
+        defaults.set("unknown", forKey: "mode")
+        XCTAssertEqual(store.load(), .clean)
+    }
+
+    func testCleanupModeSelectionStorePersistsSelectedMode() {
+        let defaults = UserDefaults(suiteName: "CleanupModeSelectionStoreTests.persisted")!
+        defaults.removePersistentDomain(forName: "CleanupModeSelectionStoreTests.persisted")
+        let store = CleanupModeSelectionStore(defaults: defaults, key: "mode")
+
+        store.save(.message)
+
+        XCTAssertEqual(store.load(), .message)
+    }
 }

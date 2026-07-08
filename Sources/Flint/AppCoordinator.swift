@@ -27,8 +27,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let textInsertionEngine = TextInsertionEngine()
     private let permissionManager = PermissionManager()
     private let shortcutManager = ShortcutManager()
-    private let defaults = UserDefaults.standard
-    private let cleanupModeDefaultsKey = "cleanupMode"
+    private let cleanupModeSelectionStore = CleanupModeSelectionStore()
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
@@ -36,15 +35,16 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
-            defaults.set(cleanupMode.rawValue, forKey: cleanupModeDefaultsKey)
+            cleanupModeSelectionStore.save(cleanupMode)
             updateCleanupModeUI()
         }
     }
     private weak var cleanupModeMenuItem: NSMenuItem?
+    private var cleanupModeSelectionMenuItems: [NSMenuItem] = []
     private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
-        cleanupMode = CleanupMode(rawValue: defaults.string(forKey: cleanupModeDefaultsKey) ?? "") ?? .clean
+        cleanupMode = cleanupModeSelectionStore.load()
         configureMenu()
         updateCleanupModeUI()
         overlay.show(state: .ready)
@@ -86,7 +86,16 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start/Pause Dictation", action: #selector(toggleDictation), keyEquivalent: ""))
-        let modeItem = NSMenuItem(title: "", action: #selector(toggleCleanupMode), keyEquivalent: "")
+        let modeItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let modeSubmenu = NSMenu()
+        cleanupModeSelectionMenuItems = CleanupMode.allCases.map { mode in
+            let item = NSMenuItem(title: mode.displayName, action: #selector(selectCleanupMode(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = mode.rawValue
+            modeSubmenu.addItem(item)
+            return item
+        }
+        modeItem.submenu = modeSubmenu
         menu.addItem(modeItem)
         cleanupModeMenuItem = modeItem
         menu.addItem(.separator())
@@ -114,6 +123,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func updateCleanupModeUI() {
         cleanupModeMenuItem?.title = "Current Mode: \(cleanupMode.displayName)"
+        for item in cleanupModeSelectionMenuItems {
+            item.state = item.representedObject as? String == cleanupMode.rawValue ? .on : .off
+        }
         overlay.setModeLabel(cleanupMode.displayName.uppercased())
     }
 
@@ -134,8 +146,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc private func toggleCleanupMode() {
-        cleanupMode = cleanupMode == .clean ? .verbatim : .clean
+    @objc private func selectCleanupMode(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let selectedMode = CleanupMode(rawValue: rawValue) else {
+            return
+        }
+        cleanupMode = selectedMode
     }
 
     @objc private func showSettings() {
