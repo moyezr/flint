@@ -25,3 +25,7 @@ The app runs as a menu bar process with no dock icon. Hold Right Option to recor
 Flint uses the official Argmax OSS Swift package and the `WhisperKit` product for on-device transcription. The transcription pipeline is initialized once and cached behind `TranscriptionEngine`, so repeated dictations reuse the same model/runtime instead of recreating it.
 
 WhisperKit may download its default model files on first use and needs network access for that initial setup. After the model is present in WhisperKit's local cache, transcription runs locally on the Mac.
+
+## Text Cleanup
+
+Transcripts pass through a local dictionary replacement step before cleanup. The initial dictionary ships developer-focused defaults such as API, JSON, Postgres, Docker, Kubernetes, TypeScript, Next.js, GitHub, JavaScript, SwiftUI, and SQLite, with custom replacements persisted in `UserDefaults` for the app to expose through settings later.

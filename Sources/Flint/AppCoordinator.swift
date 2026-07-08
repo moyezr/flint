@@ -22,6 +22,7 @@ final class AppCoordinator {
     private let overlay = OverlayWindow()
     private let recorder = AudioRecorder()
     private let transcriptionEngine = TranscriptionEngine()
+    private let dictionaryEngine = DictionaryEngine()
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
     private let shortcutManager = ShortcutManager()
@@ -162,7 +163,8 @@ final class AppCoordinator {
             overlay.show(state: .processingLocally)
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
             try? FileManager.default.removeItem(at: audioURL)
-            let cleanedTranscript = cleanupEngine.clean(transcript, mode: cleanupMode)
+            let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
+            let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: cleanupMode)
 
             guard !cleanedTranscript.isEmpty else {
                 overlay.show(state: .copiedToClipboard)
