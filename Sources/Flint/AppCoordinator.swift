@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @MainActor
-final class AppCoordinator {
+final class AppCoordinator: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let overlay = OverlayWindow()
     private let recorder = AudioRecorder()
@@ -25,6 +25,7 @@ final class AppCoordinator {
     private let dictionaryEngine = DictionaryEngine()
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
+    private let permissionManager = PermissionManager()
     private let shortcutManager = ShortcutManager()
     private let defaults = UserDefaults.standard
     private let cleanupModeDefaultsKey = "cleanupMode"
@@ -39,6 +40,7 @@ final class AppCoordinator {
         }
     }
     private weak var cleanupModeMenuItem: NSMenuItem?
+    private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
         cleanupMode = CleanupMode(rawValue: defaults.string(forKey: cleanupModeDefaultsKey) ?? "") ?? .clean
@@ -61,7 +63,14 @@ final class AppCoordinator {
                 await self?.cancelDictation()
             }
         }
-        shortcutManager.start()
+        switch shortcutManager.start() {
+        case .started:
+            break
+        case .inputMonitoringMissing:
+            overlay.show(state: .error(PermissionStatus(kind: .inputMonitoring, readiness: .denied).failureMessage))
+            NSSound.beep()
+        }
+        updatePermissionMenuItem()
     }
 
     func stop() {
@@ -79,6 +88,9 @@ final class AppCoordinator {
         menu.addItem(modeItem)
         cleanupModeMenuItem = modeItem
         menu.addItem(.separator())
+        let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
+        menu.addItem(permissionItem)
+        permissionMenuItem = permissionItem
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Privacy", action: #selector(showPrivacy), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Check for Updates", action: #selector(checkForUpdates), keyEquivalent: ""))
@@ -89,12 +101,27 @@ final class AppCoordinator {
         for item in menu.items where item.action != nil {
             item.target = self
         }
+        menu.delegate = self
         statusItem.menu = menu
+        updatePermissionMenuItem()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        updatePermissionMenuItem()
     }
 
     private func updateCleanupModeUI() {
         cleanupModeMenuItem?.title = "Current Mode: \(cleanupMode.displayName)"
         overlay.setModeLabel(cleanupMode.displayName.uppercased())
+    }
+
+    private func updatePermissionMenuItem() {
+        let snapshot = permissionManager.snapshot()
+        if snapshot.missingCount == 0 {
+            permissionMenuItem?.title = "Permissions: Ready"
+        } else {
+            permissionMenuItem?.title = "Permissions: \(snapshot.missingCount) Missing"
+        }
     }
 
     @objc private func toggleDictation() {
@@ -113,8 +140,32 @@ final class AppCoordinator {
         showNotBuiltYet("Settings")
     }
 
+    @objc private func showPermissions() {
+        let snapshot = permissionManager.snapshot()
+        updatePermissionMenuItem()
+
+        let alert = NSAlert()
+        alert.messageText = snapshot.missingCount == 0 ? "Permissions Ready" : "Permissions Needed"
+        alert.informativeText = snapshot.statuses.map { status in
+            "\(status.statusLine)\n\(status.explanation)"
+        }.joined(separator: "\n\n")
+        alert.addButton(withTitle: "Open Privacy Settings")
+        alert.addButton(withTitle: "Prompt Again")
+        alert.addButton(withTitle: "OK")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            openPrivacySettings()
+        case .alertSecondButtonReturn:
+            permissionManager.requestAccessibilityPrompt()
+            permissionManager.requestInputMonitoringPrompt()
+        default:
+            break
+        }
+    }
+
     @objc private func showPrivacy() {
-        showNotBuiltYet("Privacy")
+        showPermissions()
     }
 
     @objc private func checkForUpdates() {
@@ -145,7 +196,13 @@ final class AppCoordinator {
         } catch {
             isRecording = false
             focusedStartInsertionTarget = nil
-            overlay.show(state: .error("Microphone recording failed."))
+            if let recorderError = error as? AudioRecorder.RecorderError,
+               recorderError == .microphonePermissionDenied {
+                overlay.show(state: .error(PermissionStatus(kind: .microphone, readiness: .denied).failureMessage))
+                updatePermissionMenuItem()
+            } else {
+                overlay.show(state: .error("Microphone recording failed."))
+            }
             NSSound.beep()
         }
     }
@@ -177,7 +234,14 @@ final class AppCoordinator {
 
             overlay.show(state: .inserting)
             let result = await textInsertionEngine.insert(cleanedTranscript, preferredTarget: focusedStartInsertionTarget)
-            overlay.show(state: result == .inserted ? .ready : .copiedToClipboard)
+            if result == .inserted {
+                overlay.show(state: .ready)
+            } else if !permissionManager.snapshot().status(for: .accessibility).isReady {
+                overlay.show(state: .error(PermissionStatus(kind: .accessibility, readiness: .denied).failureMessage))
+                updatePermissionMenuItem()
+            } else {
+                overlay.show(state: .copiedToClipboard)
+            }
         } catch {
             overlay.show(state: .error(error.localizedDescription))
             NSSound.beep()
@@ -192,6 +256,18 @@ final class AppCoordinator {
         _ = try? recorder.stop()
         overlay.show(state: .cancelled)
     }
+
+    private func openPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+}
+
+enum ShortcutStartResult {
+    case started
+    case inputMonitoringMissing
 }
 
 final class ShortcutManager {
@@ -203,7 +279,7 @@ final class ShortcutManager {
     private var runLoopSource: CFRunLoopSource?
     private var isRightOptionDown = false
 
-    func start() {
+    func start() -> ShortcutStartResult {
         let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
         let callback: CGEventTapCallBack = { proxy, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
@@ -221,13 +297,13 @@ final class ShortcutManager {
         )
 
         guard let eventTap else {
-            requestInputMonitoringHint()
-            return
+            return .inputMonitoringMissing
         }
 
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        return .started
     }
 
     func stop() {
@@ -272,8 +348,4 @@ final class ShortcutManager {
         }
     }
 
-    private func requestInputMonitoringHint() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        AXIsProcessTrustedWithOptions(options)
-    }
 }

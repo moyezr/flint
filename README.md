@@ -22,6 +22,8 @@ The app runs as a menu bar process with no dock icon. Hold Right Option to recor
 
 Flint captures the focused text target when recording starts and tries that target first when inserting the final text. If that target is gone or rejects direct insertion, it falls back to the current focused field, then clipboard paste with clipboard preservation, then copy-only.
 
+Use the Permissions menu item to check Microphone, Accessibility, and Input Monitoring readiness. Microphone lets Flint record your voice for local transcription. Accessibility lets Flint insert text into the field you're typing in. Input Monitoring lets Flint detect your dictation shortcut.
+
 ## Local Transcription
 
 Flint uses the official Argmax OSS Swift package and the `WhisperKit` product for on-device transcription. The transcription pipeline is initialized once and cached behind `TranscriptionEngine`, so repeated dictations reuse the same model/runtime instead of recreating it.

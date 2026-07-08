@@ -253,7 +253,7 @@ Goal: usable by the developer every day, without hand-holding.
 - [ ] Error handling for common failure paths
 - [ ] Local settings persisted
 - [ ] Model manager (download/select/delete)
-- [ ] Personal dictionary v1
+- [x] Personal dictionary v1
 
 **Success:** 10 alpha users can use it daily without developer help.
 
@@ -263,7 +263,7 @@ Goal: the core loop is trustworthy across real apps.
 - [ ] Recording overlay always appears, never silently fails
 - [ ] Shortcut start/stop is reliable under real-world use
 - [ ] Long dictation doesn't freeze the UI
-- [ ] Missing-permission and no-focused-field cases handled gracefully
+- [x] Missing-permission and no-focused-field cases handled gracefully
 - [ ] Remaining cleanup modes (Polished, Prompt, Message, Email)
 
 **Success:** core dictation loop is reliable enough to charge for.
