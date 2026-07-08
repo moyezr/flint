@@ -91,6 +91,10 @@ final class OverlayWindow {
         model.modeLabel = label
     }
 
+    func updateAudioLevel(_ level: Float) {
+        model.audioLevel = min(max(level, 0), 1)
+    }
+
     private func positionWindow() {
         guard let screen = NSScreen.main else { return }
         let frame = screen.visibleFrame
@@ -107,6 +111,7 @@ final class OverlayWindow {
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
     @Published var modeLabel: String = "CLEAN"
+    @Published var audioLevel: Float = 0
 }
 
 struct OverlayView: View {
@@ -175,7 +180,8 @@ struct OverlayView: View {
     private var filledBars: Int {
         switch model.state {
         case .listening:
-            return 9
+            guard model.audioLevel >= 0.03 else { return 0 }
+            return max(1, Int((model.audioLevel * 18).rounded(.up)))
         case .processingLocally, .inserting:
             return 14
         case .error:

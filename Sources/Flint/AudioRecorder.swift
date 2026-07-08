@@ -22,6 +22,13 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     private var recorder: AVAudioRecorder?
     private var currentURL: URL?
 
+    var currentLevel: Float {
+        guard let recorder else { return 0 }
+
+        recorder.updateMeters()
+        return AudioLevelNormalizer.normalizedLevel(fromDecibels: recorder.averagePower(forChannel: 0))
+    }
+
     func start() async throws {
         guard await requestMicrophoneAccess() else {
             throw RecorderError.microphonePermissionDenied
@@ -73,5 +80,26 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         @unknown default:
             return false
         }
+    }
+}
+
+enum AudioLevelNormalizer {
+    static func normalizedLevel(fromDecibels decibels: Float, floor: Float = -60, ceiling: Float = 0) -> Float {
+        guard floor < ceiling else { return 0 }
+
+        if decibels.isNaN {
+            return 0
+        }
+
+        if decibels == Float.infinity {
+            return 1
+        }
+
+        if decibels == -Float.infinity {
+            return 0
+        }
+
+        let level = (decibels - floor) / (ceiling - floor)
+        return min(max(level, 0), 1)
     }
 }

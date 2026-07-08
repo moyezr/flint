@@ -32,6 +32,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
+    private var audioMeterTimer: Timer?
     private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
@@ -74,6 +75,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     func stop() {
+        stopAudioMetering()
         shortcutManager.stop()
     }
 
@@ -191,11 +193,22 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             didCancelCurrentRecording = false
             focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
+            overlay.updateAudioLevel(0)
             overlay.show(state: .listening)
             try await recorder.start()
+            guard isRecording else {
+                let audioURL = try? recorder.stop()
+                if let audioURL {
+                    try? FileManager.default.removeItem(at: audioURL)
+                }
+                stopAudioMetering()
+                return
+            }
+            startAudioMetering()
         } catch {
             isRecording = false
             focusedStartInsertionTarget = nil
+            stopAudioMetering()
             if let recorderError = error as? AudioRecorder.RecorderError,
                recorderError == .microphonePermissionDenied {
                 overlay.show(state: .error(PermissionStatus(kind: .microphone, readiness: .denied).failureMessage))
@@ -211,6 +224,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         guard isRecording else { return }
 
         isRecording = false
+        stopAudioMetering()
         defer { focusedStartInsertionTarget = nil }
 
         do {
@@ -252,9 +266,38 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         guard isRecording else { return }
         didCancelCurrentRecording = true
         isRecording = false
+        stopAudioMetering()
         focusedStartInsertionTarget = nil
         _ = try? recorder.stop()
         overlay.show(state: .cancelled)
+    }
+
+    private func startAudioMetering() {
+        stopAudioMetering()
+        overlay.updateAudioLevel(0)
+
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateAudioMeter()
+            }
+        }
+        audioMeterTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopAudioMetering() {
+        audioMeterTimer?.invalidate()
+        audioMeterTimer = nil
+        overlay.updateAudioLevel(0)
+    }
+
+    private func updateAudioMeter() {
+        guard isRecording else {
+            stopAudioMetering()
+            return
+        }
+
+        overlay.updateAudioLevel(recorder.currentLevel)
     }
 
     private func openPrivacySettings() {
