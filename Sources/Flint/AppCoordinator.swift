@@ -31,6 +31,7 @@ final class AppCoordinator {
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
+    private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
             defaults.set(cleanupMode.rawValue, forKey: cleanupModeDefaultsKey)
@@ -137,11 +138,13 @@ final class AppCoordinator {
 
         do {
             didCancelCurrentRecording = false
+            focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
             overlay.show(state: .listening)
             try await recorder.start()
         } catch {
             isRecording = false
+            focusedStartInsertionTarget = nil
             overlay.show(state: .error("Microphone recording failed."))
             NSSound.beep()
         }
@@ -151,6 +154,7 @@ final class AppCoordinator {
         guard isRecording else { return }
 
         isRecording = false
+        defer { focusedStartInsertionTarget = nil }
 
         do {
             let audioURL = try recorder.stop()
@@ -172,7 +176,7 @@ final class AppCoordinator {
             }
 
             overlay.show(state: .inserting)
-            let result = await textInsertionEngine.insert(cleanedTranscript)
+            let result = await textInsertionEngine.insert(cleanedTranscript, preferredTarget: focusedStartInsertionTarget)
             overlay.show(state: result == .inserted ? .ready : .copiedToClipboard)
         } catch {
             overlay.show(state: .error(error.localizedDescription))
@@ -184,6 +188,7 @@ final class AppCoordinator {
         guard isRecording else { return }
         didCancelCurrentRecording = true
         isRecording = false
+        focusedStartInsertionTarget = nil
         _ = try? recorder.stop()
         overlay.show(state: .cancelled)
     }

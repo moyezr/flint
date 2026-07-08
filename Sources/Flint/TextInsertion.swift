@@ -7,34 +7,71 @@ enum TextInsertionResult {
     case copiedToClipboard
 }
 
+struct TextInsertionTarget {
+    let element: AXUIElement
+}
+
 struct TextInsertionEngine {
-    private let clipboardManager = ClipboardManager()
+    private let focusedTargetProvider: @MainActor () -> TextInsertionTarget?
+    private let accessibilityInserter: @MainActor (TextInsertionTarget, String) -> Bool
+    private let pasteFallback: @MainActor (String) -> Bool
+    private let copyToClipboard: @MainActor (String) -> Void
+
+    init(
+        focusedTargetProvider: @escaping @MainActor () -> TextInsertionTarget? = TextInsertionEngine.focusedTarget,
+        accessibilityInserter: @escaping @MainActor (TextInsertionTarget, String) -> Bool = TextInsertionEngine.insert,
+        pasteFallback: @escaping @MainActor (String) -> Bool = { ClipboardManager().pasteWithPreservedClipboard($0) },
+        copyToClipboard: @escaping @MainActor (String) -> Void = TextInsertionEngine.copyToClipboard
+    ) {
+        self.focusedTargetProvider = focusedTargetProvider
+        self.accessibilityInserter = accessibilityInserter
+        self.pasteFallback = pasteFallback
+        self.copyToClipboard = copyToClipboard
+    }
 
     @MainActor
-    func insert(_ text: String) async -> TextInsertionResult {
-        if tryAccessibilityInsertion(text) {
+    func captureFocusedTarget() -> TextInsertionTarget? {
+        focusedTargetProvider()
+    }
+
+    @MainActor
+    func insert(_ text: String, preferredTarget: TextInsertionTarget? = nil) async -> TextInsertionResult {
+        if let preferredTarget, accessibilityInserter(preferredTarget, text) {
             return .inserted
         }
 
-        if clipboardManager.pasteWithPreservedClipboard(text) {
+        if let focusedTarget = focusedTargetProvider(),
+           accessibilityInserter(focusedTarget, text) {
             return .inserted
         }
 
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        if pasteFallback(text) {
+            return .inserted
+        }
+
+        copyToClipboard(text)
         return .copiedToClipboard
     }
 
-    private func tryAccessibilityInsertion(_ text: String) -> Bool {
+    private static func focusedTarget() -> TextInsertionTarget? {
         let systemWide = AXUIElementCreateSystemWide()
         var focusedObject: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedObject) == .success,
               let focusedObject else {
-            return false
+            return nil
         }
 
         let focusedElement = focusedObject as! AXUIElement
-        return AXUIElementSetAttributeValue(focusedElement, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
+        return TextInsertionTarget(element: focusedElement)
+    }
+
+    private static func insert(_ target: TextInsertionTarget, _ text: String) -> Bool {
+        AXUIElementSetAttributeValue(target.element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
+    }
+
+    private static func copyToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
