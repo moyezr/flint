@@ -18,7 +18,7 @@ Run:
 swift run Flint
 ```
 
-The app runs as a menu bar process with no dock icon. Hold Right Option to record, release to process and insert, and press Escape while recording to cancel. Recordings are written as temporary `.m4a` files and transcribed locally through WhisperKit before being removed.
+The app runs as a menu bar process with no dock icon. Hold Right Option to record, release to process and insert, and press Escape while recording to cancel. Use the Current Mode menu item to switch between Clean and Verbatim cleanup before insertion. Recordings are written as temporary `.m4a` files and transcribed locally through WhisperKit before being removed.
 
 ## Local Transcription
 

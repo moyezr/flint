@@ -22,14 +22,26 @@ final class AppCoordinator {
     private let overlay = OverlayWindow()
     private let recorder = AudioRecorder()
     private let transcriptionEngine = TranscriptionEngine()
+    private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
     private let shortcutManager = ShortcutManager()
+    private let defaults = UserDefaults.standard
+    private let cleanupModeDefaultsKey = "cleanupMode"
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
+    private var cleanupMode: CleanupMode = .clean {
+        didSet {
+            defaults.set(cleanupMode.rawValue, forKey: cleanupModeDefaultsKey)
+            updateCleanupModeUI()
+        }
+    }
+    private weak var cleanupModeMenuItem: NSMenuItem?
 
     func start() {
+        cleanupMode = CleanupMode(rawValue: defaults.string(forKey: cleanupModeDefaultsKey) ?? "") ?? .clean
         configureMenu()
+        updateCleanupModeUI()
         overlay.show(state: .ready)
 
         shortcutManager.onPushToTalkDown = { [weak self] in
@@ -61,7 +73,9 @@ final class AppCoordinator {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start/Pause Dictation", action: #selector(toggleDictation), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Current Mode: Clean", action: nil, keyEquivalent: ""))
+        let modeItem = NSMenuItem(title: "", action: #selector(toggleCleanupMode), keyEquivalent: "")
+        menu.addItem(modeItem)
+        cleanupModeMenuItem = modeItem
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Privacy", action: #selector(showPrivacy), keyEquivalent: ""))
@@ -76,12 +90,21 @@ final class AppCoordinator {
         statusItem.menu = menu
     }
 
+    private func updateCleanupModeUI() {
+        cleanupModeMenuItem?.title = "Current Mode: \(cleanupMode.displayName)"
+        overlay.setModeLabel(cleanupMode.displayName.uppercased())
+    }
+
     @objc private func toggleDictation() {
         if isRecording {
             Task { await finishDictation() }
         } else {
             Task { await startDictation() }
         }
+    }
+
+    @objc private func toggleCleanupMode() {
+        cleanupMode = cleanupMode == .clean ? .verbatim : .clean
     }
 
     @objc private func showSettings() {
@@ -139,14 +162,15 @@ final class AppCoordinator {
             overlay.show(state: .processingLocally)
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
             try? FileManager.default.removeItem(at: audioURL)
+            let cleanedTranscript = cleanupEngine.clean(transcript, mode: cleanupMode)
 
-            guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !cleanedTranscript.isEmpty else {
                 overlay.show(state: .copiedToClipboard)
                 return
             }
 
             overlay.show(state: .inserting)
-            let result = await textInsertionEngine.insert(transcript)
+            let result = await textInsertionEngine.insert(cleanedTranscript)
             overlay.show(state: result == .inserted ? .ready : .copiedToClipboard)
         } catch {
             overlay.show(state: .error(error.localizedDescription))

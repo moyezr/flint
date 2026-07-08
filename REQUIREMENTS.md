@@ -247,9 +247,9 @@ Goal: prove the core loop works at all.
 Goal: usable by the developer every day, without hand-holding.
 - [ ] Configurable shortcut, push-to-talk + toggle modes
 - [ ] Permission onboarding flow
-- [ ] Clipboard preservation implemented and tested
+- [x] Clipboard preservation implemented and tested
 - [ ] Real recording overlay with all states
-- [ ] Cleanup modes (at least Verbatim + Clean)
+- [x] Cleanup modes (at least Verbatim + Clean)
 - [ ] Error handling for common failure paths
 - [ ] Local settings persisted
 - [ ] Model manager (download/select/delete)

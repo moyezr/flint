@@ -87,6 +87,10 @@ final class OverlayWindow {
         }
     }
 
+    func setModeLabel(_ label: String) {
+        model.modeLabel = label
+    }
+
     private func positionWindow() {
         guard let screen = NSScreen.main else { return }
         let frame = screen.visibleFrame
@@ -102,6 +106,7 @@ final class OverlayWindow {
 @MainActor
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
+    @Published var modeLabel: String = "CLEAN"
 }
 
 struct OverlayView: View {
@@ -120,7 +125,7 @@ struct OverlayView: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Color.primary)
                 Spacer()
-                Text("CLEAN")
+                Text(model.modeLabel)
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(Color.secondary)
             }
