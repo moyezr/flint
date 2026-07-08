@@ -1,5 +1,4 @@
 import AppKit
-import ApplicationServices
 import Foundation
 
 @MainActor
@@ -28,6 +27,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let permissionManager = PermissionManager()
     private let shortcutManager = ShortcutManager()
     private let cleanupModeSelectionStore = CleanupModeSelectionStore()
+    private let shortcutSettingsStore = ShortcutSettingsStore()
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
@@ -39,22 +39,35 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             updateCleanupModeUI()
         }
     }
+    private var shortcutSettings: ShortcutSettings = .default {
+        didSet {
+            shortcutSettingsStore.save(shortcutSettings)
+            shortcutManager.update(settings: shortcutSettings)
+            updateShortcutSettingsUI()
+        }
+    }
     private weak var cleanupModeMenuItem: NSMenuItem?
     private var cleanupModeSelectionMenuItems: [NSMenuItem] = []
+    private weak var shortcutMenuItem: NSMenuItem?
+    private var shortcutSelectionMenuItems: [NSMenuItem] = []
+    private weak var inputBehaviorMenuItem: NSMenuItem?
+    private var inputBehaviorSelectionMenuItems: [NSMenuItem] = []
     private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
         cleanupMode = cleanupModeSelectionStore.load()
+        shortcutSettings = shortcutSettingsStore.load()
         configureMenu()
         updateCleanupModeUI()
+        updateShortcutSettingsUI()
         overlay.show(state: .ready)
 
-        shortcutManager.onPushToTalkDown = { [weak self] in
+        shortcutManager.onStart = { [weak self] in
             Task { @MainActor in
                 await self?.startDictation()
             }
         }
-        shortcutManager.onPushToTalkUp = { [weak self] in
+        shortcutManager.onFinish = { [weak self] in
             Task { @MainActor in
                 await self?.finishDictation()
             }
@@ -98,6 +111,30 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         modeItem.submenu = modeSubmenu
         menu.addItem(modeItem)
         cleanupModeMenuItem = modeItem
+        let shortcutItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let shortcutSubmenu = NSMenu()
+        shortcutSelectionMenuItems = ShortcutOption.allCases.map { option in
+            let item = NSMenuItem(title: option.displayName, action: #selector(selectShortcut(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = option.rawValue
+            shortcutSubmenu.addItem(item)
+            return item
+        }
+        shortcutItem.submenu = shortcutSubmenu
+        menu.addItem(shortcutItem)
+        shortcutMenuItem = shortcutItem
+        let behaviorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let behaviorSubmenu = NSMenu()
+        inputBehaviorSelectionMenuItems = ShortcutInputBehavior.allCases.map { behavior in
+            let item = NSMenuItem(title: behavior.displayName, action: #selector(selectInputBehavior(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = behavior.rawValue
+            behaviorSubmenu.addItem(item)
+            return item
+        }
+        behaviorItem.submenu = behaviorSubmenu
+        menu.addItem(behaviorItem)
+        inputBehaviorMenuItem = behaviorItem
         menu.addItem(.separator())
         let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
         menu.addItem(permissionItem)
@@ -129,6 +166,20 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         overlay.setModeLabel(cleanupMode.displayName.uppercased())
     }
 
+    private func updateShortcutSettingsUI() {
+        shortcutMenuItem?.title = "Shortcut: \(shortcutSettings.option.displayName)"
+        for item in shortcutSelectionMenuItems {
+            item.state = item.representedObject as? String == shortcutSettings.option.rawValue ? .on : .off
+        }
+
+        inputBehaviorMenuItem?.title = "Input Behavior: \(shortcutSettings.behavior.displayName)"
+        for item in inputBehaviorSelectionMenuItems {
+            item.state = item.representedObject as? String == shortcutSettings.behavior.rawValue ? .on : .off
+        }
+
+        overlay.setShortcutSettings(shortcutSettings)
+    }
+
     private func updatePermissionMenuItem() {
         let snapshot = permissionManager.snapshot()
         if snapshot.missingCount == 0 {
@@ -152,6 +203,22 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
         cleanupMode = selectedMode
+    }
+
+    @objc private func selectShortcut(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let selectedShortcut = ShortcutOption(rawValue: rawValue) else {
+            return
+        }
+        shortcutSettings.option = selectedShortcut
+    }
+
+    @objc private func selectInputBehavior(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let selectedBehavior = ShortcutInputBehavior(rawValue: rawValue) else {
+            return
+        }
+        shortcutSettings.behavior = selectedBehavior
     }
 
     @objc private func showSettings() {
@@ -322,89 +389,4 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
         NSWorkspace.shared.open(url)
     }
-}
-
-enum ShortcutStartResult {
-    case started
-    case inputMonitoringMissing
-}
-
-final class ShortcutManager {
-    var onPushToTalkDown: (() -> Void)?
-    var onPushToTalkUp: (() -> Void)?
-    var onCancel: (() -> Void)?
-
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var isRightOptionDown = false
-
-    func start() -> ShortcutStartResult {
-        let mask = (1 << CGEventType.flagsChanged.rawValue) | (1 << CGEventType.keyDown.rawValue)
-        let callback: CGEventTapCallBack = { proxy, type, event, refcon in
-            guard let refcon else { return Unmanaged.passUnretained(event) }
-            let manager = Unmanaged<ShortcutManager>.fromOpaque(refcon).takeUnretainedValue()
-            return manager.handle(proxy: proxy, type: type, event: event)
-        }
-
-        eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: CGEventMask(mask),
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        )
-
-        guard let eventTap else {
-            return .inputMonitoringMissing
-        }
-
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: eventTap, enable: true)
-        return .started
-    }
-
-    func stop() {
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        }
-        if let eventTap {
-            CFMachPortInvalidate(eventTap)
-        }
-        runLoopSource = nil
-        eventTap = nil
-    }
-
-    private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            if let eventTap {
-                CGEvent.tapEnable(tap: eventTap, enable: true)
-            }
-            return Unmanaged.passUnretained(event)
-        }
-
-        if type == .flagsChanged {
-            handleFlagsChanged(event)
-        } else if type == .keyDown, event.getIntegerValueField(.keyboardEventKeycode) == 53 {
-            onCancel?()
-        }
-
-        return Unmanaged.passUnretained(event)
-    }
-
-    private func handleFlagsChanged(_ event: CGEvent) {
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        guard keyCode == 61 else { return } // Right Option.
-
-        let isDown = event.flags.contains(.maskAlternate)
-        if isDown && !isRightOptionDown {
-            isRightOptionDown = true
-            onPushToTalkDown?()
-        } else if !isDown && isRightOptionDown {
-            isRightOptionDown = false
-            onPushToTalkUp?()
-        }
-    }
-
 }

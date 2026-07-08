@@ -29,12 +29,12 @@ enum OverlayState: Equatable {
         }
     }
 
-    var hint: String {
+    func hint(settings: ShortcutSettings) -> String {
         switch self {
         case .ready:
-            return "Hold Right Option to dictate"
+            return settings.readyHint
         case .listening:
-            return "Release to insert · Esc cancel"
+            return settings.listeningHint
         case .processingLocally:
             return "Local transcription"
         case .inserting:
@@ -91,6 +91,10 @@ final class OverlayWindow {
         model.modeLabel = label
     }
 
+    func setShortcutSettings(_ settings: ShortcutSettings) {
+        model.shortcutSettings = settings
+    }
+
     func updateAudioLevel(_ level: Float) {
         model.audioLevel = min(max(level, 0), 1)
     }
@@ -111,6 +115,7 @@ final class OverlayWindow {
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
     @Published var modeLabel: String = "CLEAN"
+    @Published var shortcutSettings: ShortcutSettings = .default
     @Published var audioLevel: Float = 0
 }
 
@@ -137,7 +142,7 @@ struct OverlayView: View {
 
             levelMeter
 
-            Text(model.state.hint)
+            Text(model.state.hint(settings: model.shortcutSettings))
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(Color.secondary)
                 .lineLimit(1)
