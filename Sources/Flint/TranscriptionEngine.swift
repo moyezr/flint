@@ -6,6 +6,12 @@ struct TranscriptionEngine {
     static let noSpeechDetectedMessage = "No speech detected."
     static let localTranscriptionFailedMessage = "Local transcription failed."
 
+    private let modelManager: ModelManager
+
+    init(modelManager: ModelManager = ModelManager()) {
+        self.modelManager = modelManager
+    }
+
     enum TranscriptionError: LocalizedError {
         case audioFileMissing(URL)
         case audioFileEmpty(URL)
@@ -44,7 +50,8 @@ struct TranscriptionEngine {
             throw TranscriptionError.audioFileEmpty(audioFileURL)
         }
 
-        let pipeline = try await TranscriptionPipeline.shared.whisperKit()
+        let descriptor = modelManager.selectedConfigurationDescriptor()
+        let pipeline = try await TranscriptionPipeline.shared.whisperKit(for: descriptor)
         let results = try await pipeline.transcribe(audioPath: audioFileURL.path)
         let transcript = results
             .map(\.text)
@@ -57,20 +64,48 @@ struct TranscriptionEngine {
 
         return transcript
     }
+
+    static func whisperKitConfigDescriptor(for descriptor: ModelConfigurationDescriptor) -> WhisperKitConfigDescriptor {
+        if let modelFolder = descriptor.modelFolder {
+            return WhisperKitConfigDescriptor(
+                model: nil,
+                downloadBase: nil,
+                modelFolder: modelFolder.path
+            )
+        }
+
+        return WhisperKitConfigDescriptor(
+            model: descriptor.modelName,
+            downloadBase: descriptor.downloadBase,
+            modelFolder: nil
+        )
+    }
+}
+
+struct WhisperKitConfigDescriptor: Equatable {
+    let model: String?
+    let downloadBase: URL?
+    let modelFolder: String?
 }
 
 private actor TranscriptionPipeline {
     static let shared = TranscriptionPipeline()
 
-    private var cachedWhisperKit: WhisperKit?
+    private var cachedWhisperKits: [ModelConfigurationDescriptor: WhisperKit] = [:]
 
-    func whisperKit() async throws -> WhisperKit {
-        if let cachedWhisperKit {
+    func whisperKit(for descriptor: ModelConfigurationDescriptor) async throws -> WhisperKit {
+        if let cachedWhisperKit = cachedWhisperKits[descriptor] {
             return cachedWhisperKit
         }
 
-        let whisperKit = try await WhisperKit()
-        cachedWhisperKit = whisperKit
+        let configDescriptor = TranscriptionEngine.whisperKitConfigDescriptor(for: descriptor)
+        let config = WhisperKitConfig(
+            model: configDescriptor.model,
+            downloadBase: configDescriptor.downloadBase,
+            modelFolder: configDescriptor.modelFolder
+        )
+        let whisperKit = try await WhisperKit(config)
+        cachedWhisperKits[descriptor] = whisperKit
         return whisperKit
     }
 }

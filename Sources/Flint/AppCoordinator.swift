@@ -25,6 +25,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
     private let permissionManager = PermissionManager()
+    private let modelManager = ModelManager()
     private let shortcutManager = ShortcutManager()
     private let cleanupModeSelectionStore = CleanupModeSelectionStore()
     private let shortcutSettingsStore = ShortcutSettingsStore()
@@ -61,6 +62,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var inputBehaviorSelectionMenuItems: [NSMenuItem] = []
     private weak var insertionTargetBehaviorMenuItem: NSMenuItem?
     private var insertionTargetBehaviorSelectionMenuItems: [NSMenuItem] = []
+    private weak var modelMenuItem: NSMenuItem?
+    private var modelSelectionMenuItems: [NSMenuItem] = []
+    private weak var downloadModelMenuItem: NSMenuItem?
+    private weak var deleteModelMenuItem: NSMenuItem?
     private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
@@ -71,6 +76,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateCleanupModeUI()
         updateShortcutSettingsUI()
         updateInsertionTargetBehaviorUI()
+        updateModelMenuUI()
         overlay.show(state: .ready)
 
         shortcutManager.onStart = { [weak self] in
@@ -158,6 +164,28 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         insertionTargetItem.submenu = insertionTargetSubmenu
         menu.addItem(insertionTargetItem)
         insertionTargetBehaviorMenuItem = insertionTargetItem
+        let modelItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let modelSubmenu = NSMenu()
+        modelSelectionMenuItems = ModelTier.allCases.map { tier in
+            let metadata = modelManager.metadata(for: tier)
+            let item = NSMenuItem(title: modelSelectionTitle(for: metadata), action: #selector(selectModelTier(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = tier.rawValue
+            modelSubmenu.addItem(item)
+            return item
+        }
+        modelSubmenu.addItem(.separator())
+        let downloadItem = NSMenuItem(title: "", action: #selector(downloadSelectedModel), keyEquivalent: "")
+        downloadItem.target = self
+        modelSubmenu.addItem(downloadItem)
+        downloadModelMenuItem = downloadItem
+        let deleteItem = NSMenuItem(title: "", action: #selector(deleteSelectedModel), keyEquivalent: "")
+        deleteItem.target = self
+        modelSubmenu.addItem(deleteItem)
+        deleteModelMenuItem = deleteItem
+        modelItem.submenu = modelSubmenu
+        menu.addItem(modelItem)
+        modelMenuItem = modelItem
         menu.addItem(.separator())
         let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
         menu.addItem(permissionItem)
@@ -175,6 +203,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         updatePermissionMenuItem()
+        updateModelMenuUI()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -208,6 +237,30 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         for item in insertionTargetBehaviorSelectionMenuItems {
             item.state = item.representedObject as? String == insertionTargetBehavior.rawValue ? .on : .off
         }
+    }
+
+    private func updateModelMenuUI() {
+        let selectedTier = modelManager.selectedTier()
+        let metadata = modelManager.metadata(for: selectedTier)
+        modelMenuItem?.title = "Model: \(selectedTier.displayName)"
+        for item in modelSelectionMenuItems {
+            guard let rawValue = item.representedObject as? String,
+                  let tier = ModelTier(rawValue: rawValue) else {
+                continue
+            }
+            item.title = modelSelectionTitle(for: modelManager.metadata(for: tier))
+            item.state = tier == selectedTier ? .on : .off
+        }
+        downloadModelMenuItem?.title = metadata.isInstalled
+            ? "Download \(selectedTier.displayName) Again"
+            : "Download \(selectedTier.displayName)"
+        deleteModelMenuItem?.title = "Delete \(selectedTier.displayName)"
+        deleteModelMenuItem?.isEnabled = metadata.isInstalled
+    }
+
+    private func modelSelectionTitle(for metadata: ModelMetadata) -> String {
+        let installedSuffix = metadata.isInstalled ? "installed" : "not installed"
+        return "\(metadata.displayName) - \(metadata.sizeLabel) - \(metadata.hardwareLabel) - \(installedSuffix)"
     }
 
     private func updatePermissionMenuItem() {
@@ -259,6 +312,37 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         insertionTargetBehavior = selectedBehavior
     }
 
+    @objc private func selectModelTier(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let selectedTier = ModelTier(rawValue: rawValue) else {
+            return
+        }
+        modelManager.saveSelectedTier(selectedTier)
+        updateModelMenuUI()
+    }
+
+    @objc private func downloadSelectedModel() {
+        downloadModelMenuItem?.isEnabled = false
+        Task { @MainActor in
+            do {
+                _ = try await modelManager.downloadSelectedModel()
+                updateModelMenuUI()
+            } catch {
+                updateModelMenuUI()
+                showError(title: "Model Download Failed", message: error.localizedDescription)
+            }
+        }
+    }
+
+    @objc private func deleteSelectedModel() {
+        do {
+            try modelManager.deleteSelectedModel()
+            updateModelMenuUI()
+        } catch {
+            showError(title: "Model Delete Failed", message: error.localizedDescription)
+        }
+    }
+
     @objc private func showSettings() {
         showNotBuiltYet("Settings")
     }
@@ -303,6 +387,15 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = "This screen is not part of the Phase 1 scaffold yet."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func showError(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }

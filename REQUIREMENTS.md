@@ -252,7 +252,7 @@ Goal: usable by the developer every day, without hand-holding.
 - [x] Cleanup modes (at least Verbatim + Clean)
 - [x] Error handling for common failure paths
 - [ ] Local settings persisted
-- [ ] Model manager (download/select/delete)
+- [x] Model manager (download/select/delete)
 - [x] Personal dictionary v1
 
 **Success:** 10 alpha users can use it daily without developer help.
