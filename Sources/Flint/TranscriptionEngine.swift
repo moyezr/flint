@@ -2,6 +2,10 @@ import Foundation
 import WhisperKit
 
 struct TranscriptionEngine {
+    static let noUsableAudioMessage = "No usable audio was captured."
+    static let noSpeechDetectedMessage = "No speech detected."
+    static let localTranscriptionFailedMessage = "Local transcription failed."
+
     enum TranscriptionError: LocalizedError {
         case audioFileMissing(URL)
         case audioFileEmpty(URL)
@@ -16,6 +20,17 @@ struct TranscriptionEngine {
             case .emptyTranscript:
                 return "WhisperKit returned an empty transcript."
             }
+        }
+    }
+
+    static func userFacingMessage(for error: Error) -> String {
+        switch error {
+        case TranscriptionError.audioFileMissing, TranscriptionError.audioFileEmpty:
+            return noUsableAudioMessage
+        case TranscriptionError.emptyTranscript:
+            return noSpeechDetectedMessage
+        default:
+            return localTranscriptionFailedMessage
         }
     }
 

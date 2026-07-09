@@ -29,6 +29,37 @@ final class TranscriptionEngineTests: XCTestCase {
             }
         }
     }
+
+    func testUserFacingMessageMapsMissingAndEmptyAudioToNoUsableAudio() {
+        let missingError = TranscriptionEngine.TranscriptionError.audioFileMissing(URL(fileURLWithPath: "/tmp/missing.m4a"))
+        let emptyError = TranscriptionEngine.TranscriptionError.audioFileEmpty(URL(fileURLWithPath: "/tmp/empty.m4a"))
+
+        XCTAssertEqual(TranscriptionEngine.userFacingMessage(for: missingError), "No usable audio was captured.")
+        XCTAssertEqual(TranscriptionEngine.userFacingMessage(for: emptyError), "No usable audio was captured.")
+    }
+
+    func testUserFacingMessageMapsEmptyTranscriptToNoSpeechDetected() {
+        XCTAssertEqual(
+            TranscriptionEngine.userFacingMessage(for: TranscriptionEngine.TranscriptionError.emptyTranscript),
+            "No speech detected."
+        )
+    }
+
+    func testUserFacingMessageMapsGenericTranscriptionFailure() {
+        XCTAssertEqual(
+            TranscriptionEngine.userFacingMessage(for: NSError(domain: "WhisperKit", code: 1)),
+            "Local transcription failed."
+        )
+    }
+
+    func testDictationOutputPolicyRejectsEmptyOutput() {
+        XCTAssertNil(DictationOutputPolicy.usableOutput(from: " \n\t "))
+        XCTAssertEqual(DictationOutputPolicy.emptyOutputMessage, "No speech detected.")
+    }
+
+    func testDictationOutputPolicyTrimsUsableOutput() {
+        XCTAssertEqual(DictationOutputPolicy.usableOutput(from: "  hello world\n"), "hello world")
+    }
 }
 
 private func XCTAssertThrowsErrorAsync<T>(

@@ -348,28 +348,36 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         stopAudioMetering()
         defer { focusedStartInsertionTarget = nil }
 
+        let audioURL: URL
         do {
-            let audioURL = try recorder.stop()
-            if didCancelCurrentRecording {
-                try? FileManager.default.removeItem(at: audioURL)
-                overlay.show(state: .cancelled)
-                return
-            }
+            audioURL = try recorder.stop()
+        } catch {
+            overlay.show(state: .error("Microphone recording failed."))
+            NSSound.beep()
+            return
+        }
+        defer { try? FileManager.default.removeItem(at: audioURL) }
 
+        if didCancelCurrentRecording {
+            overlay.show(state: .cancelled)
+            return
+        }
+
+        do {
             overlay.show(state: .processingLocally)
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
-            try? FileManager.default.removeItem(at: audioURL)
             let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
             let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: cleanupMode)
 
-            guard !cleanedTranscript.isEmpty else {
-                overlay.show(state: .copiedToClipboard)
+            guard let usableTranscript = DictationOutputPolicy.usableOutput(from: cleanedTranscript) else {
+                overlay.show(state: .error(DictationOutputPolicy.emptyOutputMessage))
+                NSSound.beep()
                 return
             }
 
             overlay.show(state: .inserting)
             let result = await textInsertionEngine.insert(
-                cleanedTranscript,
+                usableTranscript,
                 preferredTarget: focusedStartInsertionTarget,
                 targetBehavior: insertionTargetBehavior
             )
@@ -382,7 +390,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 overlay.show(state: .copiedToClipboard)
             }
         } catch {
-            overlay.show(state: .error(error.localizedDescription))
+            overlay.show(state: .error(TranscriptionEngine.userFacingMessage(for: error)))
             NSSound.beep()
         }
     }
@@ -393,7 +401,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         isRecording = false
         stopAudioMetering()
         focusedStartInsertionTarget = nil
-        _ = try? recorder.stop()
+        if let audioURL = try? recorder.stop() {
+            try? FileManager.default.removeItem(at: audioURL)
+        }
         overlay.show(state: .cancelled)
     }
 

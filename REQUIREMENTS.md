@@ -250,7 +250,7 @@ Goal: usable by the developer every day, without hand-holding.
 - [x] Clipboard preservation implemented and tested
 - [ ] Real recording overlay with all states
 - [x] Cleanup modes (at least Verbatim + Clean)
-- [ ] Error handling for common failure paths
+- [x] Error handling for common failure paths
 - [ ] Local settings persisted
 - [ ] Model manager (download/select/delete)
 - [x] Personal dictionary v1
