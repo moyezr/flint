@@ -23,6 +23,7 @@ let package = Package(
                 .linkedFramework("AppKit"),
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("ApplicationServices"),
+                .linkedFramework("Security"),
                 .linkedLibrary("sqlite3")
             ]
         ),

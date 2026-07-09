@@ -5,6 +5,7 @@ final class PrivacyManagerTests: XCTestCase {
     private var suiteName: String!
     private var defaults: UserDefaults!
     private var tempRoot: URL!
+    private var licenseManager: LicenseManager!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -14,9 +15,15 @@ final class PrivacyManagerTests: XCTestCase {
         tempRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("flint-privacy-manager-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        licenseManager = LicenseManager(
+            service: "com.flint.tests.privacy.license.\(UUID().uuidString)",
+            account: "local-activation"
+        )
+        try licenseManager.clear()
     }
 
     override func tearDownWithError() throws {
+        try? licenseManager?.clear()
         if let tempRoot {
             try? FileManager.default.removeItem(at: tempRoot)
         }
@@ -26,6 +33,7 @@ final class PrivacyManagerTests: XCTestCase {
         defaults = nil
         suiteName = nil
         tempRoot = nil
+        licenseManager = nil
         try super.tearDownWithError()
     }
 
@@ -117,6 +125,68 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertEqual(nonHistoryFiles, [])
     }
 
+    func testDeleteAllLocalDataClearsLicenseState() throws {
+        try licenseManager.saveActivatedLicense(
+            licenseKey: "FLINT-PRIVACY-KEY",
+            activationID: "act_privacy",
+            activatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            lastCheckedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let manager = makePrivacyManager()
+
+        try manager.deleteAllLocalData()
+
+        XCTAssertEqual(try licenseManager.load(), .inactive)
+    }
+
+    func testDeleteAllLocalDataFailsBeforeClearingAnythingWhenLicenseClearFails() async throws {
+        var settings = AppSettings.default
+        settings.cleanupMode = .email
+        settings.storeHistory = true
+        settings.hasCompletedOnboarding = true
+        AppSettingsStore(defaults: defaults).save(settings)
+        DictionaryEngine(userDefaults: defaults).addReplacement(
+            heardPhrase: "live kit",
+            preferredReplacement: "LiveKit"
+        )
+        let orphanCacheFile = tempRoot.appendingPathComponent("orphan.bin")
+        FileManager.default.createFile(atPath: orphanCacheFile.path, contents: Data([1, 2, 3]))
+        let modelManager = makeModelManager { variant, downloadBase, _ in
+            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return folder
+        }
+        try await modelManager.downloadModel(for: .fast)
+        let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
+        _ = try historyStore.insert(makeHistoryEntry())
+        let failingLicenseManager = LicenseManager(
+            service: "com.flint.tests.privacy.failing-license.\(UUID().uuidString)",
+            account: "local-activation",
+            keychain: LicenseKeychainClient(
+                copyMatching: { _, _ in errSecItemNotFound },
+                update: { _, _ in errSecItemNotFound },
+                add: { _, _ in errSecSuccess },
+                delete: { _ in errSecAuthFailed }
+            )
+        )
+        let manager = makePrivacyManager(
+            modelManager: modelManager,
+            licenseManager: failingLicenseManager
+        )
+
+        XCTAssertThrowsError(try manager.deleteAllLocalData()) { error in
+            XCTAssertEqual(
+                error as? LicenseManager.LicenseManagerError,
+                .keychainFailure(operation: "delete", status: errSecAuthFailed)
+            )
+        }
+        XCTAssertEqual(AppSettingsStore(defaults: defaults).load().cleanupMode, .email)
+        XCTAssertFalse(DictionaryEngine(userDefaults: defaults).listCustomReplacements().isEmpty)
+        XCTAssertTrue(modelManager.metadata(for: .fast).isInstalled)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: orphanCacheFile.path))
+        XCTAssertEqual(try historyStore.count(), 1)
+    }
+
     func testDeleteAllLocalDataFailsBeforeClearingSettingsWhenModelReferenceIsOutsideCacheRoot() async throws {
         var settings = AppSettings.default
         settings.cleanupMode = .email
@@ -153,6 +223,7 @@ final class PrivacyManagerTests: XCTestCase {
 
     private func makePrivacyManager(
         modelManager: ModelManager? = nil,
+        licenseManager: LicenseManager? = nil,
         permissionSnapshot: PermissionSnapshot = PermissionSnapshot(statuses: [])
     ) -> PrivacyManager {
         PrivacyManager(
@@ -160,6 +231,7 @@ final class PrivacyManagerTests: XCTestCase {
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
             modelManager: modelManager ?? makeModelManager(),
             historyStore: try! HistoryStore(databaseURL: historyDatabaseURL),
+            licenseManager: licenseManager ?? self.licenseManager,
             permissionSnapshotProvider: { permissionSnapshot },
             settingsLocation: "Test UserDefaults \(suiteName!)"
         )

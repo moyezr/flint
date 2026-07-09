@@ -43,6 +43,7 @@ struct PrivacyManager {
     private let dictionaryEngine: DictionaryEngine
     private let modelManager: ModelManager
     private let historyStore: HistoryStore?
+    private let licenseManager: LicenseManager
     private let permissionSnapshotProvider: () -> PermissionSnapshot
     private let settingsLocation: String
 
@@ -51,6 +52,7 @@ struct PrivacyManager {
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         modelManager: ModelManager = ModelManager(),
         historyStore: HistoryStore? = try? HistoryStore(),
+        licenseManager: LicenseManager = LicenseManager(),
         permissionSnapshotProvider: @escaping () -> PermissionSnapshot = { PermissionManager().snapshot() },
         settingsLocation: String = PrivacyManager.defaultSettingsLocation()
     ) {
@@ -58,6 +60,7 @@ struct PrivacyManager {
         self.dictionaryEngine = dictionaryEngine
         self.modelManager = modelManager
         self.historyStore = historyStore
+        self.licenseManager = licenseManager
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.settingsLocation = settingsLocation
     }
@@ -160,6 +163,7 @@ struct PrivacyManager {
         let installedModelCount = modelManager.metadata().filter { $0.isInstalled }.count
         let historyEntryCount = (try? historyStore?.count()) ?? 0
 
+        try licenseManager.clear()
         try modelManager.deleteAllCachedModelsAndReferences()
         try historyStore?.deleteDatabaseFiles()
         settingsStore.removePersistedSettings()
