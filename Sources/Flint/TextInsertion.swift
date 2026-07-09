@@ -7,6 +7,38 @@ enum TextInsertionResult {
     case copiedToClipboard
 }
 
+enum InsertionTargetBehavior: String, CaseIterable {
+    case recordingStart
+    case transcriptionFinish
+
+    var displayName: String {
+        switch self {
+        case .recordingStart:
+            return "Recording Start"
+        case .transcriptionFinish:
+            return "Transcription Finish"
+        }
+    }
+}
+
+struct InsertionTargetBehaviorStore {
+    let defaults: UserDefaults
+    let key: String
+
+    init(defaults: UserDefaults = .standard, key: String = "insertionTargetBehavior") {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    func load() -> InsertionTargetBehavior {
+        InsertionTargetBehavior(rawValue: defaults.string(forKey: key) ?? "") ?? .recordingStart
+    }
+
+    func save(_ behavior: InsertionTargetBehavior) {
+        defaults.set(behavior.rawValue, forKey: key)
+    }
+}
+
 struct TextInsertionTarget {
     let element: AXUIElement
 }
@@ -35,11 +67,27 @@ struct TextInsertionEngine {
     }
 
     @MainActor
-    func insert(_ text: String, preferredTarget: TextInsertionTarget? = nil) async -> TextInsertionResult {
-        if let preferredTarget, accessibilityInserter(preferredTarget, text) {
-            return .inserted
-        }
+    func insert(
+        _ text: String,
+        preferredTarget: TextInsertionTarget? = nil,
+        targetBehavior: InsertionTargetBehavior = .recordingStart
+    ) async -> TextInsertionResult {
+        switch targetBehavior {
+        case .recordingStart:
+            if let preferredTarget, accessibilityInserter(preferredTarget, text) {
+                return .inserted
+            }
 
+            copyToClipboard(text)
+            return .copiedToClipboard
+
+        case .transcriptionFinish:
+            return insertAtCurrentTargetOrFallback(text)
+        }
+    }
+
+    @MainActor
+    private func insertAtCurrentTargetOrFallback(_ text: String) -> TextInsertionResult {
         if let focusedTarget = focusedTargetProvider(),
            accessibilityInserter(focusedTarget, text) {
             return .inserted

@@ -28,6 +28,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let shortcutManager = ShortcutManager()
     private let cleanupModeSelectionStore = CleanupModeSelectionStore()
     private let shortcutSettingsStore = ShortcutSettingsStore()
+    private let insertionTargetBehaviorStore = InsertionTargetBehaviorStore()
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
@@ -46,20 +47,30 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             updateShortcutSettingsUI()
         }
     }
+    private var insertionTargetBehavior: InsertionTargetBehavior = .recordingStart {
+        didSet {
+            insertionTargetBehaviorStore.save(insertionTargetBehavior)
+            updateInsertionTargetBehaviorUI()
+        }
+    }
     private weak var cleanupModeMenuItem: NSMenuItem?
     private var cleanupModeSelectionMenuItems: [NSMenuItem] = []
     private weak var shortcutMenuItem: NSMenuItem?
     private var shortcutSelectionMenuItems: [NSMenuItem] = []
     private weak var inputBehaviorMenuItem: NSMenuItem?
     private var inputBehaviorSelectionMenuItems: [NSMenuItem] = []
+    private weak var insertionTargetBehaviorMenuItem: NSMenuItem?
+    private var insertionTargetBehaviorSelectionMenuItems: [NSMenuItem] = []
     private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
         cleanupMode = cleanupModeSelectionStore.load()
         shortcutSettings = shortcutSettingsStore.load()
+        insertionTargetBehavior = insertionTargetBehaviorStore.load()
         configureMenu()
         updateCleanupModeUI()
         updateShortcutSettingsUI()
+        updateInsertionTargetBehaviorUI()
         overlay.show(state: .ready)
 
         shortcutManager.onStart = { [weak self] in
@@ -135,6 +146,18 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         behaviorItem.submenu = behaviorSubmenu
         menu.addItem(behaviorItem)
         inputBehaviorMenuItem = behaviorItem
+        let insertionTargetItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        let insertionTargetSubmenu = NSMenu()
+        insertionTargetBehaviorSelectionMenuItems = InsertionTargetBehavior.allCases.map { behavior in
+            let item = NSMenuItem(title: behavior.displayName, action: #selector(selectInsertionTargetBehavior(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = behavior.rawValue
+            insertionTargetSubmenu.addItem(item)
+            return item
+        }
+        insertionTargetItem.submenu = insertionTargetSubmenu
+        menu.addItem(insertionTargetItem)
+        insertionTargetBehaviorMenuItem = insertionTargetItem
         menu.addItem(.separator())
         let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
         menu.addItem(permissionItem)
@@ -180,6 +203,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         overlay.setShortcutSettings(shortcutSettings)
     }
 
+    private func updateInsertionTargetBehaviorUI() {
+        insertionTargetBehaviorMenuItem?.title = "Insertion Target: \(insertionTargetBehavior.displayName)"
+        for item in insertionTargetBehaviorSelectionMenuItems {
+            item.state = item.representedObject as? String == insertionTargetBehavior.rawValue ? .on : .off
+        }
+    }
+
     private func updatePermissionMenuItem() {
         let snapshot = permissionManager.snapshot()
         if snapshot.missingCount == 0 {
@@ -219,6 +249,14 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
         shortcutSettings.behavior = selectedBehavior
+    }
+
+    @objc private func selectInsertionTargetBehavior(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let selectedBehavior = InsertionTargetBehavior(rawValue: rawValue) else {
+            return
+        }
+        insertionTargetBehavior = selectedBehavior
     }
 
     @objc private func showSettings() {
@@ -330,7 +368,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             }
 
             overlay.show(state: .inserting)
-            let result = await textInsertionEngine.insert(cleanedTranscript, preferredTarget: focusedStartInsertionTarget)
+            let result = await textInsertionEngine.insert(
+                cleanedTranscript,
+                preferredTarget: focusedStartInsertionTarget,
+                targetBehavior: insertionTargetBehavior
+            )
             if result == .inserted {
                 overlay.show(state: .ready)
             } else if !permissionManager.snapshot().status(for: .accessibility).isReady {

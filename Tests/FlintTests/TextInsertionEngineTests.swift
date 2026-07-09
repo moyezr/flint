@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class TextInsertionEngineTests: XCTestCase {
-    func testInsertPrefersCapturedTargetBeforeFocusedTarget() async {
+    func testRecordingStartInsertsIntoCapturedTargetWithoutQueryingCurrentFocus() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         var insertedText: String?
         var insertAttempts = 0
@@ -35,7 +35,65 @@ final class TextInsertionEngineTests: XCTestCase {
         XCTAssertEqual(insertedText, "dictated text")
     }
 
-    func testInsertFallsBackToFocusedTargetWhenCapturedTargetFails() async {
+    func testRecordingStartCopiesWhenCapturedTargetFailsWithoutCurrentFocusOrPasteFallback() async {
+        let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        var events: [String] = []
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                XCTFail("Focused target should not be queried after captured insertion fails in recording-start mode.")
+                return nil
+            },
+            accessibilityInserter: { _, _ in
+                events.append("accessibilityInsert")
+                return false
+            },
+            pasteFallback: { _ in
+                XCTFail("Paste fallback should not run after captured insertion fails in recording-start mode.")
+                return false
+            },
+            copyToClipboard: { text in
+                events.append("copy")
+                copiedText = text
+            }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
+        XCTAssertEqual(events, ["accessibilityInsert", "copy"])
+    }
+
+    func testRecordingStartCopiesWhenCapturedTargetIsMissingWithoutCurrentFocusOrPasteFallback() async {
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                XCTFail("Focused target should not be queried when captured target is missing in recording-start mode.")
+                return nil
+            },
+            accessibilityInserter: { _, _ in
+                XCTFail("Accessibility insertion should not run when captured target is missing in recording-start mode.")
+                return false
+            },
+            pasteFallback: { _ in
+                XCTFail("Paste fallback should not run when captured target is missing in recording-start mode.")
+                return false
+            },
+            copyToClipboard: { text in
+                copiedText = text
+            }
+        )
+
+        let result = await engine.insert("dictated text")
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
+    }
+
+    func testTranscriptionFinishIgnoresCapturedTargetAndUsesFocusedTarget() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         let focusedTarget = TextInsertionTarget(element: AXUIElementCreateApplication(getpid()))
         var events: [String] = []
@@ -47,7 +105,7 @@ final class TextInsertionEngineTests: XCTestCase {
             },
             accessibilityInserter: { _, _ in
                 events.append("accessibilityInsert")
-                return events.filter { $0 == "accessibilityInsert" }.count == 2
+                return true
             },
             pasteFallback: { _ in
                 XCTFail("Paste fallback should not run when focused insertion succeeds.")
@@ -58,13 +116,17 @@ final class TextInsertionEngineTests: XCTestCase {
             }
         )
 
-        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+        let result = await engine.insert(
+            "dictated text",
+            preferredTarget: capturedTarget,
+            targetBehavior: .transcriptionFinish
+        )
 
         XCTAssertEqual(result, .inserted)
-        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "accessibilityInsert"])
+        XCTAssertEqual(events, ["focusedTarget", "accessibilityInsert"])
     }
 
-    func testInsertFallsBackToPasteWhenAccessibilityInsertionFails() async {
+    func testTranscriptionFinishFallsBackToPasteWhenCurrentAccessibilityInsertionFails() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         var events: [String] = []
 
@@ -86,13 +148,17 @@ final class TextInsertionEngineTests: XCTestCase {
             }
         )
 
-        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+        let result = await engine.insert(
+            "dictated text",
+            preferredTarget: capturedTarget,
+            targetBehavior: .transcriptionFinish
+        )
 
         XCTAssertEqual(result, .inserted)
-        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "paste:dictated text"])
+        XCTAssertEqual(events, ["focusedTarget", "paste:dictated text"])
     }
 
-    func testInsertCopiesToClipboardWhenInsertionAndPasteFail() async {
+    func testTranscriptionFinishCopiesToClipboardWhenInsertionAndPasteFail() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         var copiedText: String?
 
@@ -105,9 +171,36 @@ final class TextInsertionEngineTests: XCTestCase {
             }
         )
 
-        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+        let result = await engine.insert(
+            "dictated text",
+            preferredTarget: capturedTarget,
+            targetBehavior: .transcriptionFinish
+        )
 
         XCTAssertEqual(result, .copiedToClipboard)
         XCTAssertEqual(copiedText, "dictated text")
+    }
+
+    func testInsertionTargetBehaviorStoreDefaultsToRecordingStartForMissingOrUnknownValues() {
+        let suiteName = "InsertionTargetBehaviorStoreTests.missing"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = InsertionTargetBehaviorStore(defaults: defaults, key: "behavior")
+
+        XCTAssertEqual(store.load(), .recordingStart)
+
+        defaults.set("unknown", forKey: "behavior")
+        XCTAssertEqual(store.load(), .recordingStart)
+    }
+
+    func testInsertionTargetBehaviorStorePersistsSelectedBehavior() {
+        let suiteName = "InsertionTargetBehaviorStoreTests.persisted"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = InsertionTargetBehaviorStore(defaults: defaults, key: "behavior")
+
+        store.save(.transcriptionFinish)
+
+        XCTAssertEqual(store.load(), .transcriptionFinish)
     }
 }
