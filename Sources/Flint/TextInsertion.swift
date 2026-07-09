@@ -46,17 +46,20 @@ struct TextInsertionTarget {
 struct TextInsertionEngine {
     private let focusedTargetProvider: @MainActor () -> TextInsertionTarget?
     private let accessibilityInserter: @MainActor (TextInsertionTarget, String) -> Bool
+    private let targetMatcher: @MainActor (TextInsertionTarget, TextInsertionTarget) -> Bool
     private let pasteFallback: @MainActor (String) -> Bool
     private let copyToClipboard: @MainActor (String) -> Void
 
     init(
         focusedTargetProvider: @escaping @MainActor () -> TextInsertionTarget? = TextInsertionEngine.focusedTarget,
         accessibilityInserter: @escaping @MainActor (TextInsertionTarget, String) -> Bool = TextInsertionEngine.insert,
+        targetMatcher: @escaping @MainActor (TextInsertionTarget, TextInsertionTarget) -> Bool = TextInsertionEngine.targetsMatch,
         pasteFallback: @escaping @MainActor (String) -> Bool = { ClipboardManager().pasteWithPreservedClipboard($0) },
         copyToClipboard: @escaping @MainActor (String) -> Void = TextInsertionEngine.copyToClipboard
     ) {
         self.focusedTargetProvider = focusedTargetProvider
         self.accessibilityInserter = accessibilityInserter
+        self.targetMatcher = targetMatcher
         self.pasteFallback = pasteFallback
         self.copyToClipboard = copyToClipboard
     }
@@ -75,6 +78,13 @@ struct TextInsertionEngine {
         switch targetBehavior {
         case .recordingStart:
             if let preferredTarget, accessibilityInserter(preferredTarget, text) {
+                return .inserted
+            }
+
+            if let preferredTarget,
+               let focusedTarget = focusedTargetProvider(),
+               targetMatcher(preferredTarget, focusedTarget),
+               pasteFallback(text) {
                 return .inserted
             }
 
@@ -115,6 +125,10 @@ struct TextInsertionEngine {
 
     private static func insert(_ target: TextInsertionTarget, _ text: String) -> Bool {
         AXUIElementSetAttributeValue(target.element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
+    }
+
+    private static func targetsMatch(_ lhs: TextInsertionTarget, _ rhs: TextInsertionTarget) -> Bool {
+        CFEqual(lhs.element, rhs.element)
     }
 
     private static func copyToClipboard(_ text: String) {

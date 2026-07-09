@@ -19,6 +19,10 @@ final class TextInsertionEngineTests: XCTestCase {
                 insertedText = text
                 return true
             },
+            targetMatcher: { _, _ in
+                XCTFail("Target matcher should not run when captured insertion succeeds.")
+                return false
+            },
             pasteFallback: { _ in
                 XCTFail("Paste fallback should not run when captured insertion succeeds.")
                 return false
@@ -35,22 +39,62 @@ final class TextInsertionEngineTests: XCTestCase {
         XCTAssertEqual(insertedText, "dictated text")
     }
 
-    func testRecordingStartCopiesWhenCapturedTargetFailsWithoutCurrentFocusOrPasteFallback() async {
+    func testRecordingStartFallsBackToPasteWhenCapturedTargetFailsAndCurrentFocusMatches() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        let focusedTarget = TextInsertionTarget(element: AXUIElementCreateApplication(getpid()))
         var events: [String] = []
-        var copiedText: String?
 
         let engine = TextInsertionEngine(
             focusedTargetProvider: {
-                XCTFail("Focused target should not be queried after captured insertion fails in recording-start mode.")
-                return nil
+                events.append("focusedTarget")
+                return focusedTarget
             },
             accessibilityInserter: { _, _ in
                 events.append("accessibilityInsert")
                 return false
             },
+            targetMatcher: { lhs, rhs in
+                events.append("targetMatcher")
+                XCTAssertTrue(lhs.element === capturedTarget.element)
+                XCTAssertTrue(rhs.element === focusedTarget.element)
+                return true
+            },
+            pasteFallback: { text in
+                events.append("paste:\(text)")
+                return true
+            },
+            copyToClipboard: { _ in
+                XCTFail("Copy fallback should not run when same-target paste succeeds.")
+            }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .inserted)
+        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "targetMatcher", "paste:dictated text"])
+    }
+
+    func testRecordingStartCopiesWhenCapturedTargetFailsAndCurrentFocusMoved() async {
+        let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        let focusedTarget = TextInsertionTarget(element: AXUIElementCreateApplication(getpid()))
+        var events: [String] = []
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                events.append("focusedTarget")
+                return focusedTarget
+            },
+            accessibilityInserter: { _, _ in
+                events.append("accessibilityInsert")
+                return false
+            },
+            targetMatcher: { _, _ in
+                events.append("targetMatcher")
+                return false
+            },
             pasteFallback: { _ in
-                XCTFail("Paste fallback should not run after captured insertion fails in recording-start mode.")
+                XCTFail("Paste fallback should not run when focus moved.")
                 return false
             },
             copyToClipboard: { text in
@@ -63,7 +107,77 @@ final class TextInsertionEngineTests: XCTestCase {
 
         XCTAssertEqual(result, .copiedToClipboard)
         XCTAssertEqual(copiedText, "dictated text")
-        XCTAssertEqual(events, ["accessibilityInsert", "copy"])
+        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "targetMatcher", "copy"])
+    }
+
+    func testRecordingStartCopiesWhenCapturedTargetFailsAndCurrentFocusIsMissing() async {
+        let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        var events: [String] = []
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                events.append("focusedTarget")
+                return nil
+            },
+            accessibilityInserter: { _, _ in
+                events.append("accessibilityInsert")
+                return false
+            },
+            targetMatcher: { _, _ in
+                XCTFail("Target matcher should not run when current focus is missing.")
+                return false
+            },
+            pasteFallback: { _ in
+                XCTFail("Paste fallback should not run when current focus is missing.")
+                return false
+            },
+            copyToClipboard: { text in
+                events.append("copy")
+                copiedText = text
+            }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
+        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "copy"])
+    }
+
+    func testRecordingStartCopiesWhenCapturedTargetFailsAndSameTargetPasteFails() async {
+        let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        var events: [String] = []
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                events.append("focusedTarget")
+                return capturedTarget
+            },
+            accessibilityInserter: { _, _ in
+                events.append("accessibilityInsert")
+                return false
+            },
+            targetMatcher: { _, _ in
+                events.append("targetMatcher")
+                return true
+            },
+            pasteFallback: { text in
+                events.append("paste:\(text)")
+                return false
+            },
+            copyToClipboard: { text in
+                events.append("copy")
+                copiedText = text
+            }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
+        XCTAssertEqual(events, ["accessibilityInsert", "focusedTarget", "targetMatcher", "paste:dictated text", "copy"])
     }
 
     func testRecordingStartCopiesWhenCapturedTargetIsMissingWithoutCurrentFocusOrPasteFallback() async {
@@ -76,6 +190,10 @@ final class TextInsertionEngineTests: XCTestCase {
             },
             accessibilityInserter: { _, _ in
                 XCTFail("Accessibility insertion should not run when captured target is missing in recording-start mode.")
+                return false
+            },
+            targetMatcher: { _, _ in
+                XCTFail("Target matcher should not run when captured target is missing in recording-start mode.")
                 return false
             },
             pasteFallback: { _ in
