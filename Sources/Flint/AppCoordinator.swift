@@ -363,8 +363,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         case .alertFirstButtonReturn:
             openPrivacySettings()
         case .alertSecondButtonReturn:
-            permissionManager.requestAccessibilityPrompt()
-            permissionManager.requestInputMonitoringPrompt()
+            Task { @MainActor in
+                await permissionManager.requestMissingPermissions()
+                updatePermissionMenuItem()
+            }
         default:
             break
         }

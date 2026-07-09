@@ -105,11 +105,25 @@ struct PermissionManager {
     var microphoneAuthorizationStatus: () -> AVAuthorizationStatus = {
         AVCaptureDevice.authorizationStatus(for: .audio)
     }
+    var requestMicrophoneAccess: () async -> Bool = {
+        await withCheckedContinuation { continuation in
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+    }
     var accessibilityTrusted: () -> Bool = {
         AXIsProcessTrusted()
     }
+    var requestAccessibilityAccess: () -> Void = {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
+    }
     var inputMonitoringTrusted: () -> Bool = {
         CGPreflightListenEventAccess()
+    }
+    var requestInputMonitoringAccess: () -> Void = {
+        CGRequestListenEventAccess()
     }
 
     func snapshot() -> PermissionSnapshot {
@@ -124,13 +138,33 @@ struct PermissionManager {
         PermissionStatus(kind: .microphone, readiness: Self.readiness(for: microphoneAuthorizationStatus()))
     }
 
-    func requestAccessibilityPrompt() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        AXIsProcessTrustedWithOptions(options)
+    func requestMicrophonePermission() async {
+        guard microphoneStatus().readiness == .notDetermined else {
+            return
+        }
+        _ = await requestMicrophoneAccess()
     }
 
-    func requestInputMonitoringPrompt() {
-        CGRequestListenEventAccess()
+    func requestAccessibilityPermission() {
+        requestAccessibilityAccess()
+    }
+
+    func requestInputMonitoringPermission() {
+        requestInputMonitoringAccess()
+    }
+
+    func requestMissingPermissions() async {
+        let currentSnapshot = snapshot()
+
+        if currentSnapshot.status(for: .microphone).readiness == .notDetermined {
+            _ = await requestMicrophoneAccess()
+        }
+        if !currentSnapshot.status(for: .accessibility).isReady {
+            requestAccessibilityAccess()
+        }
+        if !currentSnapshot.status(for: .inputMonitoring).isReady {
+            requestInputMonitoringAccess()
+        }
     }
 
     static func readiness(for authorizationStatus: AVAuthorizationStatus) -> PermissionReadiness {
