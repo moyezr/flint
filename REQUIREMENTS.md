@@ -248,7 +248,7 @@ Goal: usable by the developer every day, without hand-holding.
 - [x] Configurable shortcut, push-to-talk + toggle modes
 - [ ] Permission onboarding flow
 - [x] Clipboard preservation implemented and tested
-- [ ] Real recording overlay with all states
+- [x] Real recording overlay with all states
 - [x] Cleanup modes (at least Verbatim + Clean)
 - [x] Error handling for common failure paths
 - [x] Local settings persisted

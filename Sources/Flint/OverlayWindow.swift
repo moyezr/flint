@@ -51,11 +51,16 @@ enum OverlayState: Equatable {
     var isActive: Bool {
         self == .listening || self == .processingLocally || self == .inserting
     }
+
+    var shouldAutoHide: Bool {
+        self == .ready || self == .cancelled || self == .copiedToClipboard
+    }
 }
 
 @MainActor
 final class OverlayWindow {
     private let model = OverlayModel()
+    private var autoHideCoordinator = OverlayAutoHideCoordinator()
     private let window: NSWindow
 
     init() {
@@ -77,12 +82,17 @@ final class OverlayWindow {
 
     func show(state: OverlayState) {
         model.state = state
+        let visibilityPlan = autoHideCoordinator.show(state)
         positionWindow()
         window.orderFrontRegardless()
 
-        if state == .ready || state == .cancelled || state == .copiedToClipboard {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak window] in
-                window?.orderOut(nil)
+        if visibilityPlan.shouldAutoHide {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self,
+                      self.autoHideCoordinator.acceptsAutoHide(generation: visibilityPlan.generation) else {
+                    return
+                }
+                self.window.orderOut(nil)
             }
         }
     }
@@ -117,6 +127,76 @@ final class OverlayModel: ObservableObject {
     @Published var modeLabel: String = "CLEAN"
     @Published var shortcutSettings: ShortcutSettings = .default
     @Published var audioLevel: Float = 0
+
+    var presentation: OverlayPresentation {
+        OverlayPresentation(
+            state: state,
+            modeLabel: modeLabel,
+            shortcutSettings: shortcutSettings,
+            audioLevel: audioLevel
+        )
+    }
+}
+
+enum OverlayAccent: Equatable {
+    case active
+    case error
+    case inactive
+}
+
+struct OverlayPresentation: Equatable {
+    let state: OverlayState
+    let modeLabel: String
+    let shortcutSettings: ShortcutSettings
+    let audioLevel: Float
+
+    var label: String {
+        state.label
+    }
+
+    var hint: String {
+        state.hint(settings: shortcutSettings)
+    }
+
+    var accent: OverlayAccent {
+        if case .error = state {
+            return .error
+        }
+        return state.isActive ? .active : .inactive
+    }
+
+    var filledBars: Int {
+        switch state {
+        case .listening:
+            let clampedLevel = min(max(audioLevel, 0), 1)
+            guard clampedLevel >= 0.03 else { return 0 }
+            return max(1, Int((clampedLevel * 18).rounded(.up)))
+        case .processingLocally, .inserting:
+            return 14
+        case .error:
+            return 3
+        default:
+            return 0
+        }
+    }
+}
+
+struct OverlayVisibilityPlan: Equatable {
+    let generation: Int
+    let shouldAutoHide: Bool
+}
+
+struct OverlayAutoHideCoordinator {
+    private(set) var generation = 0
+
+    mutating func show(_ state: OverlayState) -> OverlayVisibilityPlan {
+        generation += 1
+        return OverlayVisibilityPlan(generation: generation, shouldAutoHide: state.shouldAutoHide)
+    }
+
+    func acceptsAutoHide(generation requestedGeneration: Int) -> Bool {
+        generation == requestedGeneration
+    }
 }
 
 struct OverlayView: View {
@@ -131,7 +211,7 @@ struct OverlayView: View {
                 Circle()
                     .fill(accentColor)
                     .frame(width: 8, height: 8)
-                Text(model.state.label)
+                Text(model.presentation.label)
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Color.primary)
                 Spacer()
@@ -142,7 +222,7 @@ struct OverlayView: View {
 
             levelMeter
 
-            Text(model.state.hint(settings: model.shortcutSettings))
+            Text(model.presentation.hint)
                 .font(.system(size: 11, weight: .regular))
                 .foregroundStyle(Color.secondary)
                 .lineLimit(1)
@@ -165,34 +245,24 @@ struct OverlayView: View {
     }
 
     private var accentColor: Color {
-        if case .error = model.state {
+        switch model.presentation.accent {
+        case .active:
+            return orange
+        case .error:
             return red
+        case .inactive:
+            return Color.secondary
         }
-        return model.state.isActive ? orange : Color.secondary
     }
 
     private var levelMeter: some View {
         HStack(spacing: 3) {
             ForEach(0..<18, id: \.self) { index in
                 Rectangle()
-                    .fill(index < filledBars ? orange : Color(nsColor: .separatorColor))
+                    .fill(index < model.presentation.filledBars ? orange : Color(nsColor: .separatorColor))
                     .frame(width: 10, height: 9)
             }
         }
         .frame(height: 10)
-    }
-
-    private var filledBars: Int {
-        switch model.state {
-        case .listening:
-            guard model.audioLevel >= 0.03 else { return 0 }
-            return max(1, Int((model.audioLevel * 18).rounded(.up)))
-        case .processingLocally, .inserting:
-            return 14
-        case .error:
-            return 3
-        default:
-            return 0
-        }
     }
 }
