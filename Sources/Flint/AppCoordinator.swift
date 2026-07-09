@@ -71,6 +71,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var deleteModelMenuItem: NSMenuItem?
     private weak var permissionMenuItem: NSMenuItem?
     private var privacyWindow: PrivacyWindowController?
+    private var licenseWindow: LicenseWindowController?
 
     func start() {
         let settings = appSettingsStore.load()
@@ -435,7 +436,14 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     @objc private func showLicense() {
-        showNotBuiltYet("License")
+        if let licenseWindow {
+            licenseWindow.show()
+            return
+        }
+
+        let controller = LicenseWindowController()
+        licenseWindow = controller
+        controller.show()
     }
 
     private func showNotBuiltYet(_ title: String) {

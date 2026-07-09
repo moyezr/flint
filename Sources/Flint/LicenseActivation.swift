@@ -8,6 +8,8 @@ struct LicenseActivationResponse: Equatable {
 }
 
 struct LicenseActivationService {
+    static let notConfiguredMessage = "License activation service is not configured."
+
     enum ActivationError: LocalizedError, Equatable {
         case emptyLicenseKey
         case invalidLicense
@@ -40,6 +42,18 @@ struct LicenseActivationService {
     var client: (String) async throws -> LicenseActivationResponse
     var licenseManager: LicenseManager
 
+    init(
+        client: @escaping (String) async throws -> LicenseActivationResponse = Self.notConfiguredClient,
+        licenseManager: LicenseManager = LicenseManager()
+    ) {
+        self.client = client
+        self.licenseManager = licenseManager
+    }
+
+    static func notConfiguredClient(_ licenseKey: String) async throws -> LicenseActivationResponse {
+        throw ActivationError.transport(notConfiguredMessage)
+    }
+
     @discardableResult
     func activate(licenseKey rawLicenseKey: String) async throws -> LicenseRecord {
         let licenseKey = rawLicenseKey.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -65,12 +79,11 @@ struct LicenseActivationService {
         for response: LicenseActivationResponse,
         licenseKey: String
     ) throws -> LicenseRecord {
-        guard !response.activationID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw ActivationError.missingActivationID
-        }
-
         switch response.status {
         case .activated, .offlineValid:
+            guard !response.activationID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw ActivationError.missingActivationID
+            }
             return LicenseRecord(
                 licenseKeyHash: LicenseManager.hashLicenseKey(licenseKey),
                 activationID: response.activationID,

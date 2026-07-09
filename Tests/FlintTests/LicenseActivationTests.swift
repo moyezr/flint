@@ -103,6 +103,18 @@ final class LicenseActivationTests: XCTestCase {
         try await assertActivationFailure(status: .revoked, expected: .revokedLicense)
     }
 
+    func testInactiveResponsesDoNotRequireActivationID() async throws {
+        let service = LicenseActivationService(
+            client: { _ in makeResponse(activationID: "", status: .revoked) },
+            licenseManager: licenseManager
+        )
+
+        await XCTAssertThrowsErrorAsync(try await service.activate(licenseKey: "FLINT-REVOKED")) { error in
+            XCTAssertEqual(error as? LicenseActivationService.ActivationError, .revokedLicense)
+        }
+        XCTAssertEqual(try licenseManager.load(), .inactive)
+    }
+
     func testTransportFailureMapsToDeterministicError() async throws {
         struct NetworkError: LocalizedError {
             var errorDescription: String? { "Network unavailable." }
