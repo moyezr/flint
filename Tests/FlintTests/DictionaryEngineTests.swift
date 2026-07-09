@@ -82,4 +82,13 @@ final class DictionaryEngineTests: XCTestCase {
 
         XCTAssertEqual(engine.listCustomReplacements().first { $0.id == replacement.id }?.usageCount, 0)
     }
+
+    func testRemoveAllCustomReplacementsClearsOnlyCustomEntries() {
+        engine.addReplacement(heardPhrase: "live kit", preferredReplacement: "LiveKit")
+
+        engine.removeAllCustomReplacements()
+
+        XCTAssertTrue(engine.listCustomReplacements().isEmpty)
+        XCTAssertEqual(engine.apply(to: "api and live kit"), "API and live kit")
+    }
 }

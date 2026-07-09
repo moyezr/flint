@@ -47,6 +47,22 @@ struct AppSettingsStore {
         static let storeHistory = "storeHistory"
         static let autoInsert = "autoInsert"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+
+        static let all = [
+            shortcutOption,
+            shortcutInputBehavior,
+            cleanupMode,
+            selectedModelTier,
+            insertionTargetBehavior,
+            language,
+            launchAtLogin,
+            showOverlay,
+            playStartSound,
+            playStopSound,
+            storeHistory,
+            autoInsert,
+            hasCompletedOnboarding
+        ]
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -91,6 +107,16 @@ struct AppSettingsStore {
         defaults.set(settings.storeHistory, forKey: Key.storeHistory)
         defaults.set(settings.autoInsert, forKey: Key.autoInsert)
         defaults.set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
+    }
+
+    func resetToDefaults() {
+        save(.default)
+    }
+
+    func removePersistedSettings() {
+        for key in Key.all {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     func saveShortcutSettings(_ settings: ShortcutSettings) {

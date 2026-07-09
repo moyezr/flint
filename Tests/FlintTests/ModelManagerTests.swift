@@ -118,6 +118,49 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(manager.metadata(for: .balanced).isInstalled)
     }
 
+    func testDeleteAllCachedModelsRemovesCacheContentsAndClearsReferences() async throws {
+        let manager = makeManager { variant, downloadBase, _ in
+            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return folder
+        }
+        try await manager.downloadModel(for: .fast)
+        try await manager.downloadModel(for: .balanced)
+        let orphanFile = tempRoot.appendingPathComponent("orphan.bin")
+        FileManager.default.createFile(atPath: orphanFile.path, contents: Data([1]))
+
+        try manager.deleteAllCachedModelsAndReferences()
+
+        XCTAssertFalse(manager.metadata(for: .fast).isInstalled)
+        XCTAssertFalse(manager.metadata(for: .balanced).isInstalled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: orphanFile.path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(at: tempRoot, includingPropertiesForKeys: nil),
+            []
+        )
+    }
+
+    func testDeleteAllCachedModelsRefusesSavedPathOutsideCacheRootBeforeDeletingAnything() async throws {
+        let outsideRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("flint-outside-model-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outsideRoot) }
+        let orphanFile = tempRoot.appendingPathComponent("orphan.bin")
+        FileManager.default.createFile(atPath: orphanFile.path, contents: Data([1]))
+        let manager = makeManager { _, _, _ in outsideRoot }
+        try await manager.downloadModel(for: .accurate)
+
+        XCTAssertThrowsError(try manager.deleteAllCachedModelsAndReferences()) { error in
+            XCTAssertEqual(
+                error as? ModelManager.ModelManagerError,
+                .savedPathOutsideCacheRoot(outsideRoot)
+            )
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outsideRoot.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: orphanFile.path))
+        XCTAssertTrue(manager.metadata(for: .accurate).isInstalled)
+    }
+
     func testTranscriptionConfigDescriptorUsesInstalledFolderWhenPresent() async throws {
         let manager = makeManager { _, downloadBase, _ in
             let folder = downloadBase!.appendingPathComponent("base", isDirectory: true)

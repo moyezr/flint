@@ -89,4 +89,61 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.selectedModelTier, .fast)
         XCTAssertEqual(settings.insertionTargetBehavior, .transcriptionFinish)
     }
+
+    func testResetToDefaultsOverwritesPersistedValues() {
+        let store = AppSettingsStore(defaults: defaults)
+        store.save(AppSettings(
+            shortcutSettings: ShortcutSettings(option: .commandShiftSpace, behavior: .toggle),
+            cleanupMode: .email,
+            selectedModelTier: .accurate,
+            insertionTargetBehavior: .transcriptionFinish,
+            language: "en",
+            launchAtLogin: true,
+            showOverlay: false,
+            playStartSound: true,
+            playStopSound: true,
+            storeHistory: true,
+            autoInsert: false,
+            hasCompletedOnboarding: true
+        ))
+
+        store.resetToDefaults()
+
+        XCTAssertEqual(store.load(), .default)
+    }
+
+    func testRemovePersistedSettingsDeletesStoredValues() {
+        let store = AppSettingsStore(defaults: defaults)
+        store.save(AppSettings(
+            shortcutSettings: ShortcutSettings(option: .commandShiftSpace, behavior: .toggle),
+            cleanupMode: .email,
+            selectedModelTier: .accurate,
+            insertionTargetBehavior: .transcriptionFinish,
+            language: "en",
+            launchAtLogin: true,
+            showOverlay: false,
+            playStartSound: true,
+            playStopSound: true,
+            storeHistory: true,
+            autoInsert: false,
+            hasCompletedOnboarding: true
+        ))
+
+        store.removePersistedSettings()
+
+        XCTAssertNil(defaults.object(forKey: "shortcutOption"))
+        XCTAssertNil(defaults.object(forKey: "shortcutInputBehavior"))
+        XCTAssertNil(defaults.object(forKey: "cleanupMode"))
+        XCTAssertNil(defaults.object(forKey: "selectedModelTier"))
+        XCTAssertNil(defaults.object(forKey: "insertionTargetBehavior"))
+        XCTAssertNil(defaults.object(forKey: "language"))
+        XCTAssertNil(defaults.object(forKey: "launchAtLogin"))
+        XCTAssertNil(defaults.object(forKey: "showOverlay"))
+        XCTAssertNil(defaults.object(forKey: "playStartSound"))
+        XCTAssertNil(defaults.object(forKey: "playStopSound"))
+        XCTAssertNil(defaults.object(forKey: "storeHistory"))
+        XCTAssertNil(defaults.object(forKey: "autoInsert"))
+        XCTAssertNil(defaults.object(forKey: "hasCompletedOnboarding"))
+        XCTAssertEqual(store.load(), .default)
+    }
 }

@@ -273,7 +273,7 @@ Goal: validate the commercial path end to end.
 - [ ] `.dmg` packaging, code signing, notarization
 - [ ] License activation flow + Keychain storage
 - [ ] Update system wired up
-- [ ] Privacy dashboard
+- [x] Privacy dashboard
 - [ ] Local history (optional, off by default)
 
 **Success:** a user can buy, download, activate, and dictate with zero manual help.

@@ -195,6 +195,31 @@ struct ModelManager {
         defaults.removeObject(forKey: installedFolderKey(for: tier))
     }
 
+    func deleteAllCachedModelsAndReferences() throws {
+        for tier in ModelTier.allCases {
+            guard let savedFolder = savedFolder(for: tier) else {
+                continue
+            }
+            guard isInsideModelCacheRoot(savedFolder) else {
+                throw ModelManagerError.savedPathOutsideCacheRoot(savedFolder)
+            }
+        }
+
+        if fileManager.fileExists(atPath: modelCacheRoot.path) {
+            let cachedItems = try fileManager.contentsOfDirectory(
+                at: modelCacheRoot,
+                includingPropertiesForKeys: nil
+            )
+            for item in cachedItems {
+                try fileManager.removeItem(at: item)
+            }
+        }
+
+        for tier in ModelTier.allCases {
+            defaults.removeObject(forKey: installedFolderKey(for: tier))
+        }
+    }
+
     private func existingSavedFolder(for tier: ModelTier) -> URL? {
         guard let folder = savedFolder(for: tier),
               fileManager.fileExists(atPath: folder.path) else {

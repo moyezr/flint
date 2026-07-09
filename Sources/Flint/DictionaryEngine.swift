@@ -32,6 +32,10 @@ struct DictionaryEngine {
     private let userDefaults: UserDefaults
     private let customReplacementsKey = "dictionary.customReplacements"
 
+    var customReplacementsStorageDescription: String {
+        customReplacementsKey
+    }
+
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
@@ -93,6 +97,10 @@ struct DictionaryEngine {
     func removeReplacement(id: UUID) {
         let replacements = listCustomReplacements().filter { $0.id != id }
         saveCustomReplacements(replacements)
+    }
+
+    func removeAllCustomReplacements() {
+        userDefaults.removeObject(forKey: customReplacementsKey)
     }
 
     func incrementUsageCount(for id: UUID, by amount: Int = 1) {

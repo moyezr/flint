@@ -66,6 +66,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var downloadModelMenuItem: NSMenuItem?
     private weak var deleteModelMenuItem: NSMenuItem?
     private weak var permissionMenuItem: NSMenuItem?
+    private var privacyWindow: PrivacyWindowController?
 
     func start() {
         let settings = appSettingsStore.load()
@@ -378,7 +379,26 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     @objc private func showPrivacy() {
-        showPermissions()
+        if let privacyWindow {
+            privacyWindow.show()
+            return
+        }
+
+        let controller = PrivacyWindowController(
+            privacyManager: PrivacyManager(
+                settingsStore: appSettingsStore,
+                dictionaryEngine: dictionaryEngine,
+                modelManager: modelManager,
+                permissionSnapshotProvider: { [permissionManager] in
+                    permissionManager.snapshot()
+                }
+            ),
+            onDeleteAllLocalData: { [weak self] in
+                self?.applyPrivacyDeletionDefaults()
+            }
+        )
+        privacyWindow = controller
+        controller.show()
     }
 
     @objc private func showOnboarding() {
@@ -441,6 +461,15 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func applyOnboardingSettings(_ settings: AppSettings) {
         shortcutSettings = settings.shortcutSettings
         updateModelMenuUI()
+    }
+
+    private func applyPrivacyDeletionDefaults() {
+        let settings = appSettingsStore.load()
+        cleanupMode = settings.cleanupMode
+        shortcutSettings = settings.shortcutSettings
+        insertionTargetBehavior = settings.insertionTargetBehavior
+        updateModelMenuUI()
+        updatePermissionMenuItem()
     }
 
     private func startDictation() async {
