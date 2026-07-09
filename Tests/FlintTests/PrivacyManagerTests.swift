@@ -29,7 +29,7 @@ final class PrivacyManagerTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testSnapshotShowsPlainPrivacyRowsPathsAndHistoryStatus() {
+    func testSnapshotShowsPlainPrivacyRowsPathsAndHistoryStatus() throws {
         var settings = AppSettings.default
         settings.storeHistory = true
         AppSettingsStore(defaults: defaults).save(settings)
@@ -42,16 +42,21 @@ final class PrivacyManagerTests: XCTestCase {
             PermissionStatus(kind: .accessibility, readiness: .denied),
             PermissionStatus(kind: .inputMonitoring, readiness: .ready)
         ]))
+        let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
+        _ = try historyStore.insert(makeHistoryEntry())
 
         let snapshot = manager.snapshot()
 
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "transcription" }?.value, "Local")
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "history" }?.value, "On")
+        XCTAssertTrue(snapshot.statusRows.first { $0.id == "history" }?.detail.contains("1 entries") == true)
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "telemetry" }?.detail, "Telemetry is not implemented.")
         XCTAssertEqual(snapshot.permissionStatuses.map(\.kind), [.microphone, .accessibility, .inputMonitoring])
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "settings" }?.path, "Test UserDefaults \(suiteName!)")
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "vocabulary" }?.path, "Test UserDefaults \(suiteName!)")
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "model-cache" }?.path, tempRoot.path)
+        XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.path, historyDatabaseURL.path)
+        XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.detail, "1 history entries. Audio files and blobs are never stored.")
         XCTAssertEqual(
             snapshot.dataLocations.first { $0.id == "vocabulary" }?.detail,
             "1 custom entries stored under UserDefaults key dictionary.customReplacements."
@@ -79,12 +84,19 @@ final class PrivacyManagerTests: XCTestCase {
         }
         try await modelManager.downloadModel(for: .fast)
         let manager = makePrivacyManager(modelManager: modelManager)
+        let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
+        _ = try historyStore.insert(makeHistoryEntry())
+        let walURL = URL(fileURLWithPath: historyDatabaseURL.path + "-wal")
+        let shmURL = URL(fileURLWithPath: historyDatabaseURL.path + "-shm")
+        FileManager.default.createFile(atPath: walURL.path, contents: Data([4]))
+        FileManager.default.createFile(atPath: shmURL.path, contents: Data([5]))
 
         let result = try manager.deleteAllLocalData()
 
         XCTAssertEqual(result.settings, .default)
         XCTAssertEqual(result.customReplacementCount, 1)
         XCTAssertEqual(result.installedModelCount, 1)
+        XCTAssertEqual(result.historyEntryCount, 1)
         XCTAssertEqual(AppSettingsStore(defaults: defaults).load(), .default)
         XCTAssertNil(defaults.object(forKey: "shortcutOption"))
         XCTAssertNil(defaults.object(forKey: "cleanupMode"))
@@ -92,12 +104,17 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "storeHistory"))
         XCTAssertNil(defaults.object(forKey: "hasCompletedOnboarding"))
         XCTAssertTrue(DictionaryEngine(userDefaults: defaults).listCustomReplacements().isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: historyDatabaseURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: walURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: shmURL.path))
+        XCTAssertEqual(try HistoryStore(databaseURL: historyDatabaseURL).count(), 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: historyDatabaseURL.path))
         XCTAssertFalse(modelManager.metadata(for: .fast).isInstalled)
         XCTAssertFalse(FileManager.default.fileExists(atPath: orphanCacheFile.path))
-        XCTAssertEqual(
-            try FileManager.default.contentsOfDirectory(at: tempRoot, includingPropertiesForKeys: nil),
-            []
-        )
+        let nonHistoryFiles = try FileManager.default
+            .contentsOfDirectory(at: tempRoot, includingPropertiesForKeys: nil)
+            .filter { !$0.lastPathComponent.hasPrefix("History.sqlite") }
+        XCTAssertEqual(nonHistoryFiles, [])
     }
 
     func testDeleteAllLocalDataFailsBeforeClearingSettingsWhenModelReferenceIsOutsideCacheRoot() async throws {
@@ -117,6 +134,8 @@ final class PrivacyManagerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: outsideRoot) }
         let modelManager = makeModelManager { _, _, _ in outsideRoot }
         try await modelManager.downloadModel(for: .accurate)
+        let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
+        _ = try historyStore.insert(makeHistoryEntry())
         let manager = makePrivacyManager(modelManager: modelManager)
 
         XCTAssertThrowsError(try manager.deleteAllLocalData()) { error in
@@ -129,6 +148,7 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertFalse(DictionaryEngine(userDefaults: defaults).listCustomReplacements().isEmpty)
         XCTAssertTrue(modelManager.metadata(for: .accurate).isInstalled)
         XCTAssertTrue(FileManager.default.fileExists(atPath: orphanCacheFile.path))
+        XCTAssertEqual(try historyStore.count(), 1)
     }
 
     private func makePrivacyManager(
@@ -139,8 +159,27 @@ final class PrivacyManagerTests: XCTestCase {
             settingsStore: AppSettingsStore(defaults: defaults),
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
             modelManager: modelManager ?? makeModelManager(),
+            historyStore: try! HistoryStore(databaseURL: historyDatabaseURL),
             permissionSnapshotProvider: { permissionSnapshot },
             settingsLocation: "Test UserDefaults \(suiteName!)"
+        )
+    }
+
+    private var historyDatabaseURL: URL {
+        tempRoot.appendingPathComponent("History.sqlite")
+    }
+
+    private func makeHistoryEntry() -> NewHistoryEntry {
+        NewHistoryEntry(
+            createdAt: Date(timeIntervalSince1970: 100),
+            activeAppName: "Notes",
+            activeAppBundleID: "com.apple.Notes",
+            mode: CleanupMode.clean.rawValue,
+            rawTranscript: "raw",
+            finalText: "final",
+            durationMS: 100,
+            modelName: "base",
+            language: "auto"
         )
     }
 

@@ -24,12 +24,25 @@ struct PrivacyDeletionResult: Equatable {
     let settings: AppSettings
     let customReplacementCount: Int
     let installedModelCount: Int
+    let historyEntryCount: Int
 }
 
 struct PrivacyManager {
+    enum PrivacyManagerError: LocalizedError {
+        case historyUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .historyUnavailable:
+                return "History storage is unavailable."
+            }
+        }
+    }
+
     private let settingsStore: AppSettingsStore
     private let dictionaryEngine: DictionaryEngine
     private let modelManager: ModelManager
+    private let historyStore: HistoryStore?
     private let permissionSnapshotProvider: () -> PermissionSnapshot
     private let settingsLocation: String
 
@@ -37,18 +50,21 @@ struct PrivacyManager {
         settingsStore: AppSettingsStore = AppSettingsStore(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         modelManager: ModelManager = ModelManager(),
+        historyStore: HistoryStore? = try? HistoryStore(),
         permissionSnapshotProvider: @escaping () -> PermissionSnapshot = { PermissionManager().snapshot() },
         settingsLocation: String = PrivacyManager.defaultSettingsLocation()
     ) {
         self.settingsStore = settingsStore
         self.dictionaryEngine = dictionaryEngine
         self.modelManager = modelManager
+        self.historyStore = historyStore
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.settingsLocation = settingsLocation
     }
 
     func snapshot() -> PrivacyDashboardSnapshot {
         let settings = settingsStore.load()
+        let historyCount = (try? historyStore?.count()) ?? 0
         return PrivacyDashboardSnapshot(
             statusRows: [
                 PrivacyStatusRow(
@@ -62,8 +78,8 @@ struct PrivacyManager {
                     title: "History",
                     value: settings.storeHistory ? "On" : "Off",
                     detail: settings.storeHistory
-                        ? "Transcript history is enabled. Raw audio is not stored."
-                        : "Transcript history is disabled."
+                        ? "Transcript history is enabled with \(historyCount) entries. Raw audio is not stored."
+                        : "Transcript history is disabled. \(historyCount) entries are stored locally."
                 ),
                 PrivacyStatusRow(
                     id: "telemetry",
@@ -91,24 +107,69 @@ struct PrivacyManager {
                     title: "Model Cache",
                     path: modelManager.modelCacheRoot.path,
                     detail: "\(modelManager.metadata().filter { $0.isInstalled }.count) installed model references."
+                ),
+                PrivacyDataLocation(
+                    id: "history",
+                    title: "History Database",
+                    path: historyStore?.databaseURL.path ?? "Unavailable",
+                    detail: "\(historyCount) history entries. Audio files and blobs are never stored."
                 )
             ]
         )
+    }
+
+    func historyEntries(limit: Int = 50) throws -> [HistoryEntry] {
+        guard let historyStore else {
+            throw PrivacyManagerError.historyUnavailable
+        }
+        return try historyStore.list(limit: limit)
+    }
+
+    func historyCount() -> Int {
+        (try? historyStore?.count()) ?? 0
+    }
+
+    func setHistoryEnabled(_ enabled: Bool) {
+        settingsStore.saveStoreHistory(enabled)
+    }
+
+    func deleteHistoryEntry(id: Int64) throws {
+        guard let historyStore else {
+            throw PrivacyManagerError.historyUnavailable
+        }
+        try historyStore.delete(id: id)
+    }
+
+    func deleteAllHistory() throws {
+        guard let historyStore else {
+            throw PrivacyManagerError.historyUnavailable
+        }
+        try historyStore.deleteAll()
+    }
+
+    func exportHistory(to url: URL) throws {
+        guard let historyStore else {
+            throw PrivacyManagerError.historyUnavailable
+        }
+        try historyStore.export(to: url)
     }
 
     @discardableResult
     func deleteAllLocalData() throws -> PrivacyDeletionResult {
         let customReplacementCount = dictionaryEngine.listCustomReplacements().count
         let installedModelCount = modelManager.metadata().filter { $0.isInstalled }.count
+        let historyEntryCount = (try? historyStore?.count()) ?? 0
 
         try modelManager.deleteAllCachedModelsAndReferences()
+        try historyStore?.deleteDatabaseFiles()
         settingsStore.removePersistedSettings()
         dictionaryEngine.removeAllCustomReplacements()
 
         return PrivacyDeletionResult(
             settings: settingsStore.load(),
             customReplacementCount: customReplacementCount,
-            installedModelCount: installedModelCount
+            installedModelCount: installedModelCount,
+            historyEntryCount: historyEntryCount
         )
     }
 

@@ -60,6 +60,18 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(store.load(), settings)
     }
 
+    func testStoreHistoryCanBeToggledIndependentlyAndDefaultsOff() {
+        let store = AppSettingsStore(defaults: defaults)
+
+        XCTAssertFalse(store.load().storeHistory)
+
+        store.saveStoreHistory(true)
+        XCTAssertTrue(store.load().storeHistory)
+
+        store.saveStoreHistory(false)
+        XCTAssertFalse(store.load().storeHistory)
+    }
+
     func testCorruptEnumBackedFieldsFallBackToSafeDefaults() {
         defaults.set("unknown-shortcut", forKey: "shortcutOption")
         defaults.set("unknown-behavior", forKey: "shortcutInputBehavior")

@@ -28,10 +28,14 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let modelManager = ModelManager()
     private let shortcutManager = ShortcutManager()
     private let appSettingsStore = AppSettingsStore()
+    private let historyStore = try? HistoryStore()
+    private let activeAppDetector = ActiveAppDetector()
 
     private var onboardingWindow: OnboardingWindowController?
     private var isRecording = false
     private var didCancelCurrentRecording = false
+    private var recordingStartedAt: Date?
+    private var recordingStartActiveApp: ActiveAppInfo?
     private var audioMeterTimer: Timer?
     private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
@@ -389,6 +393,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 settingsStore: appSettingsStore,
                 dictionaryEngine: dictionaryEngine,
                 modelManager: modelManager,
+                historyStore: historyStore,
                 permissionSnapshotProvider: { [permissionManager] in
                     permissionManager.snapshot()
                 }
@@ -477,6 +482,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         do {
             didCancelCurrentRecording = false
+            recordingStartedAt = Date()
+            recordingStartActiveApp = activeAppDetector.detect()
             focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
             overlay.updateAudioLevel(0)
@@ -493,6 +500,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             startAudioMetering()
         } catch {
             isRecording = false
+            recordingStartedAt = nil
+            recordingStartActiveApp = nil
             focusedStartInsertionTarget = nil
             stopAudioMetering()
             if let recorderError = error as? AudioRecorder.RecorderError,
@@ -511,7 +520,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         isRecording = false
         stopAudioMetering()
-        defer { focusedStartInsertionTarget = nil }
+        let startedAt = recordingStartedAt
+        let activeApp = recordingStartActiveApp
+        defer {
+            focusedStartInsertionTarget = nil
+            recordingStartedAt = nil
+            recordingStartActiveApp = nil
+        }
 
         let audioURL: URL
         do {
@@ -530,9 +545,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         do {
             overlay.show(state: .processingLocally)
+            let appliedCleanupMode = cleanupMode
+            let appliedSettings = appSettingsStore.load()
+            let appliedModelName = modelManager.selectedConfigurationDescriptor().modelName
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
             let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
-            let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: cleanupMode)
+            let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: appliedCleanupMode)
 
             guard let usableTranscript = DictationOutputPolicy.usableOutput(from: cleanedTranscript) else {
                 overlay.show(state: .error(DictationOutputPolicy.emptyOutputMessage))
@@ -554,6 +572,15 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             } else {
                 overlay.show(state: .copiedToClipboard)
             }
+            recordHistoryIfEnabled(
+                rawTranscript: transcript,
+                finalText: usableTranscript,
+                durationMS: durationMS(startedAt: startedAt),
+                activeApp: activeApp,
+                mode: appliedCleanupMode,
+                modelName: appliedModelName,
+                settings: appliedSettings
+            )
         } catch {
             overlay.show(state: .error(TranscriptionEngine.userFacingMessage(for: error)))
             NSSound.beep()
@@ -564,6 +591,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         guard isRecording else { return }
         didCancelCurrentRecording = true
         isRecording = false
+        recordingStartedAt = nil
+        recordingStartActiveApp = nil
         stopAudioMetering()
         focusedStartInsertionTarget = nil
         if let audioURL = try? recorder.stop() {
@@ -605,5 +634,40 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    private func recordHistoryIfEnabled(
+        rawTranscript: String,
+        finalText: String,
+        durationMS: Int,
+        activeApp: ActiveAppInfo?,
+        mode: CleanupMode,
+        modelName: String,
+        settings: AppSettings
+    ) {
+        let historyRecorder = DictationHistoryRecorder(
+            settingsProvider: { settings },
+            historyStore: historyStore
+        )
+        do {
+            _ = try historyRecorder.record(
+                rawTranscript: rawTranscript,
+                finalText: finalText,
+                durationMS: durationMS,
+                activeApp: activeApp,
+                mode: mode,
+                modelName: modelName,
+                language: settings.language
+            )
+        } catch {
+            NSLog("Flint history write failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func durationMS(startedAt: Date?) -> Int {
+        guard let startedAt else {
+            return 0
+        }
+        return max(0, Int(Date().timeIntervalSince(startedAt) * 1000))
     }
 }

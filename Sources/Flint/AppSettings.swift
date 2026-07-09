@@ -143,6 +143,10 @@ struct AppSettingsStore {
         defaults.set(hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
 
+    func saveStoreHistory(_ storeHistory: Bool) {
+        defaults.set(storeHistory, forKey: Key.storeHistory)
+    }
+
     private func bool(forKey key: String, defaultValue: Bool) -> Bool {
         guard defaults.object(forKey: key) != nil else {
             return defaultValue

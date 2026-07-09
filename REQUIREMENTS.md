@@ -274,7 +274,7 @@ Goal: validate the commercial path end to end.
 - [ ] License activation flow + Keychain storage
 - [ ] Update system wired up
 - [x] Privacy dashboard
-- [ ] Local history (optional, off by default)
+- [x] Local history (optional, off by default)
 
 **Success:** a user can buy, download, activate, and dictate with zero manual help.
 
