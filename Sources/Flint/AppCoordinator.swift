@@ -27,9 +27,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let permissionManager = PermissionManager()
     private let modelManager = ModelManager()
     private let shortcutManager = ShortcutManager()
-    private let cleanupModeSelectionStore = CleanupModeSelectionStore()
-    private let shortcutSettingsStore = ShortcutSettingsStore()
-    private let insertionTargetBehaviorStore = InsertionTargetBehaviorStore()
+    private let appSettingsStore = AppSettingsStore()
 
     private var isRecording = false
     private var didCancelCurrentRecording = false
@@ -37,20 +35,20 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
-            cleanupModeSelectionStore.save(cleanupMode)
+            appSettingsStore.saveCleanupMode(cleanupMode)
             updateCleanupModeUI()
         }
     }
     private var shortcutSettings: ShortcutSettings = .default {
         didSet {
-            shortcutSettingsStore.save(shortcutSettings)
+            appSettingsStore.saveShortcutSettings(shortcutSettings)
             shortcutManager.update(settings: shortcutSettings)
             updateShortcutSettingsUI()
         }
     }
     private var insertionTargetBehavior: InsertionTargetBehavior = .recordingStart {
         didSet {
-            insertionTargetBehaviorStore.save(insertionTargetBehavior)
+            appSettingsStore.saveInsertionTargetBehavior(insertionTargetBehavior)
             updateInsertionTargetBehaviorUI()
         }
     }
@@ -69,9 +67,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var permissionMenuItem: NSMenuItem?
 
     func start() {
-        cleanupMode = cleanupModeSelectionStore.load()
-        shortcutSettings = shortcutSettingsStore.load()
-        insertionTargetBehavior = insertionTargetBehaviorStore.load()
+        let settings = appSettingsStore.load()
+        cleanupMode = settings.cleanupMode
+        shortcutSettings = settings.shortcutSettings
+        insertionTargetBehavior = settings.insertionTargetBehavior
         configureMenu()
         updateCleanupModeUI()
         updateShortcutSettingsUI()
@@ -317,7 +316,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
               let selectedTier = ModelTier(rawValue: rawValue) else {
             return
         }
-        modelManager.saveSelectedTier(selectedTier)
+        appSettingsStore.saveSelectedModelTier(selectedTier)
         updateModelMenuUI()
     }
 

@@ -251,7 +251,7 @@ Goal: usable by the developer every day, without hand-holding.
 - [ ] Real recording overlay with all states
 - [x] Cleanup modes (at least Verbatim + Clean)
 - [x] Error handling for common failure paths
-- [ ] Local settings persisted
+- [x] Local settings persisted
 - [x] Model manager (download/select/delete)
 - [x] Personal dictionary v1
 
