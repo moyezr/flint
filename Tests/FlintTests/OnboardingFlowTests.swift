@@ -1,0 +1,241 @@
+import XCTest
+@testable import Flint
+
+@MainActor
+final class OnboardingFlowTests: XCTestCase {
+    private var suiteName: String!
+    private var defaults: UserDefaults!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        suiteName = "FlintTests.OnboardingFlow.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    override func tearDownWithError() throws {
+        if let suiteName {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        defaults = nil
+        suiteName = nil
+        try super.tearDownWithError()
+    }
+
+    func testOrderedStepProgressionAndBackNextBounds() {
+        let flow = makeFlow()
+
+        XCTAssertEqual(flow.currentStep, .welcome)
+        XCTAssertFalse(flow.canGoBack)
+
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .privacy)
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .shortcut)
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .permissions)
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .model)
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .testDictation)
+        XCTAssertTrue(flow.isFinalStep)
+
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .testDictation)
+
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .model)
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .permissions)
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .shortcut)
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .privacy)
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .welcome)
+        flow.back()
+        XCTAssertEqual(flow.currentStep, .welcome)
+    }
+
+    func testFinishDoesNotCompleteWhenPermissionsAreMissing() {
+        var completionCount = 0
+        let flow = makeFlow(
+            snapshot: missingPermissionSnapshot(),
+            onComplete: { completionCount += 1 }
+        )
+
+        flow.finish()
+
+        XCTAssertFalse(AppSettingsStore(defaults: defaults).load().hasCompletedOnboarding)
+        XCTAssertFalse(flow.settings.hasCompletedOnboarding)
+        XCTAssertEqual(completionCount, 0)
+    }
+
+    func testFinishMarksOnboardingCompleteWhenPermissionsAndModelAreReady() {
+        var completionCount = 0
+        let flow = makeFlow(onComplete: { completionCount += 1 })
+        while !flow.isFinalStep {
+            flow.next()
+        }
+
+        flow.finish()
+
+        XCTAssertTrue(AppSettingsStore(defaults: defaults).load().hasCompletedOnboarding)
+        XCTAssertTrue(flow.settings.hasCompletedOnboarding)
+        XCTAssertEqual(completionCount, 1)
+    }
+
+    func testShortcutSelectionPersistsImmediately() {
+        var changedSettings: [AppSettings] = []
+        let notifyingFlow = makeFlow(onSettingsChanged: { changedSettings.append($0) })
+
+        notifyingFlow.selectShortcut(.commandShiftSpace)
+        notifyingFlow.selectShortcutBehavior(.toggle)
+
+        let settings = AppSettingsStore(defaults: defaults).load()
+        XCTAssertEqual(settings.shortcutSettings, ShortcutSettings(option: .commandShiftSpace, behavior: .toggle))
+        XCTAssertEqual(notifyingFlow.settings.shortcutSettings, settings.shortcutSettings)
+        XCTAssertEqual(changedSettings.map(\.shortcutSettings), [
+            ShortcutSettings(option: .commandShiftSpace, behavior: .pushToTalk),
+            ShortcutSettings(option: .commandShiftSpace, behavior: .toggle)
+        ])
+    }
+
+    func testModelSelectionPersistsImmediately() {
+        let flow = makeFlow()
+
+        flow.selectModelTier(.accurate)
+
+        let settings = AppSettingsStore(defaults: defaults).load()
+        XCTAssertEqual(settings.selectedModelTier, .accurate)
+        XCTAssertEqual(flow.settings.selectedModelTier, .accurate)
+    }
+
+    func testPermissionPromptUsesInjectedActionAndRefreshesSnapshot() async {
+        var promptCount = 0
+        var snapshot = missingPermissionSnapshot()
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {
+                promptCount += 1
+                snapshot = PermissionSnapshot(statuses: [
+                    PermissionStatus(kind: .microphone, readiness: .ready),
+                    PermissionStatus(kind: .accessibility, readiness: .ready),
+                    PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+                ])
+            }
+        )
+
+        XCTAssertEqual(flow.permissionSnapshot.missingCount, 3)
+
+        await flow.promptForPermissions()
+
+        XCTAssertEqual(promptCount, 1)
+        XCTAssertEqual(flow.permissionSnapshot.missingCount, 0)
+        XCTAssertFalse(flow.isPromptingForPermissions)
+    }
+
+    func testCannotAdvancePastPermissionsUntilAllPermissionsAreReady() {
+        var snapshot = missingPermissionSnapshot()
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {}
+        )
+
+        flow.next()
+        flow.next()
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .permissions)
+        XCTAssertFalse(flow.canAdvance)
+
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .permissions)
+
+        snapshot = readyPermissionSnapshot()
+        flow.refreshPermissionSnapshot()
+
+        XCTAssertTrue(flow.canAdvance)
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .model)
+    }
+
+    func testCannotAdvancePastModelUntilSelectedModelIsInstalled() async {
+        var installedTiers: [ModelTier] = [.fast, .accurate]
+        let flow = makeFlow(
+            modelInstalledProvider: { installedTiers.contains($0) },
+            modelDownloadAction: { tier in installedTiers.append(tier) }
+        )
+
+        moveToModelStep(flow)
+        XCTAssertEqual(flow.settings.selectedModelTier, .balanced)
+        XCTAssertFalse(flow.canAdvance)
+
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .model)
+
+        await flow.downloadSelectedModel()
+
+        XCTAssertTrue(flow.canAdvance)
+        XCTAssertEqual(flow.modelDownloadStatus, "Balanced model is ready.")
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .testDictation)
+    }
+
+    private func makeFlow(
+        snapshot: PermissionSnapshot = PermissionSnapshot(statuses: []),
+        modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
+        modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        onSettingsChanged: ((AppSettings) -> Void)? = nil,
+        onComplete: (() -> Void)? = nil
+    ) -> OnboardingFlow {
+        makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {},
+            modelInstalledProvider: modelInstalledProvider,
+            modelDownloadAction: modelDownloadAction,
+            onSettingsChanged: onSettingsChanged,
+            onComplete: onComplete
+        )
+    }
+
+    private func makeFlow(
+        snapshotProvider: @escaping () -> PermissionSnapshot,
+        permissionPromptAction: @escaping () async -> Void,
+        modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
+        modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        onSettingsChanged: ((AppSettings) -> Void)? = nil,
+        onComplete: (() -> Void)? = nil
+    ) -> OnboardingFlow {
+        OnboardingFlow(
+            store: AppSettingsStore(defaults: defaults),
+            permissionSnapshotProvider: snapshotProvider,
+            permissionPromptAction: permissionPromptAction,
+            modelInstalledProvider: modelInstalledProvider,
+            modelDownloadAction: modelDownloadAction,
+            onSettingsChanged: onSettingsChanged,
+            onComplete: onComplete
+        )
+    }
+
+    private func moveToModelStep(_ flow: OnboardingFlow) {
+        while flow.currentStep != .model {
+            flow.next()
+        }
+    }
+
+    private func missingPermissionSnapshot() -> PermissionSnapshot {
+        PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .notDetermined),
+            PermissionStatus(kind: .accessibility, readiness: .denied),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ])
+    }
+
+    private func readyPermissionSnapshot() -> PermissionSnapshot {
+        PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .ready),
+            PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+        ])
+    }
+}

@@ -35,6 +35,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.playStopSound)
         XCTAssertFalse(settings.storeHistory)
         XCTAssertTrue(settings.autoInsert)
+        XCTAssertFalse(settings.hasCompletedOnboarding)
     }
 
     func testRoundTripPersistsAllFields() {
@@ -50,7 +51,8 @@ final class AppSettingsTests: XCTestCase {
             playStartSound: true,
             playStopSound: true,
             storeHistory: true,
-            autoInsert: false
+            autoInsert: false,
+            hasCompletedOnboarding: true
         )
 
         store.save(settings)

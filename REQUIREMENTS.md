@@ -246,7 +246,7 @@ Goal: prove the core loop works at all.
 ### Phase 2 — Daily-Usable Alpha
 Goal: usable by the developer every day, without hand-holding.
 - [x] Configurable shortcut, push-to-talk + toggle modes
-- [ ] Permission onboarding flow
+- [x] Permission onboarding flow
 - [x] Clipboard preservation implemented and tested
 - [x] Real recording overlay with all states
 - [x] Cleanup modes (at least Verbatim + Clean)

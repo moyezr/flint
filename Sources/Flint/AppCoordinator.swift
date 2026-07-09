@@ -29,6 +29,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let shortcutManager = ShortcutManager()
     private let appSettingsStore = AppSettingsStore()
 
+    private var onboardingWindow: OnboardingWindowController?
     private var isRecording = false
     private var didCancelCurrentRecording = false
     private var audioMeterTimer: Timer?
@@ -101,6 +102,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             NSSound.beep()
         }
         updatePermissionMenuItem()
+        if !settings.hasCompletedOnboarding {
+            showOnboarding()
+        }
     }
 
     func stop() {
@@ -189,6 +193,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
         menu.addItem(permissionItem)
         permissionMenuItem = permissionItem
+        menu.addItem(NSMenuItem(title: "Onboarding", action: #selector(showOnboarding), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Privacy", action: #selector(showPrivacy), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Check for Updates", action: #selector(checkForUpdates), keyEquivalent: ""))
@@ -376,6 +381,30 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         showPermissions()
     }
 
+    @objc private func showOnboarding() {
+        if let onboardingWindow {
+            onboardingWindow.show()
+            return
+        }
+
+        let controller = OnboardingWindowController(
+            settingsStore: appSettingsStore,
+            permissionManager: permissionManager,
+            modelManager: modelManager,
+            onTestDictation: { [weak self] in
+                self?.toggleDictation()
+            },
+            onSettingsChanged: { [weak self] settings in
+                self?.applyOnboardingSettings(settings)
+            },
+            onComplete: { [weak self] in
+                self?.completeOnboarding()
+            }
+        )
+        onboardingWindow = controller
+        controller.show()
+    }
+
     @objc private func checkForUpdates() {
         showNotBuiltYet("Updates")
     }
@@ -399,6 +428,19 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    private func completeOnboarding() {
+        let settings = appSettingsStore.load()
+        applyOnboardingSettings(settings)
+        updatePermissionMenuItem()
+        onboardingWindow?.close()
+        onboardingWindow = nil
+    }
+
+    private func applyOnboardingSettings(_ settings: AppSettings) {
+        shortcutSettings = settings.shortcutSettings
+        updateModelMenuUI()
     }
 
     private func startDictation() async {

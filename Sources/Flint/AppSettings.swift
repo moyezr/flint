@@ -12,6 +12,7 @@ struct AppSettings: Equatable {
     var playStopSound: Bool
     var storeHistory: Bool
     var autoInsert: Bool
+    var hasCompletedOnboarding: Bool
 
     static let `default` = AppSettings(
         shortcutSettings: .default,
@@ -24,7 +25,8 @@ struct AppSettings: Equatable {
         playStartSound: false,
         playStopSound: false,
         storeHistory: false,
-        autoInsert: true
+        autoInsert: true,
+        hasCompletedOnboarding: false
     )
 }
 
@@ -44,6 +46,7 @@ struct AppSettingsStore {
         static let playStopSound = "playStopSound"
         static let storeHistory = "storeHistory"
         static let autoInsert = "autoInsert"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -67,7 +70,11 @@ struct AppSettingsStore {
             playStartSound: bool(forKey: Key.playStartSound, defaultValue: AppSettings.default.playStartSound),
             playStopSound: bool(forKey: Key.playStopSound, defaultValue: AppSettings.default.playStopSound),
             storeHistory: bool(forKey: Key.storeHistory, defaultValue: AppSettings.default.storeHistory),
-            autoInsert: bool(forKey: Key.autoInsert, defaultValue: AppSettings.default.autoInsert)
+            autoInsert: bool(forKey: Key.autoInsert, defaultValue: AppSettings.default.autoInsert),
+            hasCompletedOnboarding: bool(
+                forKey: Key.hasCompletedOnboarding,
+                defaultValue: AppSettings.default.hasCompletedOnboarding
+            )
         )
     }
 
@@ -83,6 +90,7 @@ struct AppSettingsStore {
         defaults.set(settings.playStopSound, forKey: Key.playStopSound)
         defaults.set(settings.storeHistory, forKey: Key.storeHistory)
         defaults.set(settings.autoInsert, forKey: Key.autoInsert)
+        defaults.set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
 
     func saveShortcutSettings(_ settings: ShortcutSettings) {
@@ -103,6 +111,10 @@ struct AppSettingsStore {
 
     func saveInsertionTargetBehavior(_ behavior: InsertionTargetBehavior) {
         InsertionTargetBehaviorStore(defaults: defaults, key: Key.insertionTargetBehavior).save(behavior)
+    }
+
+    func saveHasCompletedOnboarding(_ hasCompletedOnboarding: Bool) {
+        defaults.set(hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
 
     private func bool(forKey key: String, defaultValue: Bool) -> Bool {
