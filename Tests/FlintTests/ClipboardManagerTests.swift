@@ -64,4 +64,42 @@ final class ClipboardManagerTests: XCTestCase {
         XCTAssertNil(pasteboard.string(forType: .string))
         XCTAssertEqual(pasteboard.pasteboardItems?.count ?? 0, 0)
     }
+
+    func testDoesNotRestoreOverClipboardChangedAfterPasteSubmission() {
+        pasteboard.setString("original clipboard", forType: .string)
+        let savedItems = manager.snapshotItems(from: pasteboard)
+
+        pasteboard.clearContents()
+        pasteboard.setString("dictated text", forType: .string)
+        let temporaryChangeCount = pasteboard.changeCount
+
+        pasteboard.clearContents()
+        pasteboard.setString("new clipboard content", forType: .string)
+
+        XCTAssertFalse(
+            manager.restoreIfUnchanged(
+                savedItems,
+                to: pasteboard,
+                expectedChangeCount: temporaryChangeCount
+            )
+        )
+        XCTAssertEqual(pasteboard.string(forType: .string), "new clipboard content")
+    }
+
+    func testRestoresClipboardWhenItHasNotChangedAfterPasteSubmission() {
+        pasteboard.setString("original clipboard", forType: .string)
+        let savedItems = manager.snapshotItems(from: pasteboard)
+
+        pasteboard.clearContents()
+        pasteboard.setString("dictated text", forType: .string)
+
+        XCTAssertTrue(
+            manager.restoreIfUnchanged(
+                savedItems,
+                to: pasteboard,
+                expectedChangeCount: pasteboard.changeCount
+            )
+        )
+        XCTAssertEqual(pasteboard.string(forType: .string), "original clipboard")
+    }
 }

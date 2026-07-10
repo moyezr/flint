@@ -46,20 +46,17 @@ struct TextInsertionTarget {
 struct TextInsertionEngine {
     private let focusedTargetProvider: @MainActor () -> TextInsertionTarget?
     private let accessibilityInserter: @MainActor (TextInsertionTarget, String) -> Bool
-    private let targetMatcher: @MainActor (TextInsertionTarget, TextInsertionTarget) -> Bool
     private let pasteFallback: @MainActor (String) -> Bool
     private let copyToClipboard: @MainActor (String) -> Void
 
     init(
         focusedTargetProvider: @escaping @MainActor () -> TextInsertionTarget? = TextInsertionEngine.focusedTarget,
         accessibilityInserter: @escaping @MainActor (TextInsertionTarget, String) -> Bool = TextInsertionEngine.insert,
-        targetMatcher: @escaping @MainActor (TextInsertionTarget, TextInsertionTarget) -> Bool = TextInsertionEngine.targetsMatch,
         pasteFallback: @escaping @MainActor (String) -> Bool = { ClipboardManager().pasteWithPreservedClipboard($0) },
         copyToClipboard: @escaping @MainActor (String) -> Void = TextInsertionEngine.copyToClipboard
     ) {
         self.focusedTargetProvider = focusedTargetProvider
         self.accessibilityInserter = accessibilityInserter
-        self.targetMatcher = targetMatcher
         self.pasteFallback = pasteFallback
         self.copyToClipboard = copyToClipboard
     }
@@ -81,10 +78,14 @@ struct TextInsertionEngine {
                 return .inserted
             }
 
-            if let preferredTarget,
-               let focusedTarget = focusedTargetProvider(),
-               targetMatcher(preferredTarget, focusedTarget),
-               pasteFallback(text) {
+            // Accessibility can return a distinct object instance for the same browser field.
+            // Do not use object identity to decide whether the paste fallback is safe to attempt.
+            if let focusedTarget = focusedTargetProvider(),
+               accessibilityInserter(focusedTarget, text) {
+                return .inserted
+            }
+
+            if pasteFallback(text) {
                 return .inserted
             }
 
@@ -127,10 +128,6 @@ struct TextInsertionEngine {
         AXUIElementSetAttributeValue(target.element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
     }
 
-    private static func targetsMatch(_ lhs: TextInsertionTarget, _ rhs: TextInsertionTarget) -> Bool {
-        CFEqual(lhs.element, rhs.element)
-    }
-
     private static func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
@@ -139,7 +136,7 @@ struct TextInsertionEngine {
 
 struct ClipboardManager {
     func pasteWithPreservedClipboard(_ text: String) -> Bool {
-        pasteWithPreservedClipboard(text, pasteboard: .general, restoreDelay: 0.25)
+        pasteWithPreservedClipboard(text, pasteboard: .general, restoreDelay: 0.75)
     }
 
     func pasteWithPreservedClipboard(
@@ -155,9 +152,19 @@ struct ClipboardManager {
             return false
         }
 
+        let temporaryChangeCount = pasteboard.changeCount
         let pasteSucceeded = sendPasteShortcut()
-        DispatchQueue.main.asyncAfter(deadline: .now() + restoreDelay) {
+        guard pasteSucceeded else {
             restore(savedItems, to: pasteboard)
+            return false
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + restoreDelay) {
+            self.restoreIfUnchanged(
+                savedItems,
+                to: pasteboard,
+                expectedChangeCount: temporaryChangeCount
+            )
         }
         return pasteSucceeded
     }
@@ -181,6 +188,20 @@ struct ClipboardManager {
         if !items.isEmpty {
             pasteboard.writeObjects(items)
         }
+    }
+
+    @discardableResult
+    func restoreIfUnchanged(
+        _ items: [NSPasteboardItem],
+        to pasteboard: NSPasteboard,
+        expectedChangeCount: Int
+    ) -> Bool {
+        guard pasteboard.changeCount == expectedChangeCount else {
+            return false
+        }
+
+        restore(items, to: pasteboard)
+        return true
     }
 
     private func sendPasteShortcut() -> Bool {
