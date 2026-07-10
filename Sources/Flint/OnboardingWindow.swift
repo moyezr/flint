@@ -12,6 +12,7 @@ final class OnboardingWindowController {
         modelManager: ModelManager,
         onTestDictation: @escaping () -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void,
+        onPermissionsChanged: @escaping () -> Void,
         onComplete: @escaping () -> Void
     ) {
         flow = OnboardingFlow(
@@ -20,6 +21,7 @@ final class OnboardingWindowController {
             permissionPromptAction: { await permissionManager.requestMissingPermissions() },
             modelInstalledProvider: { tier in modelManager.metadata(for: tier).isInstalled },
             modelDownloadAction: { tier in _ = try await modelManager.downloadModel(for: tier) },
+            onPermissionsPromptCompleted: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete
         )
@@ -184,7 +186,7 @@ private struct OnboardingView: View {
                 Button(flow.isDownloadingModel ? "Downloading..." : downloadButtonTitle) {
                     Task { await flow.downloadSelectedModel() }
                 }
-                .disabled(flow.isDownloadingModel)
+                .disabled(flow.isDownloadingModel || flow.isSelectedModelInstalled)
 
                 if !flow.modelDownloadStatus.isEmpty {
                     Text(flow.modelDownloadStatus)
@@ -210,7 +212,7 @@ private struct OnboardingView: View {
                 Button("Start/Stop Test Dictation") {
                     onTestDictation()
                 }
-                Text("Click in the field above, then use the selected shortcut or the test button. Use the same action again to stop, or press Esc to cancel.")
+                Text(testDictationInstruction)
                     .foregroundStyle(.secondary)
                 Text("Finish is available after permissions are ready and the selected model is installed.")
                     .foregroundStyle(.secondary)
@@ -229,7 +231,7 @@ private struct OnboardingView: View {
     private var downloadButtonTitle: String {
         let metadata = modelManager.metadata(for: flow.settings.selectedModelTier)
         return metadata.isInstalled
-            ? "Download \(metadata.displayName) Again"
+            ? "\(metadata.displayName) Installed"
             : "Download \(metadata.displayName)"
     }
 
@@ -243,6 +245,15 @@ private struct OnboardingView: View {
         flow.isSelectedModelInstalled
             ? "\(flow.settings.selectedModelTier.displayName) model is installed."
             : "Download the selected model before continuing."
+    }
+
+    private var testDictationInstruction: String {
+        switch flow.settings.shortcutSettings.behavior {
+        case .pushToTalk:
+            return "Click in the field above, then hold the selected shortcut to dictate and release it to stop. The test button starts and stops dictation manually. Press Esc to cancel."
+        case .toggle:
+            return "Click in the field above, then press the selected shortcut to start and press it again to stop. The test button starts and stops dictation manually. Press Esc to cancel."
+        }
     }
 }
 

@@ -47,6 +47,7 @@ final class OnboardingFlow: ObservableObject {
     private let permissionPromptAction: PermissionPromptAction
     private let modelInstalledProvider: ModelInstalledProvider
     private let modelDownloadAction: ModelDownloadAction
+    private let onPermissionsPromptCompleted: (() -> Void)?
     private let onSettingsChanged: SettingsChangedAction?
     private let onComplete: (() -> Void)?
 
@@ -56,6 +57,7 @@ final class OnboardingFlow: ObservableObject {
         permissionPromptAction: @escaping PermissionPromptAction,
         modelInstalledProvider: @escaping ModelInstalledProvider,
         modelDownloadAction: @escaping ModelDownloadAction,
+        onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: SettingsChangedAction? = nil,
         onComplete: (() -> Void)? = nil,
         initialStep: OnboardingStep = .welcome
@@ -65,6 +67,7 @@ final class OnboardingFlow: ObservableObject {
         self.permissionPromptAction = permissionPromptAction
         self.modelInstalledProvider = modelInstalledProvider
         self.modelDownloadAction = modelDownloadAction
+        self.onPermissionsPromptCompleted = onPermissionsPromptCompleted
         self.onSettingsChanged = onSettingsChanged
         self.onComplete = onComplete
         self.currentStep = initialStep
@@ -155,6 +158,7 @@ final class OnboardingFlow: ObservableObject {
         guard !isPromptingForPermissions else { return }
         isPromptingForPermissions = true
         await permissionPromptAction()
+        onPermissionsPromptCompleted?()
         isPromptingForPermissions = false
         refreshPermissionSnapshot()
     }

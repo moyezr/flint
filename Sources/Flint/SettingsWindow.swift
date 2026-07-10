@@ -502,8 +502,8 @@ private struct ModelSettingsRow: View {
                 Button("Select", action: onSelect)
                     .disabled(isBusy)
             }
-            Button(metadata.isInstalled ? "Download Again" : "Download", action: onDownload)
-                .disabled(!isSelected || isBusy)
+            Button(metadata.isInstalled ? "Installed" : "Download", action: onDownload)
+                .disabled(!isSelected || metadata.isInstalled || isBusy)
             Button("Delete", role: .destructive, action: onDelete)
                 .disabled(!isSelected || !metadata.isInstalled || isBusy)
         }

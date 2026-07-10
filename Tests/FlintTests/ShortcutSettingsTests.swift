@@ -5,6 +5,7 @@ final class ShortcutSettingsTests: XCTestCase {
     private enum KeyCode {
         static let space: Int64 = 49
         static let escape: Int64 = 53
+        static let leftOption: Int64 = 58
         static let rightOption: Int64 = 61
     }
 
@@ -83,6 +84,41 @@ final class ShortcutSettingsTests: XCTestCase {
         XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.rightOption)), .finish)
     }
 
+    func testLeftOptionDoesNotStartRightOptionShortcut() {
+        var interpreter = ShortcutInterpreter()
+
+        XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.leftOption, modifiers: [.option])), .none)
+        XCTAssertFalse(interpreter.isActive)
+        XCTAssertFalse(interpreter.isShortcutDown)
+    }
+
+    func testRightOptionReleaseFinishesWhenAggregateOptionModifierRemainsSet() {
+        var interpreter = ShortcutInterpreter()
+
+        XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.rightOption, modifiers: [.option])), .start)
+        XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.rightOption, modifiers: [.option])), .finish)
+        XCTAssertFalse(interpreter.isActive)
+        XCTAssertFalse(interpreter.isShortcutDown)
+    }
+
+    func testShortcutManagerStartIsIdempotentAndExposesRunningState() throws {
+        var eventTapCreations = 0
+        let manager = ShortcutManager { _, _, _ in
+            eventTapCreations += 1
+            return try! Self.makeMachPort()
+        }
+
+        XCTAssertFalse(manager.isRunning)
+        XCTAssertEqual(manager.start(), .started)
+        XCTAssertTrue(manager.isRunning)
+        XCTAssertEqual(manager.start(), .started)
+        XCTAssertTrue(manager.isRunning)
+        XCTAssertEqual(eventTapCreations, 1)
+
+        manager.stop()
+        XCTAssertFalse(manager.isRunning)
+    }
+
     func testToggleTransitionsStartAndFinishOnRepeatedShortcutPresses() {
         var interpreter = ShortcutInterpreter(settings: ShortcutSettings(option: .commandShiftSpace, behavior: .toggle))
 
@@ -108,5 +144,10 @@ final class ShortcutSettingsTests: XCTestCase {
         isRepeat: Bool = false
     ) -> ShortcutEvent {
         ShortcutEvent(type: type, keyCode: keyCode, modifiers: modifiers, isRepeat: isRepeat)
+    }
+
+    private static func makeMachPort() throws -> CFMachPort {
+        var context = CFMachPortContext()
+        return try XCTUnwrap(CFMachPortCreate(kCFAllocatorDefault, { _, _, _, _ in }, &context, nil))
     }
 }

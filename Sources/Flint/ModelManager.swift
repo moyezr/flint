@@ -170,6 +170,10 @@ struct ModelManager {
 
     @discardableResult
     func downloadModel(for tier: ModelTier, progressCallback: ProgressCallback? = nil) async throws -> ModelMetadata {
+        if existingSavedFolder(for: tier) != nil {
+            return metadata(for: tier)
+        }
+
         try fileManager.createDirectory(at: modelCacheRoot, withIntermediateDirectories: true)
         let folder = try await downloader(tier.modelName, modelCacheRoot, progressCallback)
         saveInstalledFolder(folder, for: tier)

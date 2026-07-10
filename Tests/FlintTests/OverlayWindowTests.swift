@@ -5,7 +5,7 @@ final class OverlayWindowTests: XCTestCase {
     func testOverlayStateLabelsCoverRequiredStates() {
         XCTAssertEqual(OverlayState.ready.label, "READY")
         XCTAssertEqual(OverlayState.listening.label, "LISTENING")
-        XCTAssertEqual(OverlayState.processingLocally.label, "PROCESSING LOCALLY")
+        XCTAssertEqual(OverlayState.processingLocally.label, "PROCESSING")
         XCTAssertEqual(OverlayState.inserting.label, "INSERTING")
         XCTAssertEqual(OverlayState.copiedToClipboard.label, "COPIED TO CLIPBOARD")
         XCTAssertEqual(OverlayState.cancelled.label, "CANCELLED")
@@ -20,11 +20,19 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(OverlayState.ready.hint(settings: toggle), "Press Control+Space to dictate")
         XCTAssertEqual(OverlayState.listening.hint(settings: pushToTalk), "Release to insert · Esc cancel")
         XCTAssertEqual(OverlayState.listening.hint(settings: toggle), "Press again to insert · Esc cancel")
-        XCTAssertEqual(OverlayState.processingLocally.hint(settings: pushToTalk), "Local transcription")
+        XCTAssertEqual(OverlayState.processingLocally.hint(settings: pushToTalk), "Transcribing")
         XCTAssertEqual(OverlayState.inserting.hint(settings: pushToTalk), "Pasting at cursor")
         XCTAssertEqual(OverlayState.copiedToClipboard.hint(settings: pushToTalk), "Paste manually if needed")
         XCTAssertEqual(OverlayState.cancelled.hint(settings: pushToTalk), "Recording discarded")
         XCTAssertEqual(OverlayState.error("Microphone permission is required.").hint(settings: pushToTalk), "Microphone permission is required.")
+    }
+
+    func testProcessingFeedbackDoesNotExposeLocalWording() {
+        let processing = OverlayState.processingLocally
+        let visibleText = [processing.label, processing.hint(settings: .default)].joined(separator: " ").lowercased()
+
+        XCTAssertFalse(visibleText.contains("local"))
+        XCTAssertFalse(visibleText.contains("local transcription"))
     }
 
     func testOverlayPresentationAccentRoles() {
@@ -43,6 +51,14 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.03).filledBars, 1)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 9)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 18)
+    }
+
+    func testOverlayUsesCompactBottomLayout() {
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 230)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 60)
+        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).width, 230)
+        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 82)
+        XCTAssertEqual(OverlayLayout.meterBarCount, 18)
     }
 
     func testOverlayMeterBarsRepresentNonListeningStates() {

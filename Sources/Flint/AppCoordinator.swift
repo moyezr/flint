@@ -119,13 +119,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 await self?.cancelDictation()
             }
         }
-        switch shortcutManager.start() {
-        case .started:
-            break
-        case .inputMonitoringMissing:
-            overlay.show(state: .error(PermissionStatus(kind: .inputMonitoring, readiness: .denied).failureMessage))
-            NSSound.beep()
-        }
+        ensureShortcutMonitoringStarted()
         updatePermissionMenuItem()
         if !settings.hasCompletedOnboarding {
             showOnboarding()
@@ -291,8 +285,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             item.state = tier == selectedTier ? .on : .off
         }
         downloadModelMenuItem?.title = metadata.isInstalled
-            ? "Download \(selectedTier.displayName) Again"
+            ? "\(selectedTier.displayName) Installed"
             : "Download \(selectedTier.displayName)"
+        downloadModelMenuItem?.isEnabled = !metadata.isInstalled
         deleteModelMenuItem?.title = "Delete \(selectedTier.displayName)"
         deleteModelMenuItem?.isEnabled = metadata.isInstalled
         settingsWindow?.refresh()
@@ -451,6 +446,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             Task { @MainActor in
                 await permissionManager.requestMissingPermissions()
                 updatePermissionMenuItem()
+                ensureShortcutMonitoringStarted()
             }
         default:
             break
@@ -496,6 +492,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             },
             onSettingsChanged: { [weak self] settings in
                 self?.applyOnboardingSettings(settings)
+            },
+            onPermissionsChanged: { [weak self] in
+                self?.updatePermissionMenuItem()
+                self?.ensureShortcutMonitoringStarted()
             },
             onComplete: { [weak self] in
                 self?.completeOnboarding()
@@ -555,6 +555,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         let settings = appSettingsStore.load()
         applyOnboardingSettings(settings)
         updatePermissionMenuItem()
+        ensureShortcutMonitoringStarted()
         onboardingWindow?.close()
         onboardingWindow = nil
     }
@@ -581,6 +582,21 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         appAwareModesEnabled = settings.appAwareModesEnabled
         updateModelMenuUI()
         updatePermissionMenuItem()
+    }
+
+    private func ensureShortcutMonitoringStarted() {
+        switch shortcutManager.start() {
+        case .started:
+            break
+        case .inputMonitoringMissing:
+            guard !shortcutManager.isRunning else { return }
+            let inputMonitoring = permissionManager.snapshot().status(for: .inputMonitoring)
+            let message = inputMonitoring.isReady
+                ? "Shortcut monitoring could not start. Restart Flint, then check Input Monitoring."
+                : inputMonitoring.failureMessage
+            overlay.show(state: .error(message))
+            NSSound.beep()
+        }
     }
 
     private func startDictation() async {

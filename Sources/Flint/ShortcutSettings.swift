@@ -151,13 +151,6 @@ struct ShortcutInterpreter {
     }
 
     private mutating func interpretPushToTalk(_ event: ShortcutEvent) -> ShortcutAction {
-        if isShortcutDownEvent(event) {
-            guard !isShortcutDown, !event.isRepeat else { return .none }
-            isShortcutDown = true
-            isActive = true
-            return .start
-        }
-
         if isShortcutUpEvent(event) {
             guard isShortcutDown else { return .none }
             isShortcutDown = false
@@ -166,10 +159,22 @@ struct ShortcutInterpreter {
             return .finish
         }
 
+        if isShortcutDownEvent(event) {
+            guard !isShortcutDown, !event.isRepeat else { return .none }
+            isShortcutDown = true
+            isActive = true
+            return .start
+        }
+
         return .none
     }
 
     private mutating func interpretToggle(_ event: ShortcutEvent) -> ShortcutAction {
+        if isShortcutUpEvent(event) {
+            isShortcutDown = false
+            return .none
+        }
+
         if isShortcutDownEvent(event) {
             guard !isShortcutDown, !event.isRepeat else { return .none }
             isShortcutDown = true
@@ -180,10 +185,6 @@ struct ShortcutInterpreter {
                 isActive = true
                 return .start
             }
-        }
-
-        if isShortcutUpEvent(event) {
-            isShortcutDown = false
         }
 
         return .none
@@ -209,9 +210,7 @@ struct ShortcutInterpreter {
     private func isShortcutUpEvent(_ event: ShortcutEvent) -> Bool {
         switch settings.option {
         case .rightOption:
-            return event.type == .flagsChanged
-                && event.keyCode == KeyCode.rightOption
-                && !event.modifiers.contains(.option)
+            return event.type == .flagsChanged && event.keyCode == KeyCode.rightOption && isShortcutDown
         case .controlSpace:
             return event.type == .keyUp && event.keyCode == KeyCode.space
         case .commandShiftSpace:
@@ -226,16 +225,24 @@ enum ShortcutStartResult {
 }
 
 final class ShortcutManager {
+    typealias EventTapFactory = (CGEventMask, @escaping CGEventTapCallBack, UnsafeMutableRawPointer?) -> CFMachPort?
+
     var onStart: (() -> Void)?
     var onFinish: (() -> Void)?
     var onCancel: (() -> Void)?
+    private(set) var isRunning = false
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var interpreter: ShortcutInterpreter
+    private let eventTapFactory: EventTapFactory
 
-    init(settings: ShortcutSettings = .default) {
+    init(
+        settings: ShortcutSettings = .default,
+        eventTapFactory: @escaping EventTapFactory = ShortcutManager.createEventTap
+    ) {
         interpreter = ShortcutInterpreter(settings: settings)
+        self.eventTapFactory = eventTapFactory
     }
 
     func update(settings: ShortcutSettings) {
@@ -243,6 +250,10 @@ final class ShortcutManager {
     }
 
     func start() -> ShortcutStartResult {
+        guard !isRunning else {
+            return .started
+        }
+
         let mask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
@@ -252,14 +263,7 @@ final class ShortcutManager {
             return manager.handle(proxy: proxy, type: type, event: event)
         }
 
-        eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: CGEventMask(mask),
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        )
+        eventTap = eventTapFactory(CGEventMask(mask), callback, Unmanaged.passUnretained(self).toOpaque())
 
         guard let eventTap else {
             return .inputMonitoringMissing
@@ -268,6 +272,7 @@ final class ShortcutManager {
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        isRunning = true
         return .started
     }
 
@@ -280,6 +285,22 @@ final class ShortcutManager {
         }
         runLoopSource = nil
         eventTap = nil
+        isRunning = false
+    }
+
+    private static func createEventTap(
+        eventsOfInterest: CGEventMask,
+        callback: @escaping CGEventTapCallBack,
+        userInfo: UnsafeMutableRawPointer?
+    ) -> CFMachPort? {
+        CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventsOfInterest,
+            callback: callback,
+            userInfo: userInfo
+        )
     }
 
     private func handle(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {

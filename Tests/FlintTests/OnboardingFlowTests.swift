@@ -135,6 +135,25 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertFalse(flow.isPromptingForPermissions)
     }
 
+    func testPermissionPromptNotifiesListenerRecoveryAfterRequestCompletes() async {
+        var didRequestPermissions = false
+        var didNotifyRecovery = false
+        let flow = makeFlow(
+            snapshotProvider: { PermissionSnapshot(statuses: []) },
+            permissionPromptAction: {
+                didRequestPermissions = true
+            },
+            onPermissionsPromptCompleted: {
+                XCTAssertTrue(didRequestPermissions)
+                didNotifyRecovery = true
+            }
+        )
+
+        await flow.promptForPermissions()
+
+        XCTAssertTrue(didNotifyRecovery)
+    }
+
     func testCannotAdvancePastPermissionsUntilAllPermissionsAreReady() {
         var snapshot = missingPermissionSnapshot()
         let flow = makeFlow(
@@ -185,6 +204,7 @@ final class OnboardingFlowTests: XCTestCase {
         snapshot: PermissionSnapshot = PermissionSnapshot(statuses: []),
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
         modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil
     ) -> OnboardingFlow {
@@ -193,6 +213,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionPromptAction: {},
             modelInstalledProvider: modelInstalledProvider,
             modelDownloadAction: modelDownloadAction,
+            onPermissionsPromptCompleted: onPermissionsPromptCompleted,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete
         )
@@ -203,6 +224,7 @@ final class OnboardingFlowTests: XCTestCase {
         permissionPromptAction: @escaping () async -> Void,
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
         modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil
     ) -> OnboardingFlow {
@@ -212,6 +234,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionPromptAction: permissionPromptAction,
             modelInstalledProvider: modelInstalledProvider,
             modelDownloadAction: modelDownloadAction,
+            onPermissionsPromptCompleted: onPermissionsPromptCompleted,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete
         )

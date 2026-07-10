@@ -17,7 +17,7 @@ enum OverlayState: Equatable {
         case .listening:
             return "LISTENING"
         case .processingLocally:
-            return "PROCESSING LOCALLY"
+            return "PROCESSING"
         case .inserting:
             return "INSERTING"
         case .copiedToClipboard:
@@ -36,7 +36,7 @@ enum OverlayState: Equatable {
         case .listening:
             return settings.listeningHint
         case .processingLocally:
-            return "Local transcription"
+            return "Transcribing"
         case .inserting:
             return "Pasting at cursor"
         case .copiedToClipboard:
@@ -66,7 +66,7 @@ final class OverlayWindow {
     init() {
         let view = OverlayView(model: model)
         window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 92),
+            contentRect: NSRect(origin: .zero, size: OverlayLayout.size(for: .ready)),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -82,6 +82,7 @@ final class OverlayWindow {
 
     func show(state: OverlayState) {
         model.state = state
+        window.setContentSize(OverlayLayout.size(for: state))
         let visibilityPlan = autoHideCoordinator.show(state)
         positionWindow()
         window.orderFrontRegardless()
@@ -118,6 +119,19 @@ final class OverlayWindow {
             y: frame.minY + 56
         )
         window.setFrameOrigin(origin)
+    }
+}
+
+enum OverlayLayout {
+    static let compactSize = CGSize(width: 230, height: 60)
+    static let errorSize = CGSize(width: 230, height: 82)
+    static let meterBarCount = 18
+
+    static func size(for state: OverlayState) -> CGSize {
+        if case .error = state {
+            return errorSize
+        }
+        return compactSize
     }
 }
 
@@ -170,7 +184,7 @@ struct OverlayPresentation: Equatable {
         case .listening:
             let clampedLevel = min(max(audioLevel, 0), 1)
             guard clampedLevel >= 0.03 else { return 0 }
-            return max(1, Int((clampedLevel * 18).rounded(.up)))
+            return max(1, Int((clampedLevel * Float(OverlayLayout.meterBarCount)).rounded(.up)))
         case .processingLocally, .inserting:
             return 14
         case .error:
@@ -206,7 +220,7 @@ struct OverlayView: View {
     private let red = Color(red: 0.9, green: 0.18, blue: 0.16)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 Circle()
                     .fill(accentColor)
@@ -220,18 +234,23 @@ struct OverlayView: View {
                     .foregroundStyle(Color.secondary)
             }
 
-            levelMeter
-
-            Text(model.presentation.hint)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(Color.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            if case .error = model.state {
+                Text(model.presentation.hint)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(Color.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                levelMeter
+            }
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 12)
-        .padding(.vertical, 10)
-        .frame(width: 300, height: 92)
+        .padding(.leading, 10)
+        .padding(.trailing, 10)
+        .padding(.vertical, 9)
+        .frame(
+            width: OverlayLayout.size(for: model.state).width,
+            height: OverlayLayout.size(for: model.state).height
+        )
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay(alignment: .leading) {
             Rectangle()
@@ -257,12 +276,12 @@ struct OverlayView: View {
 
     private var levelMeter: some View {
         HStack(spacing: 3) {
-            ForEach(0..<18, id: \.self) { index in
+            ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
                 Rectangle()
                     .fill(index < model.presentation.filledBars ? orange : Color(nsColor: .separatorColor))
-                    .frame(width: 10, height: 9)
+                    .frame(width: 8, height: 8)
             }
         }
-        .frame(height: 10)
+        .frame(height: 8)
     }
 }

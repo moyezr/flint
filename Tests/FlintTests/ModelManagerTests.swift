@@ -85,6 +85,23 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(metadata.installedFolder?.lastPathComponent, "downloaded-tiny")
     }
 
+    func testDownloadModelReturnsInstalledMetadataWithoutInvokingDownloaderAgain() async throws {
+        var requestedVariants: [String] = []
+        let manager = makeManager { variant, downloadBase, _ in
+            requestedVariants.append(variant)
+            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return folder
+        }
+
+        let firstMetadata = try await manager.downloadModel(for: .balanced)
+        let secondMetadata = try await manager.downloadModel(for: .balanced)
+
+        XCTAssertEqual(requestedVariants, ["base"])
+        XCTAssertEqual(secondMetadata, firstMetadata)
+        XCTAssertTrue(secondMetadata.isInstalled)
+    }
+
     func testDeleteRefusesSavedPathOutsideCacheRoot() async throws {
         let outsideRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("flint-outside-model-\(UUID().uuidString)", isDirectory: true)
