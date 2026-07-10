@@ -42,6 +42,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var recordingCleanupMode: CleanupMode?
     private var audioMeterTimer: Timer?
     private var focusedStartInsertionTarget: TextInsertionTarget?
+    private var preparingModelTier: ModelTier?
+    private var modelPreparationError: String?
+    private var processingTimeoutTask: Task<Void, Never>?
+    private var activeProcessingID: UUID?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
             appSettingsStore.saveCleanupMode(cleanupMode)
@@ -121,6 +125,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
         ensureShortcutMonitoringStarted()
         updatePermissionMenuItem()
+        prepareSelectedModelIfInstalled()
         if !settings.hasCompletedOnboarding {
             showOnboarding()
         }
@@ -128,6 +133,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     func stop() {
         stopAudioMetering()
+        processingTimeoutTask?.cancel()
+        processingTimeoutTask = nil
+        activeProcessingID = nil
         shortcutManager.stop()
     }
 
@@ -275,7 +283,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func updateModelMenuUI() {
         let selectedTier = modelManager.selectedTier()
         let metadata = modelManager.metadata(for: selectedTier)
-        modelMenuItem?.title = "Model: \(selectedTier.displayName)"
+        modelMenuItem?.title = modelMenuTitle(for: selectedTier)
         for item in modelSelectionMenuItems {
             guard let rawValue = item.representedObject as? String,
                   let tier = ModelTier(rawValue: rawValue) else {
@@ -296,6 +304,16 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func modelSelectionTitle(for metadata: ModelMetadata) -> String {
         let installedSuffix = metadata.isInstalled ? "installed" : "not installed"
         return "\(metadata.displayName) - \(metadata.sizeLabel) - \(metadata.hardwareLabel) - \(installedSuffix)"
+    }
+
+    private func modelMenuTitle(for tier: ModelTier) -> String {
+        if preparingModelTier == tier {
+            return "Model: \(tier.displayName) (Preparing...)"
+        }
+        if modelPreparationError != nil {
+            return "Model: \(tier.displayName) (Unavailable)"
+        }
+        return "Model: \(tier.displayName)"
     }
 
     private func updatePermissionMenuItem() {
@@ -357,6 +375,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
         appSettingsStore.saveSelectedModelTier(selectedTier)
+        prepareSelectedModelIfInstalled()
         updateModelMenuUI()
     }
 
@@ -365,6 +384,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         Task { @MainActor in
             do {
                 _ = try await modelManager.downloadSelectedModel()
+                try await transcriptionEngine.prepareSelectedModel()
                 updateModelMenuUI()
             } catch {
                 updateModelMenuUI()
@@ -397,6 +417,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             },
             onModelMetadataChanged: { [weak self] in
                 self?.updateModelMenuUI()
+            },
+            modelPreparationAction: { [transcriptionEngine] _ in
+                try await transcriptionEngine.prepareSelectedModel()
             },
             onShowAppModes: { [weak self] in
                 self?.showAppModeSettings()
@@ -487,6 +510,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             settingsStore: appSettingsStore,
             permissionManager: permissionManager,
             modelManager: modelManager,
+            modelPreparationAction: { [transcriptionEngine] _ in
+                try await transcriptionEngine.prepareSelectedModel()
+            },
             onTestDictation: { [weak self] in
                 self?.toggleDictation()
             },
@@ -556,6 +582,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         applyOnboardingSettings(settings)
         updatePermissionMenuItem()
         ensureShortcutMonitoringStarted()
+        prepareSelectedModelIfInstalled()
         onboardingWindow?.close()
         onboardingWindow = nil
     }
@@ -563,6 +590,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func applyOnboardingSettings(_ settings: AppSettings) {
         shortcutSettings = settings.shortcutSettings
         appAwareModesEnabled = settings.appAwareModesEnabled
+        prepareSelectedModelIfInstalled()
         updateModelMenuUI()
     }
 
@@ -571,6 +599,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         shortcutSettings = settings.shortcutSettings
         insertionTargetBehavior = settings.insertionTargetBehavior
         appAwareModesEnabled = settings.appAwareModesEnabled
+        prepareSelectedModelIfInstalled()
         updateModelMenuUI()
     }
 
@@ -582,6 +611,74 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         appAwareModesEnabled = settings.appAwareModesEnabled
         updateModelMenuUI()
         updatePermissionMenuItem()
+    }
+
+    private func prepareSelectedModelIfInstalled() {
+        let tier = modelManager.selectedTier()
+        guard modelManager.metadata(for: tier).isInstalled,
+              preparingModelTier != tier else {
+            return
+        }
+
+        preparingModelTier = tier
+        modelPreparationError = nil
+        updateModelMenuUI()
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                try await transcriptionEngine.prepareSelectedModel()
+                guard modelManager.selectedTier() == tier else { return }
+                preparingModelTier = nil
+                updateModelMenuUI()
+            } catch {
+                guard modelManager.selectedTier() == tier else { return }
+                preparingModelTier = nil
+                modelPreparationError = error.localizedDescription
+                updateModelMenuUI()
+                NSLog("Flint model preparation failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func selectedModelReadinessMessage() -> String? {
+        let tier = modelManager.selectedTier()
+        guard modelManager.metadata(for: tier).isInstalled else {
+            return "Download the selected model before dictation."
+        }
+        if preparingModelTier == tier {
+            return "Model is preparing. Try dictation again shortly."
+        }
+        if modelPreparationError != nil {
+            return "Selected model could not be prepared. Restart Flint or download it again."
+        }
+        return nil
+    }
+
+    private func beginProcessingTimeout(for processingID: UUID) {
+        processingTimeoutTask?.cancel()
+        activeProcessingID = processingID
+        processingTimeoutTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(90))
+            } catch {
+                return
+            }
+
+            guard let self, activeProcessingID == processingID else { return }
+            activeProcessingID = nil
+            processingTimeoutTask = nil
+            overlay.show(state: .error("Transcription timed out. Try again or choose a smaller model."))
+            NSSound.beep()
+        }
+    }
+
+    private func endProcessingTimeout(for processingID: UUID) {
+        guard activeProcessingID == processingID else { return }
+        processingTimeoutTask?.cancel()
+        processingTimeoutTask = nil
+        activeProcessingID = nil
     }
 
     private func ensureShortcutMonitoringStarted() {
@@ -601,6 +698,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func startDictation() async {
         guard !isRecording else { return }
+
+        if let modelReadinessMessage = selectedModelReadinessMessage() {
+            overlay.show(state: .error(modelReadinessMessage))
+            NSSound.beep()
+            return
+        }
 
         do {
             didCancelCurrentRecording = false
@@ -679,10 +782,15 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         do {
             overlay.show(state: .processingLocally)
+            let processingID = UUID()
+            beginProcessingTimeout(for: processingID)
+            defer { endProcessingTimeout(for: processingID) }
+
             let appliedSettings = appSettingsStore.load()
             let appliedCleanupMode = effectiveMode ?? resolvedCleanupMode(for: activeApp, settings: appliedSettings)
             let appliedModelName = modelManager.selectedConfigurationDescriptor().modelName
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
+            guard activeProcessingID == processingID else { return }
             let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
             let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: appliedCleanupMode)
 

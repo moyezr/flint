@@ -83,11 +83,13 @@ final class SettingsModelTests: XCTestCase {
 
     func testModelSelectionAndFakeDownloadDeleteLifecycle() async throws {
         var requestedVariants: [String] = []
+        var preparedTiers: [ModelTier] = []
         var receivedSettings: [AppSettings] = []
         var modelMetadataChangeCount = 0
         let model = makeModel(
             onSettingsChanged: { receivedSettings.append($0) },
             onModelMetadataChanged: { modelMetadataChangeCount += 1 },
+            modelPreparationAction: { tier in preparedTiers.append(tier) },
             downloader: { variant, downloadBase, _ in
                 requestedVariants.append(variant)
                 let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
@@ -106,6 +108,7 @@ final class SettingsModelTests: XCTestCase {
         await model.downloadSelectedModel()
 
         XCTAssertEqual(requestedVariants, ["tiny"])
+        XCTAssertEqual(preparedTiers, [.fast])
         let downloaded = try XCTUnwrap(model.metadata(for: .fast))
         XCTAssertTrue(downloaded.isInstalled)
         XCTAssertEqual(downloaded.installedFolder?.lastPathComponent, "downloaded-tiny")
@@ -161,6 +164,7 @@ final class SettingsModelTests: XCTestCase {
     private func makeModel(
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
+        modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {},
         downloader: @escaping ModelManager.Downloader = { _, _, _ in
@@ -178,6 +182,7 @@ final class SettingsModelTests: XCTestCase {
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
             onSettingsChanged: onSettingsChanged,
             onModelMetadataChanged: onModelMetadataChanged,
+            modelPreparationAction: modelPreparationAction,
             onShowAppModes: onShowAppModes,
             onShowPrivacy: onShowPrivacy
         )

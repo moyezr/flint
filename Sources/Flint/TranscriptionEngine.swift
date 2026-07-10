@@ -65,11 +65,16 @@ struct TranscriptionEngine {
         return transcript
     }
 
+    func prepareSelectedModel() async throws {
+        let descriptor = modelManager.selectedConfigurationDescriptor()
+        _ = try await TranscriptionPipeline.shared.whisperKit(for: descriptor)
+    }
+
     static func whisperKitConfigDescriptor(for descriptor: ModelConfigurationDescriptor) -> WhisperKitConfigDescriptor {
         if let modelFolder = descriptor.modelFolder {
             return WhisperKitConfigDescriptor(
                 model: nil,
-                downloadBase: nil,
+                downloadBase: descriptor.downloadBase,
                 modelFolder: modelFolder.path
             )
         }
@@ -92,7 +97,6 @@ private actor TranscriptionPipeline {
     static let shared = TranscriptionPipeline()
 
     private var cachedWhisperKits: [ModelConfigurationDescriptor: WhisperKit] = [:]
-
     func whisperKit(for descriptor: ModelConfigurationDescriptor) async throws -> WhisperKit {
         if let cachedWhisperKit = cachedWhisperKits[descriptor] {
             return cachedWhisperKit

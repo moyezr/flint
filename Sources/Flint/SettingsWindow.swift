@@ -12,6 +12,7 @@ final class SettingsWindowController {
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
+        modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {}
     ) {
@@ -21,6 +22,7 @@ final class SettingsWindowController {
             dictionaryEngine: dictionaryEngine,
             onSettingsChanged: onSettingsChanged,
             onModelMetadataChanged: onModelMetadataChanged,
+            modelPreparationAction: modelPreparationAction,
             onShowAppModes: onShowAppModes,
             onShowPrivacy: onShowPrivacy
         )
@@ -63,6 +65,7 @@ final class SettingsModel: ObservableObject {
     private let dictionaryEngine: DictionaryEngine
     private let onSettingsChanged: (AppSettings) -> Void
     private let onModelMetadataChanged: () -> Void
+    private let modelPreparationAction: (ModelTier) async throws -> Void
     private let onShowAppModes: () -> Void
     private let onShowPrivacy: () -> Void
 
@@ -72,6 +75,7 @@ final class SettingsModel: ObservableObject {
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
+        modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {}
     ) {
@@ -80,6 +84,7 @@ final class SettingsModel: ObservableObject {
         self.dictionaryEngine = dictionaryEngine
         self.onSettingsChanged = onSettingsChanged
         self.onModelMetadataChanged = onModelMetadataChanged
+        self.modelPreparationAction = modelPreparationAction
         self.onShowAppModes = onShowAppModes
         self.onShowPrivacy = onShowPrivacy
         settings = settingsStore.load()
@@ -138,6 +143,8 @@ final class SettingsModel: ObservableObject {
         errorMessage = ""
         do {
             _ = try await modelManager.downloadModel(for: tier)
+            statusMessage = "Preparing \(tier.displayName)..."
+            try await modelPreparationAction(tier)
             refreshModelMetadata()
             onModelMetadataChanged()
             statusMessage = "\(tier.displayName) model is ready."

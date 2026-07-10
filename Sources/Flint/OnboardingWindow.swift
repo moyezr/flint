@@ -10,6 +10,7 @@ final class OnboardingWindowController {
         settingsStore: AppSettingsStore,
         permissionManager: PermissionManager,
         modelManager: ModelManager,
+        modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onTestDictation: @escaping () -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void,
         onPermissionsChanged: @escaping () -> Void,
@@ -20,7 +21,10 @@ final class OnboardingWindowController {
             permissionSnapshotProvider: { permissionManager.snapshot() },
             permissionPromptAction: { await permissionManager.requestMissingPermissions() },
             modelInstalledProvider: { tier in modelManager.metadata(for: tier).isInstalled },
-            modelDownloadAction: { tier in _ = try await modelManager.downloadModel(for: tier) },
+            modelDownloadAction: { tier in
+                _ = try await modelManager.downloadModel(for: tier)
+                try await modelPreparationAction(tier)
+            },
             onPermissionsPromptCompleted: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete

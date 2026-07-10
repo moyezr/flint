@@ -190,7 +190,7 @@ final class ModelManagerTests: XCTestCase {
         let config = TranscriptionEngine.whisperKitConfigDescriptor(for: descriptor)
 
         XCTAssertNil(config.model)
-        XCTAssertNil(config.downloadBase)
+        XCTAssertEqual(config.downloadBase, tempRoot)
         XCTAssertEqual(config.modelFolder, metadata.installedFolder?.path)
     }
 
