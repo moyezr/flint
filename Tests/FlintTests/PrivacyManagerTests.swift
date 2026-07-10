@@ -40,6 +40,7 @@ final class PrivacyManagerTests: XCTestCase {
     func testSnapshotShowsPlainPrivacyRowsPathsAndHistoryStatus() throws {
         var settings = AppSettings.default
         settings.storeHistory = true
+        settings.appAwareModesEnabled = true
         AppSettingsStore(defaults: defaults).save(settings)
         DictionaryEngine(userDefaults: defaults).addReplacement(
             heardPhrase: "live kit",
@@ -52,11 +53,17 @@ final class PrivacyManagerTests: XCTestCase {
         ]))
         let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
         _ = try historyStore.insert(makeHistoryEntry())
+        _ = try AppModeRuleStore(databaseURL: historyDatabaseURL).create(NewAppModeRule(
+            appBundleID: "com.apple.mail",
+            mode: .email
+        ))
 
         let snapshot = manager.snapshot()
 
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "transcription" }?.value, "Local")
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "history" }?.value, "On")
+        XCTAssertEqual(snapshot.statusRows.first { $0.id == "app-modes" }?.value, "On")
+        XCTAssertTrue(snapshot.statusRows.first { $0.id == "app-modes" }?.detail.contains("1 enabled bundle-ID") == true)
         XCTAssertTrue(snapshot.statusRows.first { $0.id == "history" }?.detail.contains("1 entries") == true)
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "telemetry" }?.detail, "Telemetry is not implemented.")
         XCTAssertEqual(snapshot.permissionStatuses.map(\.kind), [.microphone, .accessibility, .inputMonitoring])
@@ -65,6 +72,8 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "model-cache" }?.path, tempRoot.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.path, historyDatabaseURL.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.detail, "1 history entries. Audio files and blobs are never stored.")
+        XCTAssertEqual(snapshot.dataLocations.first { $0.id == "app-mode-rules" }?.path, historyDatabaseURL.path)
+        XCTAssertTrue(snapshot.dataLocations.first { $0.id == "app-mode-rules" }?.detail.contains("1 app-specific") == true)
         XCTAssertEqual(
             snapshot.dataLocations.first { $0.id == "vocabulary" }?.detail,
             "1 custom entries stored under UserDefaults key dictionary.customReplacements."
@@ -94,6 +103,10 @@ final class PrivacyManagerTests: XCTestCase {
         let manager = makePrivacyManager(modelManager: modelManager)
         let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
         _ = try historyStore.insert(makeHistoryEntry())
+        _ = try AppModeRuleStore(databaseURL: historyDatabaseURL).create(NewAppModeRule(
+            appBundleID: "com.apple.mail",
+            mode: .email
+        ))
         let walURL = URL(fileURLWithPath: historyDatabaseURL.path + "-wal")
         let shmURL = URL(fileURLWithPath: historyDatabaseURL.path + "-shm")
         FileManager.default.createFile(atPath: walURL.path, contents: Data([4]))
@@ -105,6 +118,7 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertEqual(result.customReplacementCount, 1)
         XCTAssertEqual(result.installedModelCount, 1)
         XCTAssertEqual(result.historyEntryCount, 1)
+        XCTAssertEqual(result.appModeRuleCount, 1)
         XCTAssertEqual(AppSettingsStore(defaults: defaults).load(), .default)
         XCTAssertNil(defaults.object(forKey: "shortcutOption"))
         XCTAssertNil(defaults.object(forKey: "cleanupMode"))
@@ -231,6 +245,7 @@ final class PrivacyManagerTests: XCTestCase {
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
             modelManager: modelManager ?? makeModelManager(),
             historyStore: try! HistoryStore(databaseURL: historyDatabaseURL),
+            appModeRuleStore: AppModeRuleStore(databaseURL: historyDatabaseURL),
             licenseManager: licenseManager ?? self.licenseManager,
             permissionSnapshotProvider: { permissionSnapshot },
             settingsLocation: "Test UserDefaults \(suiteName!)"

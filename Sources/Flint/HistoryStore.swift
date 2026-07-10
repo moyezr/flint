@@ -92,7 +92,7 @@ struct HistoryStore {
     let databaseURL: URL
 
     private let fileManager: FileManager
-    private static let schemaVersion: Int32 = 1
+    private static let schemaVersion: Int32 = 2
 
     init(
         databaseURL: URL = HistoryStore.defaultDatabaseURL(),
@@ -258,6 +258,32 @@ struct HistoryStore {
             """
             CREATE INDEX IF NOT EXISTS idx_dictation_history_created_at
             ON dictation_history(created_at DESC);
+            """,
+            db: db
+        )
+        try execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_mode_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_bundle_id TEXT,
+                url_pattern TEXT,
+                mode TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CHECK (
+                    (app_bundle_id IS NOT NULL AND length(trim(app_bundle_id)) > 0)
+                    OR (url_pattern IS NOT NULL AND length(trim(url_pattern)) > 0)
+                )
+            );
+            """,
+            db: db
+        )
+        try execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_app_mode_rules_enabled_bundle_id
+            ON app_mode_rules(app_bundle_id, created_at, id)
+            WHERE enabled = 1 AND app_bundle_id IS NOT NULL;
             """,
             db: db
         )

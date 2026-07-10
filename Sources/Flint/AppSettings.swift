@@ -11,6 +11,7 @@ struct AppSettings: Equatable {
     var playStartSound: Bool
     var playStopSound: Bool
     var storeHistory: Bool
+    var appAwareModesEnabled: Bool
     var autoInsert: Bool
     var hasCompletedOnboarding: Bool
 
@@ -25,6 +26,7 @@ struct AppSettings: Equatable {
         playStartSound: false,
         playStopSound: false,
         storeHistory: false,
+        appAwareModesEnabled: false,
         autoInsert: true,
         hasCompletedOnboarding: false
     )
@@ -45,6 +47,7 @@ struct AppSettingsStore {
         static let playStartSound = "playStartSound"
         static let playStopSound = "playStopSound"
         static let storeHistory = "storeHistory"
+        static let appAwareModesEnabled = "appAwareModesEnabled"
         static let autoInsert = "autoInsert"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
 
@@ -60,6 +63,7 @@ struct AppSettingsStore {
             playStartSound,
             playStopSound,
             storeHistory,
+            appAwareModesEnabled,
             autoInsert,
             hasCompletedOnboarding
         ]
@@ -86,6 +90,10 @@ struct AppSettingsStore {
             playStartSound: bool(forKey: Key.playStartSound, defaultValue: AppSettings.default.playStartSound),
             playStopSound: bool(forKey: Key.playStopSound, defaultValue: AppSettings.default.playStopSound),
             storeHistory: bool(forKey: Key.storeHistory, defaultValue: AppSettings.default.storeHistory),
+            appAwareModesEnabled: bool(
+                forKey: Key.appAwareModesEnabled,
+                defaultValue: AppSettings.default.appAwareModesEnabled
+            ),
             autoInsert: bool(forKey: Key.autoInsert, defaultValue: AppSettings.default.autoInsert),
             hasCompletedOnboarding: bool(
                 forKey: Key.hasCompletedOnboarding,
@@ -105,6 +113,7 @@ struct AppSettingsStore {
         defaults.set(settings.playStartSound, forKey: Key.playStartSound)
         defaults.set(settings.playStopSound, forKey: Key.playStopSound)
         defaults.set(settings.storeHistory, forKey: Key.storeHistory)
+        defaults.set(settings.appAwareModesEnabled, forKey: Key.appAwareModesEnabled)
         defaults.set(settings.autoInsert, forKey: Key.autoInsert)
         defaults.set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
     }
@@ -145,6 +154,10 @@ struct AppSettingsStore {
 
     func saveStoreHistory(_ storeHistory: Bool) {
         defaults.set(storeHistory, forKey: Key.storeHistory)
+    }
+
+    func saveAppAwareModesEnabled(_ appAwareModesEnabled: Bool) {
+        defaults.set(appAwareModesEnabled, forKey: Key.appAwareModesEnabled)
     }
 
     private func bool(forKey key: String, defaultValue: Bool) -> Bool {

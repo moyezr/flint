@@ -30,6 +30,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let appSettingsStore = AppSettingsStore()
     private let updateManager = UpdateManager()
     private let historyStore = try? HistoryStore()
+    private let appModeRuleStore = AppModeRuleStore()
+    private let appModeResolver = AppModeResolver()
     private let activeAppDetector = ActiveAppDetector()
 
     private var onboardingWindow: OnboardingWindowController?
@@ -37,6 +39,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var didCancelCurrentRecording = false
     private var recordingStartedAt: Date?
     private var recordingStartActiveApp: ActiveAppInfo?
+    private var recordingCleanupMode: CleanupMode?
     private var audioMeterTimer: Timer?
     private var focusedStartInsertionTarget: TextInsertionTarget?
     private var cleanupMode: CleanupMode = .clean {
@@ -58,6 +61,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             updateInsertionTargetBehaviorUI()
         }
     }
+    private var appAwareModesEnabled = false {
+        didSet {
+            appSettingsStore.saveAppAwareModesEnabled(appAwareModesEnabled)
+            updateAppAwareModesUI()
+        }
+    }
     private weak var cleanupModeMenuItem: NSMenuItem?
     private var cleanupModeSelectionMenuItems: [NSMenuItem] = []
     private weak var shortcutMenuItem: NSMenuItem?
@@ -71,18 +80,22 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var downloadModelMenuItem: NSMenuItem?
     private weak var deleteModelMenuItem: NSMenuItem?
     private weak var permissionMenuItem: NSMenuItem?
+    private weak var appAwareModesMenuItem: NSMenuItem?
     private var privacyWindow: PrivacyWindowController?
     private var licenseWindow: LicenseWindowController?
+    private var appModeSettingsWindow: AppModeSettingsWindowController?
 
     func start() {
         let settings = appSettingsStore.load()
         cleanupMode = settings.cleanupMode
         shortcutSettings = settings.shortcutSettings
         insertionTargetBehavior = settings.insertionTargetBehavior
+        appAwareModesEnabled = settings.appAwareModesEnabled
         configureMenu()
         updateCleanupModeUI()
         updateShortcutSettingsUI()
         updateInsertionTargetBehaviorUI()
+        updateAppAwareModesUI()
         updateModelMenuUI()
         overlay.show(state: .ready)
 
@@ -138,6 +151,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         modeItem.submenu = modeSubmenu
         menu.addItem(modeItem)
         cleanupModeMenuItem = modeItem
+        let appAwareModesItem = NSMenuItem(title: "", action: #selector(toggleAppAwareModes), keyEquivalent: "")
+        appAwareModesItem.target = self
+        menu.addItem(appAwareModesItem)
+        appAwareModesMenuItem = appAwareModesItem
+        menu.addItem(NSMenuItem(title: "Configure App Modes...", action: #selector(showAppModeSettings), keyEquivalent: ""))
         let shortcutItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         let shortcutSubmenu = NSMenu()
         shortcutSelectionMenuItems = ShortcutOption.allCases.map { option in
@@ -250,6 +268,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
     }
 
+    private func updateAppAwareModesUI() {
+        appAwareModesMenuItem?.title = "App-Aware Modes: \(appAwareModesEnabled ? "On" : "Off")"
+        appAwareModesMenuItem?.state = appAwareModesEnabled ? .on : .off
+    }
+
     private func updateModelMenuUI() {
         let selectedTier = modelManager.selectedTier()
         let metadata = modelManager.metadata(for: selectedTier)
@@ -297,6 +320,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
         cleanupMode = selectedMode
+    }
+
+    @objc private func toggleAppAwareModes() {
+        appAwareModesEnabled.toggle()
     }
 
     @objc private func selectShortcut(_ sender: NSMenuItem) {
@@ -356,6 +383,23 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     @objc private func showSettings() {
         showNotBuiltYet("Settings")
+    }
+
+    @objc private func showAppModeSettings() {
+        if let appModeSettingsWindow {
+            appModeSettingsWindow.show()
+            return
+        }
+
+        let controller = AppModeSettingsWindowController(
+            settingsStore: appSettingsStore,
+            ruleStore: appModeRuleStore,
+            onSettingsChanged: { [weak self] settings in
+                self?.appAwareModesEnabled = settings.appAwareModesEnabled
+            }
+        )
+        appModeSettingsWindow = controller
+        controller.show()
     }
 
     @objc private func showPermissions() {
@@ -488,6 +532,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func applyOnboardingSettings(_ settings: AppSettings) {
         shortcutSettings = settings.shortcutSettings
+        appAwareModesEnabled = settings.appAwareModesEnabled
         updateModelMenuUI()
     }
 
@@ -496,6 +541,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         cleanupMode = settings.cleanupMode
         shortcutSettings = settings.shortcutSettings
         insertionTargetBehavior = settings.insertionTargetBehavior
+        appAwareModesEnabled = settings.appAwareModesEnabled
         updateModelMenuUI()
         updatePermissionMenuItem()
     }
@@ -507,9 +553,16 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             didCancelCurrentRecording = false
             recordingStartedAt = Date()
             recordingStartActiveApp = activeAppDetector.detect()
+            recordingCleanupMode = resolvedCleanupMode(
+                for: recordingStartActiveApp,
+                settings: appSettingsStore.load()
+            )
             focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
             overlay.updateAudioLevel(0)
+            if let recordingCleanupMode {
+                overlay.setModeLabel(recordingCleanupMode.displayName.uppercased())
+            }
             overlay.show(state: .listening)
             try await recorder.start()
             guard isRecording else {
@@ -525,8 +578,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             isRecording = false
             recordingStartedAt = nil
             recordingStartActiveApp = nil
+            recordingCleanupMode = nil
             focusedStartInsertionTarget = nil
             stopAudioMetering()
+            updateCleanupModeUI()
             if let recorderError = error as? AudioRecorder.RecorderError,
                recorderError == .microphonePermissionDenied {
                 overlay.show(state: .error(PermissionStatus(kind: .microphone, readiness: .denied).failureMessage))
@@ -545,10 +600,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         stopAudioMetering()
         let startedAt = recordingStartedAt
         let activeApp = recordingStartActiveApp
+        let effectiveMode = recordingCleanupMode
         defer {
             focusedStartInsertionTarget = nil
             recordingStartedAt = nil
             recordingStartActiveApp = nil
+            recordingCleanupMode = nil
+            updateCleanupModeUI()
         }
 
         let audioURL: URL
@@ -568,8 +626,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         do {
             overlay.show(state: .processingLocally)
-            let appliedCleanupMode = cleanupMode
             let appliedSettings = appSettingsStore.load()
+            let appliedCleanupMode = effectiveMode ?? resolvedCleanupMode(for: activeApp, settings: appliedSettings)
             let appliedModelName = modelManager.selectedConfigurationDescriptor().modelName
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
             let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
@@ -616,11 +674,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         isRecording = false
         recordingStartedAt = nil
         recordingStartActiveApp = nil
+        recordingCleanupMode = nil
         stopAudioMetering()
         focusedStartInsertionTarget = nil
         if let audioURL = try? recorder.stop() {
             try? FileManager.default.removeItem(at: audioURL)
         }
+        updateCleanupModeUI()
         overlay.show(state: .cancelled)
     }
 
@@ -684,6 +744,27 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             )
         } catch {
             NSLog("Flint history write failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func resolvedCleanupMode(for activeApp: ActiveAppInfo?, settings: AppSettings) -> CleanupMode {
+        guard settings.appAwareModesEnabled else {
+            return settings.cleanupMode
+        }
+
+        do {
+            let rules = try appModeRuleStore.list(includeDisabled: false)
+            return appModeResolver.resolve(
+                context: AppModeResolutionContext(
+                    appAwareModesEnabled: true,
+                    manualMode: settings.cleanupMode,
+                    activeAppBundleID: activeApp?.bundleIdentifier
+                ),
+                rules: rules
+            )
+        } catch {
+            NSLog("Flint app mode rule lookup failed: \(error.localizedDescription)")
+            return settings.cleanupMode
         }
     }
 

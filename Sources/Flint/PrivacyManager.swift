@@ -25,6 +25,7 @@ struct PrivacyDeletionResult: Equatable {
     let customReplacementCount: Int
     let installedModelCount: Int
     let historyEntryCount: Int
+    let appModeRuleCount: Int
 }
 
 struct PrivacyManager {
@@ -43,6 +44,7 @@ struct PrivacyManager {
     private let dictionaryEngine: DictionaryEngine
     private let modelManager: ModelManager
     private let historyStore: HistoryStore?
+    private let appModeRuleStore: AppModeRuleStore?
     private let licenseManager: LicenseManager
     private let permissionSnapshotProvider: () -> PermissionSnapshot
     private let settingsLocation: String
@@ -52,6 +54,7 @@ struct PrivacyManager {
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         modelManager: ModelManager = ModelManager(),
         historyStore: HistoryStore? = try? HistoryStore(),
+        appModeRuleStore: AppModeRuleStore? = AppModeRuleStore(),
         licenseManager: LicenseManager = LicenseManager(),
         permissionSnapshotProvider: @escaping () -> PermissionSnapshot = { PermissionManager().snapshot() },
         settingsLocation: String = PrivacyManager.defaultSettingsLocation()
@@ -60,6 +63,7 @@ struct PrivacyManager {
         self.dictionaryEngine = dictionaryEngine
         self.modelManager = modelManager
         self.historyStore = historyStore
+        self.appModeRuleStore = appModeRuleStore
         self.licenseManager = licenseManager
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.settingsLocation = settingsLocation
@@ -68,6 +72,9 @@ struct PrivacyManager {
     func snapshot() -> PrivacyDashboardSnapshot {
         let settings = settingsStore.load()
         let historyCount = (try? historyStore?.count()) ?? 0
+        let appModeRules = (try? appModeRuleStore?.list()) ?? []
+        let appModeRuleCount = appModeRules.count
+        let activeBundleRuleCount = appModeRules.filter { $0.enabled && $0.appBundleID != nil }.count
         return PrivacyDashboardSnapshot(
             statusRows: [
                 PrivacyStatusRow(
@@ -83,6 +90,14 @@ struct PrivacyManager {
                     detail: settings.storeHistory
                         ? "Transcript history is enabled with \(historyCount) entries. Raw audio is not stored."
                         : "Transcript history is disabled. \(historyCount) entries are stored locally."
+                ),
+                PrivacyStatusRow(
+                    id: "app-modes",
+                    title: "App-Aware Modes",
+                    value: settings.appAwareModesEnabled ? "On" : "Off",
+                    detail: settings.appAwareModesEnabled
+                        ? "\(activeBundleRuleCount) enabled bundle-ID rules can apply to matching apps. \(appModeRuleCount - activeBundleRuleCount) other rules are stored but inactive or unavailable."
+                        : "\(appModeRuleCount) app-specific cleanup rules are stored but inactive."
                 ),
                 PrivacyStatusRow(
                     id: "telemetry",
@@ -116,6 +131,12 @@ struct PrivacyManager {
                     title: "History Database",
                     path: historyStore?.databaseURL.path ?? "Unavailable",
                     detail: "\(historyCount) history entries. Audio files and blobs are never stored."
+                ),
+                PrivacyDataLocation(
+                    id: "app-mode-rules",
+                    title: "App Mode Rules",
+                    path: appModeRuleStore?.databaseURL.path ?? "Unavailable",
+                    detail: "\(appModeRuleCount) app-specific cleanup rules. URL patterns are stored locally and are not used until URL detection exists."
                 )
             ]
         )
@@ -162,10 +183,14 @@ struct PrivacyManager {
         let customReplacementCount = dictionaryEngine.listCustomReplacements().count
         let installedModelCount = modelManager.metadata().filter { $0.isInstalled }.count
         let historyEntryCount = (try? historyStore?.count()) ?? 0
+        let appModeRuleCount = (try? appModeRuleStore?.list().count) ?? 0
 
         try licenseManager.clear()
         try modelManager.deleteAllCachedModelsAndReferences()
-        try historyStore?.deleteDatabaseFiles()
+        let databaseURLs = Set([historyStore?.databaseURL, appModeRuleStore?.databaseURL].compactMap { $0 })
+        for databaseURL in databaseURLs {
+            try HistoryStore(databaseURL: databaseURL).deleteDatabaseFiles()
+        }
         settingsStore.removePersistedSettings()
         dictionaryEngine.removeAllCustomReplacements()
 
@@ -173,7 +198,8 @@ struct PrivacyManager {
             settings: settingsStore.load(),
             customReplacementCount: customReplacementCount,
             installedModelCount: installedModelCount,
-            historyEntryCount: historyEntryCount
+            historyEntryCount: historyEntryCount,
+            appModeRuleCount: appModeRuleCount
         )
     }
 

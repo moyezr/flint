@@ -125,7 +125,7 @@ private final class PrivacyDashboardModel: ObservableObject {
             onDeleteAllLocalData()
             refresh()
             deletionError = ""
-            deletionMessage = "Deleted \(result.customReplacementCount) vocabulary entries, \(result.installedModelCount) installed model references, \(result.historyEntryCount) history entries, and license activation. Settings are back to defaults."
+            deletionMessage = "Deleted \(result.customReplacementCount) vocabulary entries, \(result.installedModelCount) installed model references, \(result.historyEntryCount) history entries, \(result.appModeRuleCount) app mode rules, and license activation. Settings are back to defaults."
         } catch {
             deletionMessage = ""
             deletionError = error.localizedDescription
@@ -234,7 +234,7 @@ private struct PrivacyDashboardView: View {
 
                 PrivacySection(title: "Delete Local Data") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Deletes custom vocabulary, cached model files, installed model references, history entries, license activation, and resets app settings to defaults.")
+                        Text("Deletes custom vocabulary, cached model files, installed model references, history entries, app mode rules, license activation, and resets app settings to defaults.")
                             .foregroundStyle(.secondary)
 
                         Button("Delete All Local Data") {
@@ -264,7 +264,7 @@ private struct PrivacyDashboardView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This resets settings to defaults, removes custom vocabulary, deletes cached model contents, clears installed model references, deletes history, and clears license activation.")
+            Text("This resets settings to defaults, removes custom vocabulary, deletes cached model contents, clears installed model references, deletes history and app mode rules, and clears license activation.")
         }
         .alert("Delete all history?", isPresented: $isConfirmingHistoryDelete) {
             Button("Delete All History", role: .destructive) {

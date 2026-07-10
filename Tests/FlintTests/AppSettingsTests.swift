@@ -34,6 +34,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.playStartSound)
         XCTAssertFalse(settings.playStopSound)
         XCTAssertFalse(settings.storeHistory)
+        XCTAssertFalse(settings.appAwareModesEnabled)
         XCTAssertTrue(settings.autoInsert)
         XCTAssertFalse(settings.hasCompletedOnboarding)
     }
@@ -51,6 +52,7 @@ final class AppSettingsTests: XCTestCase {
             playStartSound: true,
             playStopSound: true,
             storeHistory: true,
+            appAwareModesEnabled: true,
             autoInsert: false,
             hasCompletedOnboarding: true
         )
@@ -70,6 +72,18 @@ final class AppSettingsTests: XCTestCase {
 
         store.saveStoreHistory(false)
         XCTAssertFalse(store.load().storeHistory)
+    }
+
+    func testAppAwareModesCanBeToggledIndependentlyAndDefaultsOff() {
+        let store = AppSettingsStore(defaults: defaults)
+
+        XCTAssertFalse(store.load().appAwareModesEnabled)
+
+        store.saveAppAwareModesEnabled(true)
+        XCTAssertTrue(store.load().appAwareModesEnabled)
+
+        store.saveAppAwareModesEnabled(false)
+        XCTAssertFalse(store.load().appAwareModesEnabled)
     }
 
     func testCorruptEnumBackedFieldsFallBackToSafeDefaults() {
@@ -115,6 +129,7 @@ final class AppSettingsTests: XCTestCase {
             playStartSound: true,
             playStopSound: true,
             storeHistory: true,
+            appAwareModesEnabled: true,
             autoInsert: false,
             hasCompletedOnboarding: true
         ))
@@ -137,6 +152,7 @@ final class AppSettingsTests: XCTestCase {
             playStartSound: true,
             playStopSound: true,
             storeHistory: true,
+            appAwareModesEnabled: true,
             autoInsert: false,
             hasCompletedOnboarding: true
         ))
@@ -154,6 +170,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "playStartSound"))
         XCTAssertNil(defaults.object(forKey: "playStopSound"))
         XCTAssertNil(defaults.object(forKey: "storeHistory"))
+        XCTAssertNil(defaults.object(forKey: "appAwareModesEnabled"))
         XCTAssertNil(defaults.object(forKey: "autoInsert"))
         XCTAssertNil(defaults.object(forKey: "hasCompletedOnboarding"))
         XCTAssertEqual(store.load(), .default)

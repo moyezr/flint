@@ -280,7 +280,7 @@ Goal: validate the commercial path end to end.
 
 ### Phase 5 — Public v1
 Goal: ship the polished paid product.
-- [ ] App-aware modes (v1.5 feature)
+- [x] App-aware modes (v1.5 feature)
 - [ ] Stable across the full compatibility list
 - [ ] Onboarding is fast and clear (value understood in under a minute)
 
