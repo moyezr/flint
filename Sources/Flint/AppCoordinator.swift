@@ -28,6 +28,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let modelManager = ModelManager()
     private let shortcutManager = ShortcutManager()
     private let appSettingsStore = AppSettingsStore()
+    private let updateManager = UpdateManager()
     private let historyStore = try? HistoryStore()
     private let activeAppDetector = ActiveAppDetector()
 
@@ -432,7 +433,21 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     @objc private func checkForUpdates() {
-        showNotBuiltYet("Updates")
+        let alert = NSAlert()
+        switch updateManager.readiness() {
+        case .ready:
+            alert.messageText = "Update Configuration Detected"
+            alert.informativeText = "This build contains the bundle metadata required by a Sparkle updater. Flint does not include update checking until the production updater is integrated into the packaged release."
+        case .notConfigured(let prerequisites):
+            alert.messageText = "Updates Not Configured"
+            alert.informativeText = """
+            Updates cannot be checked in this build because required production update configuration is missing:
+
+            \(prerequisites.map { "- \($0)" }.joined(separator: "\n"))
+            """
+        }
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func showLicense() {
