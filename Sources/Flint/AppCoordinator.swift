@@ -46,6 +46,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         didSet {
             appSettingsStore.saveCleanupMode(cleanupMode)
             updateCleanupModeUI()
+            settingsWindow?.refresh()
         }
     }
     private var shortcutSettings: ShortcutSettings = .default {
@@ -53,18 +54,21 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             appSettingsStore.saveShortcutSettings(shortcutSettings)
             shortcutManager.update(settings: shortcutSettings)
             updateShortcutSettingsUI()
+            settingsWindow?.refresh()
         }
     }
     private var insertionTargetBehavior: InsertionTargetBehavior = .recordingStart {
         didSet {
             appSettingsStore.saveInsertionTargetBehavior(insertionTargetBehavior)
             updateInsertionTargetBehaviorUI()
+            settingsWindow?.refresh()
         }
     }
     private var appAwareModesEnabled = false {
         didSet {
             appSettingsStore.saveAppAwareModesEnabled(appAwareModesEnabled)
             updateAppAwareModesUI()
+            settingsWindow?.refresh()
         }
     }
     private weak var cleanupModeMenuItem: NSMenuItem?
@@ -84,6 +88,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var privacyWindow: PrivacyWindowController?
     private var licenseWindow: LicenseWindowController?
     private var appModeSettingsWindow: AppModeSettingsWindowController?
+    private var settingsWindow: SettingsWindowController?
 
     func start() {
         let settings = appSettingsStore.load()
@@ -290,6 +295,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             : "Download \(selectedTier.displayName)"
         deleteModelMenuItem?.title = "Delete \(selectedTier.displayName)"
         deleteModelMenuItem?.isEnabled = metadata.isInstalled
+        settingsWindow?.refresh()
     }
 
     private func modelSelectionTitle(for metadata: ModelMetadata) -> String {
@@ -382,7 +388,30 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     @objc private func showSettings() {
-        showNotBuiltYet("Settings")
+        if let settingsWindow {
+            settingsWindow.show()
+            return
+        }
+
+        let controller = SettingsWindowController(
+            settingsStore: appSettingsStore,
+            modelManager: modelManager,
+            dictionaryEngine: dictionaryEngine,
+            onSettingsChanged: { [weak self] settings in
+                self?.applySettingsFromWindow(settings)
+            },
+            onModelMetadataChanged: { [weak self] in
+                self?.updateModelMenuUI()
+            },
+            onShowAppModes: { [weak self] in
+                self?.showAppModeSettings()
+            },
+            onShowPrivacy: { [weak self] in
+                self?.showPrivacy()
+            }
+        )
+        settingsWindow = controller
+        controller.show()
     }
 
     @objc private func showAppModeSettings() {
@@ -532,6 +561,14 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func applyOnboardingSettings(_ settings: AppSettings) {
         shortcutSettings = settings.shortcutSettings
+        appAwareModesEnabled = settings.appAwareModesEnabled
+        updateModelMenuUI()
+    }
+
+    private func applySettingsFromWindow(_ settings: AppSettings) {
+        cleanupMode = settings.cleanupMode
+        shortcutSettings = settings.shortcutSettings
+        insertionTargetBehavior = settings.insertionTargetBehavior
         appAwareModesEnabled = settings.appAwareModesEnabled
         updateModelMenuUI()
     }
