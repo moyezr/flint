@@ -175,6 +175,31 @@ struct OverlayPresentation: Equatable {
             return 0
         }
     }
+
+    var usesActivityPulse: Bool {
+        switch state {
+        case .processingLocally, .inserting:
+            return true
+        default:
+            return false
+        }
+    }
+
+    func isMeterBarActive(_ index: Int, animationPhase: Int) -> Bool {
+        guard (0..<OverlayLayout.meterBarCount).contains(index) else {
+            return false
+        }
+
+        switch state {
+        case .processingLocally, .inserting:
+            let pulseWidth = 5
+            let travelDistance = OverlayLayout.meterBarCount + pulseWidth
+            let start = animationPhase % travelDistance - pulseWidth
+            return (start..<(start + pulseWidth)).contains(index)
+        default:
+            return index < filledBars
+        }
+    }
 }
 
 struct OverlayVisibilityPlan: Equatable {
@@ -261,13 +286,25 @@ struct OverlayView: View {
     }
 
     private var levelMeter: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
-                Rectangle()
-                    .fill(index < model.presentation.filledBars ? orange : Color(nsColor: .separatorColor))
-                    .frame(width: 5, height: 8)
+        TimelineView(
+            .animation(
+                minimumInterval: 1.0 / 12.0,
+                paused: !model.presentation.usesActivityPulse
+            )
+        ) { context in
+            let phase = Int(context.date.timeIntervalSinceReferenceDate * 12)
+            HStack(spacing: 2) {
+                ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
+                    Rectangle()
+                        .fill(
+                            model.presentation.isMeterBarActive(index, animationPhase: phase)
+                                ? orange
+                                : Color(nsColor: .separatorColor)
+                        )
+                        .frame(width: 5, height: 8)
+                }
             }
+            .frame(height: 8)
         }
-        .frame(height: 8)
     }
 }

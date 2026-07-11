@@ -70,6 +70,19 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .cancelled, audioLevel: 1).filledBars, 0)
     }
 
+    func testProcessingPulseMovesAcrossTheMeterWithoutChangingListeningBars() {
+        let processing = presentation(for: .processingLocally)
+        let earlyPulse = activeMeterBars(in: processing, phase: 5)
+        let laterPulse = activeMeterBars(in: processing, phase: 11)
+
+        XCTAssertTrue(processing.usesActivityPulse)
+        XCTAssertFalse(presentation(for: .listening, audioLevel: 0.5).usesActivityPulse)
+        XCTAssertFalse(earlyPulse.isEmpty)
+        XCTAssertNotEqual(earlyPulse, laterPulse)
+        XCTAssertLessThanOrEqual(earlyPulse.count, 5)
+        XCTAssertLessThanOrEqual(laterPulse.count, 5)
+    }
+
     func testAutoHideCoordinatorOnlyAcceptsCurrentGeneration() {
         var coordinator = OverlayAutoHideCoordinator()
 
@@ -99,5 +112,11 @@ final class OverlayWindowTests: XCTestCase {
             state: state,
             audioLevel: audioLevel
         )
+    }
+
+    private func activeMeterBars(in presentation: OverlayPresentation, phase: Int) -> Set<Int> {
+        Set((0..<OverlayLayout.meterBarCount).filter {
+            presentation.isMeterBarActive($0, animationPhase: phase)
+        })
     }
 }
