@@ -8,9 +8,9 @@ Run the same push-to-talk scenario in each target before paid beta: focus a text
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| TextEdit | Pending | Plain native text field baseline. |
+| TextEdit | Automated baseline passed | Production insertion engine and clipboard restoration pass in a disposable native document; manual voice scenario remains. |
 | Notes | Pending | Native rich text. |
-| Safari | Pending | Standard input, textarea, and contenteditable. |
+| Safari | Automated baseline passed | Production insertion engine and clipboard restoration pass in a local page input; manual standard-input, textarea, and contenteditable scenarios remain. |
 | Chrome | Pending | Standard input, textarea, and contenteditable. |
 | Arc | Pending | Chromium accessibility behavior. |
 | Firefox | Pending | Gecko accessibility behavior. |
@@ -34,7 +34,7 @@ For each result, capture the macOS version, Mac model, selected Flint model tier
 
 The current QA Mac has TextEdit, Notes, Safari, Chrome, Firefox, Discord, Cursor, VS Code, Xcode, Terminal, Messages, and Microsoft Word installed. Arc, Slack, and iTerm2 are not installed. Gmail, Google Docs, Notion, and Linear require authenticated browser sessions. Installation only establishes test availability; all rows remain pending until the full manual scenario passes.
 
-Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionIntegrationTests` before each release candidate. This opens a disposable TextEdit document, exercises Flint's actual insertion engine, confirms one insertion, and verifies clipboard preservation. It is a native baseline probe, not a substitute for the manual voice-dictation scenario in the full matrix.
+Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionIntegrationTests` before each release candidate. This exercises Flint's actual insertion engine in a disposable TextEdit document and an autofocused local Safari input, confirms one insertion, and verifies clipboard preservation. It is a native/browser baseline probe, not a substitute for the manual voice-dictation scenario in the full matrix.
 
 ## Reliability Checks
 
