@@ -4,3 +4,6 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 .DS_Store
+landing/.next/
+landing/node_modules/
+node_modules/

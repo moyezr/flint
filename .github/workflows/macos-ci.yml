@@ -7,6 +7,26 @@ on:
       - main
 
 jobs:
+  landing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install landing dependencies
+        run: npm ci
+
+      - name: Lint landing
+        run: npm run landing:lint
+
+      - name: Build landing
+        run: npm run landing:build
+
   test-and-build:
     runs-on: macos-14
 
@@ -15,11 +35,13 @@ jobs:
 
       - name: Run unit tests
         run: swift test
+        working-directory: app
 
       - name: Build the release binary for macOS 14
         run: MACOSX_DEPLOYMENT_TARGET=14.0 swift build -c release
+        working-directory: app
 
       - name: Verify the release deployment target
         run: |
-          minimum_os="$(otool -l .build/release/Flint | awk '/LC_BUILD_VERSION/ { found=1; next } found && /minos/ { print $2; exit }')"
+          minimum_os="$(otool -l app/.build/release/Flint | awk '/LC_BUILD_VERSION/ { found=1; next } found && /minos/ { print $2; exit }')"
           test "$minimum_os" = "14.0"

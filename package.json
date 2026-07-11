@@ -1,0 +1,12 @@
+{
+  "name": "flint-monorepo",
+  "private": true,
+  "workspaces": [
+    "landing"
+  ],
+  "scripts": {
+    "landing:dev": "npm --workspace flint-landing run dev",
+    "landing:build": "npm --workspace flint-landing run build",
+    "landing:lint": "npm --workspace flint-landing run lint"
+  }
+}
