@@ -6,4 +6,5 @@ DerivedData/
 .DS_Store
 landing/.next/
 landing/node_modules/
+landing/next-env.d.ts
 node_modules/
