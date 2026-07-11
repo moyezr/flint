@@ -30,6 +30,33 @@ final class TextInsertionEngineTests: XCTestCase {
         )
     }
 
+    func testComposerPlaceholderValueIsReplacedInsteadOfAppended() {
+        XCTAssertTrue(
+            TextInsertionEngine.shouldReplacePlaceholderValue(
+                "Write a message...",
+                placeholderValue: nil
+            )
+        )
+        XCTAssertTrue(
+            TextInsertionEngine.shouldReplacePlaceholderValue(
+                "Message Claude",
+                placeholderValue: "Message Claude"
+            )
+        )
+        XCTAssertFalse(
+            TextInsertionEngine.shouldReplacePlaceholderValue(
+                "Write a message about launch planning.",
+                placeholderValue: nil
+            )
+        )
+        XCTAssertFalse(
+            TextInsertionEngine.shouldReplacePlaceholderValue(
+                "Actual dictated text",
+                placeholderValue: "Write a message..."
+            )
+        )
+    }
+
     func testRecordingStartInsertsIntoCapturedTargetWithoutQueryingCurrentFocus() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         var insertedText: String?

@@ -132,6 +132,18 @@ struct TextInsertionEngine {
             return false
         }
 
+        let placeholderValue = stringValue(
+            of: target.element,
+            attribute: kAXPlaceholderValueAttribute as CFString
+        )
+        if shouldReplacePlaceholderValue(valueBeforeInsertion, placeholderValue: placeholderValue) {
+            return replacePlaceholderValue(
+                in: target.element,
+                placeholderValue: valueBeforeInsertion,
+                with: text
+            )
+        }
+
         guard AXUIElementSetAttributeValue(
             target.element,
             kAXSelectedTextAttribute as CFString,
@@ -179,6 +191,22 @@ struct TextInsertionEngine {
         before != after
     }
 
+    static func shouldReplacePlaceholderValue(_ value: String, placeholderValue: String?) -> Bool {
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedValue.isEmpty else {
+            return false
+        }
+
+        if let placeholderValue,
+           normalizedValue.caseInsensitiveCompare(
+               placeholderValue.trimmingCharacters(in: .whitespacesAndNewlines)
+           ) == .orderedSame {
+            return true
+        }
+
+        return normalizedValue == "Write a message..." || normalizedValue == "Write a message…"
+    }
+
     static func replacingSelectedText(
         in value: String,
         selectedRange: NSRange,
@@ -193,6 +221,44 @@ struct TextInsertionEngine {
             return nil
         }
         return (value as NSString).replacingCharacters(in: selectedRange, with: text)
+    }
+
+    private static func replacePlaceholderValue(
+        in element: AXUIElement,
+        placeholderValue: String,
+        with text: String
+    ) -> Bool {
+        let fullPlaceholderRange = NSRange(location: 0, length: (placeholderValue as NSString).length)
+        if setSelectedRange(fullPlaceholderRange, on: element),
+           AXUIElementSetAttributeValue(
+               element,
+               kAXSelectedTextAttribute as CFString,
+               text as CFTypeRef
+           ) == .success,
+           stringValue(of: element, attribute: kAXValueAttribute as CFString) == text {
+            return true
+        }
+
+        guard AXUIElementSetAttributeValue(
+            element,
+            kAXValueAttribute as CFString,
+            text as CFTypeRef
+        ) == .success else {
+            return false
+        }
+        return stringValue(of: element, attribute: kAXValueAttribute as CFString) == text
+    }
+
+    private static func setSelectedRange(_ range: NSRange, on element: AXUIElement) -> Bool {
+        var cfRange = CFRange(location: range.location, length: range.length)
+        guard let rangeValue = AXValueCreate(.cfRange, &cfRange) else {
+            return false
+        }
+        return AXUIElementSetAttributeValue(
+            element,
+            kAXSelectedTextRangeAttribute as CFString,
+            rangeValue
+        ) == .success
     }
 
     private static func stringValue(of element: AXUIElement, attribute: CFString) -> String? {
