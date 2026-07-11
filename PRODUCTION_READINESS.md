@@ -30,6 +30,8 @@ Run the same push-to-talk scenario in each target before paid beta: focus a text
 
 For each result, capture the macOS version, Mac model, selected Flint model tier, target app/version, insertion method observed, and any permission state. A surface is only complete after fresh-launch and repeated-use checks both pass.
 
+Run `Scripts/compatibility-inventory.sh > qa-compatibility-inventory.md` at the start of each manual matrix run to capture the macOS, hardware, target-app versions, and local availability in a reviewable format.
+
 ### Local QA Inventory
 
 The current QA Mac has TextEdit, Notes, Safari, Chrome, Firefox, Discord, Cursor, VS Code, Xcode, Terminal, Messages, and Microsoft Word installed. Arc, Slack, and iTerm2 are not installed. Gmail, Google Docs, Notion, and Linear require authenticated browser sessions. Installation only establishes test availability; all rows remain pending until the full manual scenario passes.
