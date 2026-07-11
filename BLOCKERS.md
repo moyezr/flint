@@ -15,3 +15,10 @@ Items here are known product gaps that need external decisions or credentials be
 - Current state: the app can detect whether Sparkle-style update metadata is present, but it does not perform update checks.
 - Blocker: production updates require packaged `.app` builds plus Sparkle appcast hosting, release signing, and public EdDSA key configuration.
 - Next unblock: define the release packaging pipeline and Sparkle appcast/signing infrastructure, then wire the production updater.
+
+## Direct Download Signing Credentials
+
+- Requirement: signed and notarized `.dmg` distribution from the Flint website.
+- Current state: `Scripts/package-dmg.sh`, `Scripts/notarize-dmg.sh`, and `Scripts/release-preflight.sh` create and validate the intended release path with a macOS 14 deployment target.
+- Blocker: the current login keychain has Apple Development identities only. A Developer ID Application certificate and an App Store Connect notarytool keychain profile are required to sign and notarize a public build.
+- Next unblock: install the Developer ID Application certificate on the release machine, create a notarytool keychain profile, add `Distribution/Flint.icns`, then run the preflight, package, and notarization scripts against a release candidate.

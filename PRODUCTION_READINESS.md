@@ -30,6 +30,10 @@ Run the same push-to-talk scenario in each target before paid beta: focus a text
 
 For each result, capture the macOS version, Mac model, selected Flint model tier, target app/version, insertion method observed, and any permission state. A surface is only complete after fresh-launch and repeated-use checks both pass.
 
+### Local QA Inventory
+
+The current QA Mac has TextEdit, Notes, Safari, Chrome, Firefox, Discord, Cursor, VS Code, Xcode, Terminal, Messages, and Microsoft Word installed. Arc, Slack, and iTerm2 are not installed. Gmail, Google Docs, Notion, and Linear require authenticated browser sessions. Installation only establishes test availability; all rows remain pending until the full manual scenario passes.
+
 ## Reliability Checks
 
 - Repeated shortcut press/release cycles under normal typing load.
@@ -42,6 +46,7 @@ For each result, capture the macOS version, Mac model, selected Flint model tier
 
 ## Direct Download Release Gates
 
+- Run `Scripts/release-preflight.sh` with a Developer ID Application identity. It verifies the release icon, signing tools, and a macOS 14 deployment target before packaging.
 - Produce a stable `.app` bundle with a real bundle identifier, version, icon, and hardened runtime entitlements.
 - Sign with a Developer ID Application certificate, package a `.dmg`, notarize it, staple the ticket, and validate installation on a clean Mac.
 - Host a versioned `.dmg` and release notes on the Flint website with SHA-256 checksums.

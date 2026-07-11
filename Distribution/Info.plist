@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Flint</string>
+    <key>CFBundleExecutable</key>
+    <string>Flint</string>
+    <key>CFBundleIconFile</key>
+    <string>Flint</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.moyezrabbani.Flint</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Flint</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>__FLINT_VERSION__</string>
+    <key>CFBundleVersion</key>
+    <string>__FLINT_BUILD__</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Flint records your voice to transcribe dictation on this Mac.</string>
+</dict>
+</plist>
