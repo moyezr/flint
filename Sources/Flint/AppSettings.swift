@@ -156,6 +156,14 @@ struct AppSettingsStore {
         defaults.set(storeHistory, forKey: Key.storeHistory)
     }
 
+    func savePlayStartSound(_ playStartSound: Bool) {
+        defaults.set(playStartSound, forKey: Key.playStartSound)
+    }
+
+    func savePlayStopSound(_ playStopSound: Bool) {
+        defaults.set(playStopSound, forKey: Key.playStopSound)
+    }
+
     func saveAppAwareModesEnabled(_ appAwareModesEnabled: Bool) {
         defaults.set(appAwareModesEnabled, forKey: Key.appAwareModesEnabled)
     }

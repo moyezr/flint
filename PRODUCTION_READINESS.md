@@ -1,0 +1,57 @@
+# Flint Production Readiness
+
+Flint is sold as a one-time purchase distributed from the Flint website as a signed, notarized `.dmg`. It does not require a subscription, an account to dictate, cloud transcription, or an ongoing network connection after model preparation and license activation.
+
+## Compatibility Matrix
+
+Run the same push-to-talk scenario in each target before paid beta: focus a text field, dictate a short sentence, release the shortcut, verify the exact text is inserted once, then verify the original clipboard remains unchanged.
+
+| Surface | Status | Notes |
+| --- | --- | --- |
+| TextEdit | Pending | Plain native text field baseline. |
+| Notes | Pending | Native rich text. |
+| Safari | Pending | Standard input, textarea, and contenteditable. |
+| Chrome | Pending | Standard input, textarea, and contenteditable. |
+| Arc | Pending | Chromium accessibility behavior. |
+| Firefox | Pending | Gecko accessibility behavior. |
+| Gmail | Pending | Web rich-text composer. |
+| Google Docs | Pending | Canvas/contenteditable document surface. |
+| Notion | Pending | Web rich-text editor. |
+| Linear | Pending | Web command and issue editors. |
+| Slack | Pending | Native and web composer. |
+| Discord | Pending | Native and web composer. |
+| Cursor | Pending | Monaco editor and chat inputs. |
+| VS Code | Pending | Monaco editor and terminal. |
+| Xcode | Pending | Source editor and text fields. |
+| Terminal | Pending | Shell prompt. |
+| iTerm2 | Pending | Shell prompt. |
+| Messages | Pending | Native message composer. |
+| Microsoft Word | Pending | Rich document editor. |
+
+For each result, capture the macOS version, Mac model, selected Flint model tier, target app/version, insertion method observed, and any permission state. A surface is only complete after fresh-launch and repeated-use checks both pass.
+
+## Reliability Checks
+
+- Repeated shortcut press/release cycles under normal typing load.
+- Left/right modifier handling, toggle mode, Escape cancellation, and shortcut changes while Flint is running.
+- Short, long, and silent dictations; model preparation failure; no network after models are prepared.
+- Sleep/wake, display changes, app switching during transcription, and target field changes before insertion.
+- Permission denial/revocation for Microphone, Accessibility, and Input Monitoring.
+- Clipboard preservation for text, rich text, files, and multiple clipboard items.
+- Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space.
+
+## Direct Download Release Gates
+
+- Produce a stable `.app` bundle with a real bundle identifier, version, icon, and hardened runtime entitlements.
+- Sign with a Developer ID Application certificate, package a `.dmg`, notarize it, staple the ticket, and validate installation on a clean Mac.
+- Host a versioned `.dmg` and release notes on the Flint website with SHA-256 checksums.
+- Integrate Sparkle only after the app is packaged: signed appcast, EdDSA keys, rollback policy, and update tests from an older signed build.
+- Implement the live one-time license backend: purchase-to-key fulfillment, activation/deactivation policy, offline grace/validation policy, and recovery for a replaced Mac. Dictation must remain available offline after activation.
+- Publish privacy policy, EULA/refund terms, third-party notices, and a support path. Keep crash diagnostics opt-in and never send transcript or audio content.
+
+## Evidence Required Before Paid Beta
+
+- Compatibility matrix completed for every listed surface.
+- Signed/notarized release artifact installed and exercised on a clean user account.
+- License purchase, activation, offline restart, deactivation, and update flows tested end to end against production infrastructure.
+- Release candidate passes `swift test`, source lint/format checks, and manual privacy/data-deletion verification.

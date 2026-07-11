@@ -205,6 +205,16 @@ final class SettingsModel: ObservableObject {
         publishSettingsChange(enabled ? "History storage enabled." : "History storage disabled.")
     }
 
+    func setPlayStartSound(_ enabled: Bool) {
+        settingsStore.savePlayStartSound(enabled)
+        publishSettingsChange(enabled ? "Start sound enabled." : "Start sound disabled.")
+    }
+
+    func setPlayStopSound(_ enabled: Bool) {
+        settingsStore.savePlayStopSound(enabled)
+        publishSettingsChange(enabled ? "Stop sound enabled." : "Stop sound disabled.")
+    }
+
     func showPrivacy() {
         onShowPrivacy()
     }
@@ -312,6 +322,24 @@ struct SettingsView: View {
                             model.showAppModes()
                         }
                     }
+                    .padding(12)
+                    .settingsRowBorder()
+                }
+
+                SettingsSection("Feedback") {
+                    Toggle("Play sound when recording starts", isOn: Binding(
+                        get: { model.settings.playStartSound },
+                        set: { model.setPlayStartSound($0) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .padding(12)
+                    .settingsRowBorder()
+
+                    Toggle("Play sound when recording stops", isOn: Binding(
+                        get: { model.settings.playStopSound },
+                        set: { model.setPlayStopSound($0) }
+                    ))
+                    .toggleStyle(.checkbox)
                     .padding(12)
                     .settingsRowBorder()
                 }

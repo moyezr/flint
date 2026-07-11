@@ -81,7 +81,9 @@ final class OverlayWindow {
     }
 
     func show(state: OverlayState) {
-        model.state = state
+        withAnimation(.easeOut(duration: 0.12)) {
+            model.state = state
+        }
         window.setContentSize(OverlayLayout.size(for: state))
         let visibilityPlan = autoHideCoordinator.show(state)
         positionWindow()
@@ -99,7 +101,9 @@ final class OverlayWindow {
     }
 
     func updateAudioLevel(_ level: Float) {
-        model.audioLevel = min(max(level, 0), 1)
+        withAnimation(.linear(duration: 0.05)) {
+            model.audioLevel = min(max(level, 0), 1)
+        }
     }
 
     private func positionWindow() {
@@ -242,6 +246,7 @@ struct OverlayView: View {
             Rectangle()
                 .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
         }
+        .animation(.easeOut(duration: 0.12), value: model.state)
     }
 
     private var accentColor: Color {

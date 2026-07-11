@@ -161,6 +161,20 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertEqual(showPrivacyCount, 1)
     }
 
+    func testFeedbackSoundTogglesPersistAndNotify() {
+        var receivedSettings: [AppSettings] = []
+        let model = makeModel(onSettingsChanged: { receivedSettings.append($0) })
+
+        model.setPlayStartSound(true)
+        model.setPlayStopSound(true)
+
+        let persisted = AppSettingsStore(defaults: defaults).load()
+        XCTAssertTrue(persisted.playStartSound)
+        XCTAssertTrue(persisted.playStopSound)
+        XCTAssertTrue(receivedSettings.last?.playStartSound ?? false)
+        XCTAssertTrue(receivedSettings.last?.playStopSound ?? false)
+    }
+
     private func makeModel(
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},

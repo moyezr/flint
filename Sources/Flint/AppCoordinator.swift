@@ -24,6 +24,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let dictionaryEngine = DictionaryEngine()
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
+    private let dictationFeedback = DictationFeedback()
     private let permissionManager = PermissionManager()
     private let modelManager = ModelManager()
     private let shortcutManager = ShortcutManager()
@@ -668,7 +669,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             activeProcessingID = nil
             processingTimeoutTask = nil
             overlay.show(state: .error("Transcription timed out. Try again or choose a smaller model."))
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
         }
     }
 
@@ -690,7 +691,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 ? "Shortcut monitoring could not start. Restart Flint, then check Input Monitoring."
                 : inputMonitoring.failureMessage
             overlay.show(state: .error(message))
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
         }
     }
 
@@ -699,7 +700,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         if let modelReadinessMessage = selectedModelReadinessMessage() {
             overlay.show(state: .error(modelReadinessMessage))
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
             return
         }
 
@@ -724,6 +725,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 stopAudioMetering()
                 return
             }
+            dictationFeedback.perform(.started, settings: appSettingsStore.load())
             startAudioMetering()
         } catch {
             isRecording = false
@@ -740,7 +742,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             } else {
                 overlay.show(state: .error("Microphone recording failed."))
             }
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
         }
     }
 
@@ -763,15 +765,17 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         let audioURL: URL
         do {
             audioURL = try recorder.stop()
+            dictationFeedback.perform(.stopped, settings: appSettingsStore.load())
         } catch {
             overlay.show(state: .error("Microphone recording failed."))
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
             return
         }
         defer { try? FileManager.default.removeItem(at: audioURL) }
 
         if didCancelCurrentRecording {
             overlay.show(state: .cancelled)
+            dictationFeedback.perform(.cancelled, settings: appSettingsStore.load())
             return
         }
 
@@ -791,7 +795,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
             guard let usableTranscript = DictationOutputPolicy.usableOutput(from: cleanedTranscript) else {
                 overlay.show(state: .error(DictationOutputPolicy.emptyOutputMessage))
-                NSSound.beep()
+                dictationFeedback.perform(.failed, settings: appSettingsStore.load())
                 return
             }
 
@@ -803,9 +807,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             )
             if result == .inserted {
                 overlay.show(state: .ready)
+                dictationFeedback.perform(.inserted, settings: appSettingsStore.load())
             } else if !permissionManager.snapshot().status(for: .accessibility).isReady {
                 overlay.show(state: .error(PermissionStatus(kind: .accessibility, readiness: .denied).failureMessage))
                 updatePermissionMenuItem()
+                dictationFeedback.perform(.failed, settings: appSettingsStore.load())
             } else {
                 overlay.show(state: .copiedToClipboard)
             }
@@ -820,7 +826,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             )
         } catch {
             overlay.show(state: .error(TranscriptionEngine.userFacingMessage(for: error)))
-            NSSound.beep()
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
         }
     }
 
@@ -838,6 +844,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
         updateCleanupModeUI()
         overlay.show(state: .cancelled)
+        dictationFeedback.perform(.cancelled, settings: appSettingsStore.load())
     }
 
     private func startAudioMetering() {
