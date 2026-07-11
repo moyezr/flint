@@ -37,7 +37,7 @@ final class DictationFeedbackTests: XCTestCase {
         feedback.perform(.inserted, settings: settings)
 
         XCTAssertEqual(sounds, [.stopped])
-        XCTAssertEqual(haptics, [.completed])
+        XCTAssertEqual(haptics, [.stopped, .completed])
     }
 
     func testCancellationAndFailureUseDistinctHaptics() {

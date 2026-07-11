@@ -15,6 +15,7 @@ enum DictationFeedbackSound: Equatable {
 
 enum DictationHaptic: Equatable {
     case started
+    case stopped
     case completed
     case cancelled
     case failed
@@ -44,6 +45,7 @@ struct DictationFeedback {
                 soundPlayer(.started)
             }
         case .stopped:
+            hapticPerformer(.stopped)
             if settings.playStopSound {
                 soundPlayer(.stopped)
             }
@@ -73,6 +75,8 @@ struct DictationFeedback {
         switch haptic {
         case .started:
             pattern = .alignment
+        case .stopped:
+            pattern = .generic
         case .completed:
             pattern = .levelChange
         case .cancelled, .failed:

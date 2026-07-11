@@ -34,6 +34,8 @@ For each result, capture the macOS version, Mac model, selected Flint model tier
 
 The current QA Mac has TextEdit, Notes, Safari, Chrome, Firefox, Discord, Cursor, VS Code, Xcode, Terminal, Messages, and Microsoft Word installed. Arc, Slack, and iTerm2 are not installed. Gmail, Google Docs, Notion, and Linear require authenticated browser sessions. Installation only establishes test availability; all rows remain pending until the full manual scenario passes.
 
+Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionIntegrationTests` before each release candidate. This opens a disposable TextEdit document, exercises Flint's actual insertion engine, confirms one insertion, and verifies clipboard preservation. It is a native baseline probe, not a substitute for the manual voice-dictation scenario in the full matrix.
+
 ## Reliability Checks
 
 - Repeated shortcut press/release cycles under normal typing load.
