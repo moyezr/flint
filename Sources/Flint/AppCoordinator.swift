@@ -251,7 +251,6 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         for item in cleanupModeSelectionMenuItems {
             item.state = item.representedObject as? String == cleanupMode.rawValue ? .on : .off
         }
-        overlay.setModeLabel(cleanupMode.displayName.uppercased())
     }
 
     private func updateShortcutSettingsUI() {
@@ -265,7 +264,6 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             item.state = item.representedObject as? String == shortcutSettings.behavior.rawValue ? .on : .off
         }
 
-        overlay.setShortcutSettings(shortcutSettings)
     }
 
     private func updateInsertionTargetBehaviorUI() {
@@ -716,9 +714,6 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
             overlay.updateAudioLevel(0)
-            if let recordingCleanupMode {
-                overlay.setModeLabel(recordingCleanupMode.displayName.uppercased())
-            }
             overlay.show(state: .listening)
             try await recorder.start()
             guard isRecording else {

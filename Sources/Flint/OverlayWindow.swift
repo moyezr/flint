@@ -98,14 +98,6 @@ final class OverlayWindow {
         }
     }
 
-    func setModeLabel(_ label: String) {
-        model.modeLabel = label
-    }
-
-    func setShortcutSettings(_ settings: ShortcutSettings) {
-        model.shortcutSettings = settings
-    }
-
     func updateAudioLevel(_ level: Float) {
         model.audioLevel = min(max(level, 0), 1)
     }
@@ -116,16 +108,16 @@ final class OverlayWindow {
         let size = window.frame.size
         let origin = NSPoint(
             x: frame.midX - size.width / 2,
-            y: frame.minY + 56
+            y: frame.minY + 36
         )
         window.setFrameOrigin(origin)
     }
 }
 
 enum OverlayLayout {
-    static let compactSize = CGSize(width: 230, height: 60)
-    static let errorSize = CGSize(width: 230, height: 82)
-    static let meterBarCount = 18
+    static let compactSize = CGSize(width: 124, height: 32)
+    static let errorSize = CGSize(width: 230, height: 68)
+    static let meterBarCount = 12
 
     static func size(for state: OverlayState) -> CGSize {
         if case .error = state {
@@ -138,15 +130,11 @@ enum OverlayLayout {
 @MainActor
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
-    @Published var modeLabel: String = "CLEAN"
-    @Published var shortcutSettings: ShortcutSettings = .default
     @Published var audioLevel: Float = 0
 
     var presentation: OverlayPresentation {
         OverlayPresentation(
             state: state,
-            modeLabel: modeLabel,
-            shortcutSettings: shortcutSettings,
             audioLevel: audioLevel
         )
     }
@@ -160,17 +148,7 @@ enum OverlayAccent: Equatable {
 
 struct OverlayPresentation: Equatable {
     let state: OverlayState
-    let modeLabel: String
-    let shortcutSettings: ShortcutSettings
     let audioLevel: Float
-
-    var label: String {
-        state.label
-    }
-
-    var hint: String {
-        state.hint(settings: shortcutSettings)
-    }
 
     var accent: OverlayAccent {
         if case .error = state {
@@ -186,7 +164,7 @@ struct OverlayPresentation: Equatable {
             guard clampedLevel >= 0.03 else { return 0 }
             return max(1, Int((clampedLevel * Float(OverlayLayout.meterBarCount)).rounded(.up)))
         case .processingLocally, .inserting:
-            return 14
+            return OverlayLayout.meterBarCount
         case .error:
             return 3
         default:
@@ -220,33 +198,36 @@ struct OverlayView: View {
     private let red = Color(red: 0.9, green: 0.18, blue: 0.16)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 8, height: 8)
-                Text(model.presentation.label)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.primary)
-                Spacer()
-                Text(model.modeLabel)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.secondary)
-            }
-
+        Group {
             if case .error = model.state {
-                Text(model.presentation.hint)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(Color.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(accentColor)
+                            .frame(width: 7, height: 7)
+                        Text("ERROR")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Color.primary)
+                    }
+                    Text(model.state.hint(settings: .default))
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundStyle(Color.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
             } else {
-                levelMeter
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 6, height: 6)
+                    levelMeter
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
             }
         }
-        .padding(.leading, 10)
-        .padding(.trailing, 10)
-        .padding(.vertical, 9)
         .frame(
             width: OverlayLayout.size(for: model.state).width,
             height: OverlayLayout.size(for: model.state).height
@@ -255,7 +236,7 @@ struct OverlayView: View {
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(accentColor)
-                .frame(width: 3)
+                .frame(width: 2)
         }
         .overlay {
             Rectangle()
@@ -275,11 +256,11 @@ struct OverlayView: View {
     }
 
     private var levelMeter: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
                 Rectangle()
                     .fill(index < model.presentation.filledBars ? orange : Color(nsColor: .separatorColor))
-                    .frame(width: 8, height: 8)
+                    .frame(width: 5, height: 8)
             }
         }
         .frame(height: 8)

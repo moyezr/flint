@@ -49,22 +49,22 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening, audioLevel: -1).filledBars, 0)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.02).filledBars, 0)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.03).filledBars, 1)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 9)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 18)
+        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 6)
+        XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 12)
     }
 
     func testOverlayUsesCompactBottomLayout() {
-        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 230)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 60)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 124)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 32)
         XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).width, 230)
-        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 82)
-        XCTAssertEqual(OverlayLayout.meterBarCount, 18)
+        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 68)
+        XCTAssertEqual(OverlayLayout.meterBarCount, 12)
     }
 
     func testOverlayMeterBarsRepresentNonListeningStates() {
         XCTAssertEqual(presentation(for: .ready, audioLevel: 1).filledBars, 0)
-        XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 14)
-        XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 14)
+        XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 12)
+        XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 12)
         XCTAssertEqual(presentation(for: .error("Failed"), audioLevel: 1).filledBars, 3)
         XCTAssertEqual(presentation(for: .copiedToClipboard, audioLevel: 1).filledBars, 0)
         XCTAssertEqual(presentation(for: .cancelled, audioLevel: 1).filledBars, 0)
@@ -97,8 +97,6 @@ final class OverlayWindowTests: XCTestCase {
     private func presentation(for state: OverlayState, audioLevel: Float = 0) -> OverlayPresentation {
         OverlayPresentation(
             state: state,
-            modeLabel: "CLEAN",
-            shortcutSettings: .default,
             audioLevel: audioLevel
         )
     }
