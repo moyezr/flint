@@ -94,6 +94,10 @@ final class SettingsModelTests: XCTestCase {
                 requestedVariants.append(variant)
                 let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                _ = FileManager.default.createFile(
+                    atPath: folder.appendingPathComponent("model.bin").path,
+                    contents: Data([1])
+                )
                 return folder
             }
         )

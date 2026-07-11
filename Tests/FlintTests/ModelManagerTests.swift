@@ -55,9 +55,7 @@ final class ModelManagerTests: XCTestCase {
 
     func testInstalledStateFollowsSavedPathExistence() async throws {
         let manager = makeManager { _, downloadBase, _ in
-            let folder = downloadBase!.appendingPathComponent("base", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            try self.createModelFolder(named: "base", in: downloadBase!)
         }
 
         XCTAssertFalse(manager.metadata(for: .balanced).isInstalled)
@@ -73,9 +71,7 @@ final class ModelManagerTests: XCTestCase {
         var requestedVariants: [String] = []
         let manager = makeManager { variant, downloadBase, _ in
             requestedVariants.append(variant)
-            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            return try self.createModelFolder(named: "downloaded-\(variant)", in: downloadBase!)
         }
 
         let metadata = try await manager.downloadModel(for: .fast)
@@ -89,9 +85,7 @@ final class ModelManagerTests: XCTestCase {
         var requestedVariants: [String] = []
         let manager = makeManager { variant, downloadBase, _ in
             requestedVariants.append(variant)
-            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            return try self.createModelFolder(named: "downloaded-\(variant)", in: downloadBase!)
         }
 
         let firstMetadata = try await manager.downloadModel(for: .balanced)
@@ -102,29 +96,29 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertTrue(secondMetadata.isInstalled)
     }
 
-    func testDeleteRefusesSavedPathOutsideCacheRoot() async throws {
+    func testDownloadRejectsPathOutsideCacheRoot() async throws {
         let outsideRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("flint-outside-model-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: outsideRoot) }
 
         let manager = makeManager { _, _, _ in outsideRoot }
-        try await manager.downloadModel(for: .accurate)
-
-        XCTAssertThrowsError(try manager.deleteModel(for: .accurate)) { error in
+        do {
+            _ = try await manager.downloadModel(for: .accurate)
+            XCTFail("A downloader result outside the model cache must be rejected.")
+        } catch {
             XCTAssertEqual(
                 error as? ModelManager.ModelManagerError,
-                .savedPathOutsideCacheRoot(outsideRoot)
+                .downloadedPathOutsideCacheRoot(outsideRoot)
             )
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: outsideRoot.path))
+        XCTAssertFalse(manager.metadata(for: .accurate).isInstalled)
     }
 
     func testDeleteRemovesAndClearsSavedPathInsideCacheRoot() async throws {
         let manager = makeManager { _, downloadBase, _ in
-            let folder = downloadBase!.appendingPathComponent("base", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            try self.createModelFolder(named: "base", in: downloadBase!)
         }
         let metadata = try await manager.downloadModel(for: .balanced)
         let folder = try XCTUnwrap(metadata.installedFolder)
@@ -137,9 +131,7 @@ final class ModelManagerTests: XCTestCase {
 
     func testDeleteAllCachedModelsRemovesCacheContentsAndClearsReferences() async throws {
         let manager = makeManager { variant, downloadBase, _ in
-            let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            try self.createModelFolder(named: "downloaded-\(variant)", in: downloadBase!)
         }
         try await manager.downloadModel(for: .fast)
         try await manager.downloadModel(for: .balanced)
@@ -164,8 +156,8 @@ final class ModelManagerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: outsideRoot) }
         let orphanFile = tempRoot.appendingPathComponent("orphan.bin")
         FileManager.default.createFile(atPath: orphanFile.path, contents: Data([1]))
-        let manager = makeManager { _, _, _ in outsideRoot }
-        try await manager.downloadModel(for: .accurate)
+        defaults.set(outsideRoot.path, forKey: "installedModelFolder.accurate")
+        let manager = makeManager()
 
         XCTAssertThrowsError(try manager.deleteAllCachedModelsAndReferences()) { error in
             XCTAssertEqual(
@@ -175,14 +167,12 @@ final class ModelManagerTests: XCTestCase {
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: outsideRoot.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: orphanFile.path))
-        XCTAssertTrue(manager.metadata(for: .accurate).isInstalled)
+        XCTAssertFalse(manager.metadata(for: .accurate).isInstalled)
     }
 
     func testTranscriptionConfigDescriptorUsesInstalledFolderWhenPresent() async throws {
         let manager = makeManager { _, downloadBase, _ in
-            let folder = downloadBase!.appendingPathComponent("base", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            return folder
+            try self.createModelFolder(named: "base", in: downloadBase!)
         }
         let metadata = try await manager.downloadModel(for: .balanced)
         let descriptor = manager.configurationDescriptor(for: .balanced)
@@ -205,6 +195,47 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertNil(config.modelFolder)
     }
 
+    func testEmptyDownloadedFolderIsRejectedAndNotMarkedInstalled() async throws {
+        let manager = makeManager { _, downloadBase, _ in
+            let folder = downloadBase!.appendingPathComponent("empty", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            return folder
+        }
+
+        do {
+            _ = try await manager.downloadModel(for: .fast)
+            XCTFail("An empty model directory must not be accepted as installed.")
+        } catch {
+            XCTAssertEqual(
+                error as? ModelManager.ModelManagerError,
+                .downloadedModelIsEmpty(tempRoot.appendingPathComponent("empty", isDirectory: true))
+            )
+        }
+        XCTAssertFalse(manager.metadata(for: .fast).isInstalled)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: tempRoot.appendingPathComponent("empty").path))
+    }
+
+    func testChangedPayloadIsRemovedBeforeDownloadingReplacement() async throws {
+        var downloadCount = 0
+        let manager = makeManager { _, downloadBase, _ in
+            downloadCount += 1
+            return try self.createModelFolder(named: "base", in: downloadBase!, contents: Data([UInt8(downloadCount)]))
+        }
+
+        let initial = try await manager.downloadModel(for: .balanced)
+        let folder = try XCTUnwrap(initial.installedFolder)
+        _ = FileManager.default.createFile(
+            atPath: folder.appendingPathComponent("unexpected.bin").path,
+            contents: Data([9])
+        )
+
+        XCTAssertFalse(manager.metadata(for: .balanced).isInstalled)
+        _ = try await manager.downloadModel(for: .balanced)
+
+        XCTAssertEqual(downloadCount, 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("unexpected.bin").path))
+    }
+
     private func makeManager(
         downloader: @escaping ModelManager.Downloader = { _, _, _ in
             XCTFail("Unexpected production-style download in unit test.")
@@ -216,5 +247,15 @@ final class ModelManagerTests: XCTestCase {
             modelCacheRoot: tempRoot,
             downloader: downloader
         )
+    }
+
+    private func createModelFolder(named name: String, in downloadBase: URL, contents: Data = Data([1])) throws -> URL {
+        let folder = downloadBase.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        _ = FileManager.default.createFile(
+            atPath: folder.appendingPathComponent("model.bin").path,
+            contents: contents
+        )
+        return folder
     }
 }

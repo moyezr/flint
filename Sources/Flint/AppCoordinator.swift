@@ -417,8 +417,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             onModelMetadataChanged: { [weak self] in
                 self?.updateModelMenuUI()
             },
-            modelPreparationAction: { [transcriptionEngine] _ in
-                try await transcriptionEngine.prepareSelectedModel()
+            modelPreparationAction: { [modelManager, transcriptionEngine] tier in
+                do {
+                    try await transcriptionEngine.prepareSelectedModel()
+                } catch {
+                    try? modelManager.deleteModel(for: tier)
+                    throw error
+                }
             },
             onShowAppModes: { [weak self] in
                 self?.showAppModeSettings()
@@ -509,8 +514,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             settingsStore: appSettingsStore,
             permissionManager: permissionManager,
             modelManager: modelManager,
-            modelPreparationAction: { [transcriptionEngine] _ in
-                try await transcriptionEngine.prepareSelectedModel()
+            modelPreparationAction: { [modelManager, transcriptionEngine] tier in
+                do {
+                    try await transcriptionEngine.prepareSelectedModel()
+                } catch {
+                    try? modelManager.deleteModel(for: tier)
+                    throw error
+                }
             },
             onTestDictation: { [weak self] in
                 self?.toggleDictation()
@@ -633,6 +643,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 updateModelMenuUI()
             } catch {
                 guard modelManager.selectedTier() == tier else { return }
+                try? modelManager.deleteModel(for: tier)
                 preparingModelTier = nil
                 modelPreparationError = error.localizedDescription
                 updateModelMenuUI()

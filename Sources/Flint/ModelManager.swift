@@ -68,16 +68,27 @@ struct ModelConfigurationDescriptor: Equatable, Hashable {
     let modelFolder: URL?
 }
 
+private struct ModelPayloadFingerprint: Codable, Equatable {
+    let fileCount: Int
+    let totalByteCount: Int64
+}
+
 struct ModelManager {
     typealias Downloader = (String, URL?, ProgressCallback?) async throws -> URL
 
     enum ModelManagerError: LocalizedError, Equatable {
         case savedPathOutsideCacheRoot(URL)
+        case downloadedPathOutsideCacheRoot(URL)
+        case downloadedModelIsEmpty(URL)
 
         var errorDescription: String? {
             switch self {
             case .savedPathOutsideCacheRoot(let url):
                 return "Refusing to delete model path outside Flint's model cache: \(url.path)"
+            case .downloadedPathOutsideCacheRoot(let url):
+                return "Downloaded model was outside Flint's model cache: \(url.path)"
+            case .downloadedModelIsEmpty(let url):
+                return "Downloaded model did not contain usable files: \(url.path)"
             }
         }
     }
@@ -85,6 +96,7 @@ struct ModelManager {
     private let defaults: UserDefaults
     private let selectedTierKey: String
     private let installedFolderKeyPrefix: String
+    private let installedFingerprintKeyPrefix: String
     let modelCacheRoot: URL
     private let fileManager: FileManager
     private let downloader: Downloader
@@ -93,6 +105,7 @@ struct ModelManager {
         defaults: UserDefaults = .standard,
         selectedTierKey: String = "selectedModelTier",
         installedFolderKeyPrefix: String = "installedModelFolder",
+        installedFingerprintKeyPrefix: String = "installedModelFingerprint",
         modelCacheRoot: URL = ModelManager.defaultModelCacheRoot(),
         fileManager: FileManager = .default,
         downloader: @escaping Downloader = ModelManager.productionDownloader
@@ -100,6 +113,7 @@ struct ModelManager {
         self.defaults = defaults
         self.selectedTierKey = selectedTierKey
         self.installedFolderKeyPrefix = installedFolderKeyPrefix
+        self.installedFingerprintKeyPrefix = installedFingerprintKeyPrefix
         self.modelCacheRoot = modelCacheRoot
         self.fileManager = fileManager
         self.downloader = downloader
@@ -174,9 +188,18 @@ struct ModelManager {
             return metadata(for: tier)
         }
 
+        try removeInvalidSavedFolder(for: tier)
+
         try fileManager.createDirectory(at: modelCacheRoot, withIntermediateDirectories: true)
         let folder = try await downloader(tier.modelName, modelCacheRoot, progressCallback)
-        saveInstalledFolder(folder, for: tier)
+        guard isInsideModelCacheRoot(folder) else {
+            throw ModelManagerError.downloadedPathOutsideCacheRoot(folder)
+        }
+        guard let fingerprint = payloadFingerprint(for: folder) else {
+            try? fileManager.removeItem(at: folder)
+            throw ModelManagerError.downloadedModelIsEmpty(folder)
+        }
+        saveInstalledFolder(folder, fingerprint: fingerprint, for: tier)
         return metadata(for: tier)
     }
 
@@ -196,7 +219,7 @@ struct ModelManager {
         if fileManager.fileExists(atPath: savedFolder.path) {
             try fileManager.removeItem(at: savedFolder)
         }
-        defaults.removeObject(forKey: installedFolderKey(for: tier))
+        clearSavedModelReference(for: tier)
     }
 
     func deleteAllCachedModelsAndReferences() throws {
@@ -220,14 +243,24 @@ struct ModelManager {
         }
 
         for tier in ModelTier.allCases {
-            defaults.removeObject(forKey: installedFolderKey(for: tier))
+            clearSavedModelReference(for: tier)
         }
     }
 
     private func existingSavedFolder(for tier: ModelTier) -> URL? {
         guard let folder = savedFolder(for: tier),
-              fileManager.fileExists(atPath: folder.path) else {
+              isInsideModelCacheRoot(folder),
+              let fingerprint = payloadFingerprint(for: folder) else {
             return nil
+        }
+
+        if let savedFingerprint = savedFingerprint(for: tier) {
+            guard savedFingerprint == fingerprint else {
+                return nil
+            }
+        } else {
+            // Cache records created before integrity markers are upgraded in place without a re-download.
+            saveFingerprint(fingerprint, for: tier)
         }
         return folder
     }
@@ -239,12 +272,77 @@ struct ModelManager {
         return URL(fileURLWithPath: path, isDirectory: true)
     }
 
-    private func saveInstalledFolder(_ folder: URL, for tier: ModelTier) {
+    private func saveInstalledFolder(_ folder: URL, fingerprint: ModelPayloadFingerprint, for tier: ModelTier) {
         defaults.set(folder.path, forKey: installedFolderKey(for: tier))
+        saveFingerprint(fingerprint, for: tier)
     }
 
     private func installedFolderKey(for tier: ModelTier) -> String {
         "\(installedFolderKeyPrefix).\(tier.rawValue)"
+    }
+
+    private func installedFingerprintKey(for tier: ModelTier) -> String {
+        "\(installedFingerprintKeyPrefix).\(tier.rawValue)"
+    }
+
+    private func savedFingerprint(for tier: ModelTier) -> ModelPayloadFingerprint? {
+        guard let data = defaults.data(forKey: installedFingerprintKey(for: tier)) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ModelPayloadFingerprint.self, from: data)
+    }
+
+    private func saveFingerprint(_ fingerprint: ModelPayloadFingerprint, for tier: ModelTier) {
+        guard let data = try? JSONEncoder().encode(fingerprint) else {
+            return
+        }
+        defaults.set(data, forKey: installedFingerprintKey(for: tier))
+    }
+
+    private func clearSavedModelReference(for tier: ModelTier) {
+        defaults.removeObject(forKey: installedFolderKey(for: tier))
+        defaults.removeObject(forKey: installedFingerprintKey(for: tier))
+    }
+
+    private func removeInvalidSavedFolder(for tier: ModelTier) throws {
+        guard let folder = savedFolder(for: tier) else {
+            return
+        }
+        guard isInsideModelCacheRoot(folder) else {
+            throw ModelManagerError.savedPathOutsideCacheRoot(folder)
+        }
+        if fileManager.fileExists(atPath: folder.path) {
+            try fileManager.removeItem(at: folder)
+        }
+        clearSavedModelReference(for: tier)
+    }
+
+    private func payloadFingerprint(for folder: URL) -> ModelPayloadFingerprint? {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue,
+              let enumerator = fileManager.enumerator(
+                at: folder,
+                includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+                options: [.skipsHiddenFiles]
+              ) else {
+            return nil
+        }
+
+        var fileCount = 0
+        var totalByteCount: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey]),
+                  values.isRegularFile == true else {
+                continue
+            }
+            fileCount += 1
+            totalByteCount += Int64(values.fileSize ?? 0)
+        }
+
+        guard fileCount > 0 else {
+            return nil
+        }
+        return ModelPayloadFingerprint(fileCount: fileCount, totalByteCount: totalByteCount)
     }
 
     private func isInsideModelCacheRoot(_ url: URL) -> Bool {

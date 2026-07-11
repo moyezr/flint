@@ -44,7 +44,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Sleep/wake, display changes, app switching during transcription, and target field changes before insertion.
 - Permission denial/revocation for Microphone, Accessibility, and Input Monitoring.
 - Clipboard preservation for text, rich text, files, and multiple clipboard items.
-- Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space.
+- Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space. Flint records a payload fingerprint after download, invalidates changed or empty caches, and enables a clean retry when model preparation fails.
 
 ## Direct Download Release Gates
 

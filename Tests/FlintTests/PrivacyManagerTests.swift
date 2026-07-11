@@ -97,6 +97,10 @@ final class PrivacyManagerTests: XCTestCase {
         let modelManager = makeModelManager { variant, downloadBase, _ in
             let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            _ = FileManager.default.createFile(
+                atPath: folder.appendingPathComponent("model.bin").path,
+                contents: Data([1])
+            )
             return folder
         }
         try await modelManager.downloadModel(for: .fast)
@@ -168,6 +172,10 @@ final class PrivacyManagerTests: XCTestCase {
         let modelManager = makeModelManager { variant, downloadBase, _ in
             let folder = downloadBase!.appendingPathComponent("downloaded-\(variant)", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            _ = FileManager.default.createFile(
+                atPath: folder.appendingPathComponent("model.bin").path,
+                contents: Data([1])
+            )
             return folder
         }
         try await modelManager.downloadModel(for: .fast)
@@ -216,8 +224,8 @@ final class PrivacyManagerTests: XCTestCase {
             .appendingPathComponent("flint-privacy-outside-model-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: outsideRoot) }
-        let modelManager = makeModelManager { _, _, _ in outsideRoot }
-        try await modelManager.downloadModel(for: .accurate)
+        defaults.set(outsideRoot.path, forKey: "installedModelFolder.accurate")
+        let modelManager = makeModelManager()
         let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
         _ = try historyStore.insert(makeHistoryEntry())
         let manager = makePrivacyManager(modelManager: modelManager)
@@ -230,7 +238,7 @@ final class PrivacyManagerTests: XCTestCase {
         }
         XCTAssertEqual(AppSettingsStore(defaults: defaults).load().cleanupMode, .email)
         XCTAssertFalse(DictionaryEngine(userDefaults: defaults).listCustomReplacements().isEmpty)
-        XCTAssertTrue(modelManager.metadata(for: .accurate).isInstalled)
+        XCTAssertFalse(modelManager.metadata(for: .accurate).isInstalled)
         XCTAssertTrue(FileManager.default.fileExists(atPath: orphanCacheFile.path))
         XCTAssertEqual(try historyStore.count(), 1)
     }
