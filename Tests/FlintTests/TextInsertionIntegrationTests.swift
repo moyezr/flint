@@ -51,67 +51,13 @@ final class TextInsertionIntegrationTests: XCTestCase {
     }
 
     func testSafariInputInsertionAndClipboardPreservation() async throws {
-        try requireDesktopAccessibility()
-        guard FileManager.default.fileExists(atPath: "/Applications/Safari.app") else {
-            throw XCTSkip("Safari is not installed on this QA Mac.")
-        }
-
-        let fixtureURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Fixtures/compatibility-input.html")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: fixtureURL.path))
-
-        _ = try runAppleScript(
-            """
-            tell application "Safari"
-                make new document
-                set URL of front document to "\(fixtureURL.absoluteString)"
-                activate
-            end tell
-            """
+        try await assertBrowserInputInsertion(
+            applicationName: "Safari",
+            bundleIdentifier: "com.apple.Safari",
+            createDocument: "make new document",
+            setDocumentURL: "set URL of front document to",
+            closeDocument: "close front document"
         )
-        defer {
-            _ = try? runAppleScript(
-                """
-                tell application "Safari"
-                    close front document
-                end tell
-                """
-            )
-        }
-
-        try await Task.sleep(for: .seconds(2))
-        let originalClipboard = "Flint Safari clipboard sentinel \(UUID().uuidString)"
-        NSPasteboard.general.clearContents()
-        XCTAssertTrue(NSPasteboard.general.setString(originalClipboard, forType: .string))
-
-        let safari = try XCTUnwrap(
-            NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Safari").first
-        )
-        let safariApplicationElement = AXUIElementCreateApplication(safari.processIdentifier)
-        let safariInput = try XCTUnwrap(firstEditableTextElement(in: safariApplicationElement))
-        XCTAssertEqual(
-            AXUIElementSetAttributeValue(
-                safariInput,
-                kAXFocusedAttribute as CFString,
-                true as CFTypeRef
-            ),
-            .success
-        )
-        try await Task.sleep(for: .milliseconds(200))
-
-        let engine = TextInsertionEngine()
-        let result = await engine.insert(
-            "Flint Safari insertion",
-            targetBehavior: .transcriptionFinish
-        )
-        XCTAssertEqual(result, .inserted)
-
-        try await Task.sleep(for: .seconds(1))
-        let insertedValue = try XCTUnwrap(accessibilityValue(of: safariInput))
-        XCTAssertEqual(insertedValue.components(separatedBy: "Flint Safari insertion").count - 1, 1)
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string), originalClipboard)
     }
 
     private func requireDesktopAccessibility() throws {
@@ -123,12 +69,112 @@ final class TextInsertionIntegrationTests: XCTestCase {
         }
     }
 
+    private func assertBrowserInputInsertion(
+        applicationName: String,
+        bundleIdentifier: String,
+        createDocument: String,
+        setDocumentURL: String,
+        closeDocument: String
+    ) async throws {
+        try requireDesktopAccessibility()
+        guard NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) != nil else {
+            throw XCTSkip("\(applicationName) is not installed on this QA Mac.")
+        }
+
+        let fixtureURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/compatibility-input.html")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixtureURL.path))
+
+        _ = try runAppleScript(
+            """
+            tell application "\(applicationName)"
+                \(createDocument)
+                \(setDocumentURL) "\(fixtureURL.absoluteString)"
+                activate
+            end tell
+            """
+        )
+        defer {
+            _ = try? runAppleScript(
+                """
+                tell application "\(applicationName)"
+                    \(closeDocument)
+                end tell
+                """
+            )
+        }
+
+        try await Task.sleep(for: .seconds(2))
+        let expectedText = "Flint \(applicationName) insertion"
+        let originalClipboard = "Flint \(applicationName) clipboard sentinel \(UUID().uuidString)"
+        NSPasteboard.general.clearContents()
+        XCTAssertTrue(NSPasteboard.general.setString(originalClipboard, forType: .string))
+
+        let browser = try XCTUnwrap(
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
+        )
+        let browserApplicationElement = AXUIElementCreateApplication(browser.processIdentifier)
+        let browserInput = try XCTUnwrap(firstEditableTextElement(in: browserApplicationElement))
+        XCTAssertTrue(focus(browserInput))
+        try await Task.sleep(for: .milliseconds(200))
+
+        let result = await TextInsertionEngine().insert(
+            expectedText,
+            targetBehavior: .transcriptionFinish
+        )
+        XCTAssertEqual(result, .inserted)
+
+        try await Task.sleep(for: .seconds(1))
+        let insertedValue = try XCTUnwrap(accessibilityValue(of: browserInput))
+        XCTAssertEqual(insertedValue.components(separatedBy: expectedText).count - 1, 1)
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), originalClipboard)
+    }
+
     private func accessibilityValue(of element: AXUIElement) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else {
             return nil
         }
         return value as? String
+    }
+
+    private func focus(_ element: AXUIElement) -> Bool {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
+              let positionValue,
+              let sizeValue,
+              CFGetTypeID(positionValue) == AXValueGetTypeID(),
+              CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
+            return false
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size),
+              let source = CGEventSource(stateID: .combinedSessionState),
+              let mouseDown = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseDown,
+                mouseCursorPosition: CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2),
+                mouseButton: .left
+              ),
+              let mouseUp = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseUp,
+                mouseCursorPosition: CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2),
+                mouseButton: .left
+              ) else {
+            return false
+        }
+
+        mouseDown.post(tap: .cghidEventTap)
+        mouseUp.post(tap: .cghidEventTap)
+        return true
     }
 
     private func firstEditableTextElement(in root: AXUIElement) -> AXUIElement? {

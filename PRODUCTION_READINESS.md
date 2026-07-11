@@ -11,7 +11,7 @@ Run the same push-to-talk scenario in each target before paid beta: focus a text
 | TextEdit | Automated baseline passed | Production insertion engine and clipboard restoration pass in a disposable native document; manual voice scenario remains. |
 | Notes | Pending | Native rich text. |
 | Safari | Automated baseline passed | Production insertion engine and clipboard restoration pass in a local page input; manual standard-input, textarea, and contenteditable scenarios remain. |
-| Chrome | Pending | Standard input, textarea, and contenteditable. |
+| Chrome | Pending | Chromium needs live Flint validation; the desktop test runner cannot verify its synthetic-paste fallback. |
 | Arc | Pending | Chromium accessibility behavior. |
 | Firefox | Pending | Gecko accessibility behavior. |
 | Gmail | Pending | Web rich-text composer. |
