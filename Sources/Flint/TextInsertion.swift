@@ -125,7 +125,106 @@ struct TextInsertionEngine {
     }
 
     private static func insert(_ target: TextInsertionTarget, _ text: String) -> Bool {
-        AXUIElementSetAttributeValue(target.element, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
+        guard let valueBeforeInsertion = stringValue(
+            of: target.element,
+            attribute: kAXValueAttribute as CFString
+        ) else {
+            return false
+        }
+
+        guard AXUIElementSetAttributeValue(
+            target.element,
+            kAXSelectedTextAttribute as CFString,
+            text as CFTypeRef
+        ) == .success else {
+            return false
+        }
+
+        guard let valueAfterInsertion = stringValue(
+            of: target.element,
+            attribute: kAXValueAttribute as CFString
+        ) else {
+            return false
+        }
+
+        if didAccessibilityValueChange(
+            from: valueBeforeInsertion,
+            to: valueAfterInsertion
+        ) {
+            return true
+        }
+
+        guard let selectedRange = selectedTextRange(of: target.element),
+              let replacementValue = replacingSelectedText(
+                in: valueBeforeInsertion,
+                selectedRange: selectedRange,
+                with: text
+              ),
+              AXUIElementSetAttributeValue(
+                target.element,
+                kAXValueAttribute as CFString,
+                replacementValue as CFTypeRef
+              ) == .success,
+              let valueAfterReplacement = stringValue(
+                of: target.element,
+                attribute: kAXValueAttribute as CFString
+              ) else {
+            return false
+        }
+
+        return valueAfterReplacement == replacementValue
+    }
+
+    static func didAccessibilityValueChange(from before: String, to after: String) -> Bool {
+        before != after
+    }
+
+    static func replacingSelectedText(
+        in value: String,
+        selectedRange: NSRange,
+        with text: String
+    ) -> String? {
+        let valueLength = (value as NSString).length
+        guard selectedRange.location != NSNotFound,
+              selectedRange.location >= 0,
+              selectedRange.length >= 0,
+              selectedRange.location <= valueLength,
+              selectedRange.length <= valueLength - selectedRange.location else {
+            return nil
+        }
+        return (value as NSString).replacingCharacters(in: selectedRange, with: text)
+    }
+
+    private static func stringValue(of element: AXUIElement, attribute: CFString) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute, &value) == .success else {
+            return nil
+        }
+        return value as? String
+    }
+
+    private static func selectedTextRange(of element: AXUIElement) -> NSRange? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element,
+            kAXSelectedTextRangeAttribute as CFString,
+            &value
+        ) == .success,
+        let value,
+        CFGetTypeID(value) == AXValueGetTypeID() else {
+            return nil
+        }
+
+        let rangeValue = value as! AXValue
+        guard AXValueGetType(rangeValue) == .cfRange else {
+            return nil
+        }
+
+        var range = CFRange()
+        guard AXValueGetValue(rangeValue, .cfRange, &range) else {
+            return nil
+        }
+        return NSRange(location: range.location, length: range.length)
     }
 
     private static func copyToClipboard(_ text: String) {

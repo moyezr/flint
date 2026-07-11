@@ -4,6 +4,32 @@ import XCTest
 
 @MainActor
 final class TextInsertionEngineTests: XCTestCase {
+    func testAccessibilityInsertionRequiresAVisibleValueChange() {
+        XCTAssertFalse(TextInsertionEngine.didAccessibilityValueChange(from: "before", to: "before"))
+        XCTAssertTrue(TextInsertionEngine.didAccessibilityValueChange(from: "before", to: "after"))
+    }
+
+    func testAccessibilityValueReplacementUsesSelectedRange() {
+        XCTAssertEqual(
+            TextInsertionEngine.replacingSelectedText(
+                in: "hello world",
+                selectedRange: NSRange(location: 6, length: 5),
+                with: "Flint"
+            ),
+            "hello Flint"
+        )
+    }
+
+    func testAccessibilityValueReplacementRejectsInvalidRange() {
+        XCTAssertNil(
+            TextInsertionEngine.replacingSelectedText(
+                in: "hello",
+                selectedRange: NSRange(location: 4, length: 3),
+                with: "Flint"
+            )
+        )
+    }
+
     func testRecordingStartInsertsIntoCapturedTargetWithoutQueryingCurrentFocus() async {
         let capturedTarget = TextInsertionTarget(element: AXUIElementCreateSystemWide())
         var insertedText: String?
