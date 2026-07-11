@@ -49,7 +49,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 ## Direct Download Release Gates
 
 - Run `Scripts/release-preflight.sh` with a Developer ID Application identity. It verifies the release icon, signing tools, and a macOS 14 deployment target before packaging.
-- Produce a stable `.app` bundle with a real bundle identifier, version, icon, and hardened runtime entitlements.
+- Produce a stable `.app` bundle with a real bundle identifier, version, Flint icon, and hardened runtime entitlements.
 - Sign with a Developer ID Application certificate, package a `.dmg`, notarize it, staple the ticket, and validate installation on a clean Mac.
 - Host a versioned `.dmg` and release notes on the Flint website with SHA-256 checksums.
 - Integrate Sparkle only after the app is packaged: signed appcast, EdDSA keys, rollback policy, and update tests from an older signed build.
