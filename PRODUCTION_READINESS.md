@@ -62,3 +62,4 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Signed/notarized release artifact installed and exercised on a clean user account.
 - License purchase, activation, offline restart, deactivation, and update flows tested end to end against production infrastructure.
 - Release candidate passes `swift test`, source lint/format checks, and manual privacy/data-deletion verification.
+- macOS CI passes unit tests, a release build, and a binary deployment-target check on every change to `main`.
