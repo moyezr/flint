@@ -76,7 +76,7 @@ export function TypingTest() {
       {state === "complete" && (
         <div className="typing-result" role="status">
           <p><strong>{metrics.wpm} WPM.</strong> At this pace, a 1,000-word draft asks for about {metrics.typedMinutes} minutes of typing.</p>
-          <p>That is the time Flint is built to give back to you.</p>
+          <p>A one-time Flint purchase turns that repeating typing cost into a voice-first workflow.</p>
         </div>
       )}
     </div>
