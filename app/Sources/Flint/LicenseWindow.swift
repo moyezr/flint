@@ -8,11 +8,15 @@ final class LicenseWindowController {
 
     init(
         licenseManager: LicenseManager = LicenseManager(),
-        activationClient: @escaping (String) async throws -> LicenseActivationResponse = LicenseActivationService.notConfiguredClient
+        activationClient: @escaping (String) async throws -> LicenseActivationResponse = LicenseActivationService.notConfiguredClient,
+        deactivationAction: @escaping () async throws -> Void = { throw LicenseActivationService.ActivationError.transport(LicenseActivationService.notConfiguredMessage) },
+        onActivationChanged: @escaping () -> Void = {}
     ) {
         model = LicenseWindowModel(
             licenseManager: licenseManager,
-            activationClient: activationClient
+            activationClient: activationClient,
+            deactivationAction: deactivationAction,
+            onActivationChanged: onActivationChanged
         )
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
@@ -44,12 +48,18 @@ final class LicenseWindowModel: ObservableObject {
 
     private let licenseManager: LicenseManager
     private let activationService: LicenseActivationService
+    private let deactivationAction: () async throws -> Void
+    private let onActivationChanged: () -> Void
 
     init(
         licenseManager: LicenseManager = LicenseManager(),
-        activationClient: @escaping (String) async throws -> LicenseActivationResponse = LicenseActivationService.notConfiguredClient
+        activationClient: @escaping (String) async throws -> LicenseActivationResponse = LicenseActivationService.notConfiguredClient,
+        deactivationAction: @escaping () async throws -> Void = { throw LicenseActivationService.ActivationError.transport(LicenseActivationService.notConfiguredMessage) },
+        onActivationChanged: @escaping () -> Void = {}
     ) {
         self.licenseManager = licenseManager
+        self.deactivationAction = deactivationAction
+        self.onActivationChanged = onActivationChanged
         activationService = LicenseActivationService(
             client: activationClient,
             licenseManager: licenseManager
@@ -78,6 +88,7 @@ final class LicenseWindowModel: ObservableObject {
             licenseKey = ""
             apply(record: record)
             message = "License activated."
+            onActivationChanged()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -86,12 +97,33 @@ final class LicenseWindowModel: ObservableObject {
     func clearActivation() {
         do {
             try licenseManager.clear()
+            try LicenseLeaseStore().clear()
             licenseKey = ""
             apply(record: .inactive)
             message = "Activation cleared."
             errorMessage = ""
+            onActivationChanged()
         } catch {
             message = ""
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func deactivate() async {
+        message = ""
+        errorMessage = ""
+        isActivating = true
+        defer { isActivating = false }
+
+        do {
+            try await deactivationAction()
+            try licenseManager.clear()
+            try LicenseLeaseStore().clear()
+            licenseKey = ""
+            apply(record: .inactive)
+            message = "This Mac was deactivated."
+            onActivationChanged()
+        } catch {
             errorMessage = error.localizedDescription
         }
     }
@@ -173,6 +205,11 @@ private struct LicenseWindowView: View {
                     }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
+                    .disabled(model.isActivating)
+
+                    Button("Deactivate This Mac") {
+                        Task { await model.deactivate() }
+                    }
                     .disabled(model.isActivating)
 
                     Button("Clear Activation", role: .destructive) {

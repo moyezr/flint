@@ -24,6 +24,8 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>FlintLicenseEnforcement</key>
+    <false/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Flint records your voice to transcribe dictation on this Mac.</string>
 </dict>

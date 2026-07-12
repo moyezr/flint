@@ -6,19 +6,19 @@ private key must never use `NEXT_PUBLIC_` names.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set the required values. Generate secrets on
-a secure machine:
+Copy `.env.example` to `.env` and generate the first set of local values on a
+secure machine:
 
 ```sh
-openssl rand -hex 32
-openssl genpkey -algorithm Ed25519 -out flint-license-private.pem
-base64 < flint-license-private.pem | tr -d '\n'
+npm run landing:licenses:bootstrap
 ```
 
-Store the raw private-key PEM only in a secret manager. The base64 value is the
-one-line `LICENSE_SIGNING_PRIVATE_KEY` environment value. The corresponding
-public key is embedded in the macOS app later so it can verify certificates
-offline.
+The bootstrap command creates a key pepper, commerce webhook secret, Ed25519
+signing key pair, default sender, site URL, and bundle ID only when values are
+missing. It writes the private values to ignored `landing/.env` and prints the
+safe public key. Store the raw private-key PEM value only in a secret manager.
+The matching public key is embedded in the macOS source so it can verify
+certificates offline.
 
 ## Database
 

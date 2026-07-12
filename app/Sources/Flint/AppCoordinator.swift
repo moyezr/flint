@@ -30,6 +30,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let shortcutManager = ShortcutManager()
     private let appSettingsStore = AppSettingsStore()
     private let updateManager = UpdateManager()
+    private let licenseAuthorization = LicenseAuthorizationController()
     private let historyStore = try? HistoryStore()
     private let appModeRuleStore = AppModeRuleStore()
     private let appModeResolver = AppModeResolver()
@@ -108,6 +109,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateAppAwareModesUI()
         updateModelMenuUI()
         overlay.show(state: .ready)
+        licenseAuthorization.start()
 
         shortcutManager.onStart = { [weak self] in
             Task { @MainActor in
@@ -138,6 +140,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         processingTimeoutTask = nil
         activeProcessingID = nil
         shortcutManager.stop()
+        licenseAuthorization.stop()
     }
 
     private func configureMenu() {
@@ -564,7 +567,17 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
 
-        let controller = LicenseWindowController()
+        let controller = LicenseWindowController(
+            activationClient: { licenseKey in
+                try await ProductionLicenseActivationClient().activate(licenseKey: licenseKey)
+            },
+            deactivationAction: {
+                try await ProductionLicenseActivationClient().deactivateCurrentDevice()
+            },
+            onActivationChanged: { [weak self] in
+                self?.licenseAuthorization.refreshLocalAuthorization()
+            }
+        )
         licenseWindow = controller
         controller.show()
     }
@@ -708,6 +721,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func startDictation() async {
         guard !isRecording else { return }
+
+        if let licenseMessage = licenseAuthorization.blockingMessage {
+            overlay.show(state: .error(licenseMessage))
+            dictationFeedback.perform(.failed, settings: appSettingsStore.load())
+            return
+        }
 
         if let modelReadinessMessage = selectedModelReadinessMessage() {
             overlay.show(state: .error(modelReadinessMessage))

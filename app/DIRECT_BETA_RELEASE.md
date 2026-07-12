@@ -33,3 +33,8 @@ or notarization.
 
 Every new beta build may require a new Gatekeeper approval. Never modify a
 published DMG in place; publish a new version instead.
+
+When the licensing API has been deployed and tested, set
+`FlintLicenseEnforcement` to `true` in `Distribution/Info.plist` before
+packaging a paid beta. Flint then validates its local license certificate at
+launch and at most once per day, never during the push-to-talk shortcut path.

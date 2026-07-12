@@ -46,6 +46,8 @@ struct PrivacyManager {
     private let historyStore: HistoryStore?
     private let appModeRuleStore: AppModeRuleStore?
     private let licenseManager: LicenseManager
+    private let licenseLeaseStore: LicenseLeaseStore
+    private let licenseDeviceIdentityStore: LicenseDeviceIdentityStore
     private let permissionSnapshotProvider: () -> PermissionSnapshot
     private let settingsLocation: String
 
@@ -56,6 +58,8 @@ struct PrivacyManager {
         historyStore: HistoryStore? = try? HistoryStore(),
         appModeRuleStore: AppModeRuleStore? = AppModeRuleStore(),
         licenseManager: LicenseManager = LicenseManager(),
+        licenseLeaseStore: LicenseLeaseStore = LicenseLeaseStore(),
+        licenseDeviceIdentityStore: LicenseDeviceIdentityStore = LicenseDeviceIdentityStore(),
         permissionSnapshotProvider: @escaping () -> PermissionSnapshot = { PermissionManager().snapshot() },
         settingsLocation: String = PrivacyManager.defaultSettingsLocation()
     ) {
@@ -65,6 +69,8 @@ struct PrivacyManager {
         self.historyStore = historyStore
         self.appModeRuleStore = appModeRuleStore
         self.licenseManager = licenseManager
+        self.licenseLeaseStore = licenseLeaseStore
+        self.licenseDeviceIdentityStore = licenseDeviceIdentityStore
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.settingsLocation = settingsLocation
     }
@@ -186,6 +192,8 @@ struct PrivacyManager {
         let appModeRuleCount = (try? appModeRuleStore?.list().count) ?? 0
 
         try licenseManager.clear()
+        try licenseLeaseStore.clear()
+        try licenseDeviceIdentityStore.clear()
         try modelManager.deleteAllCachedModelsAndReferences()
         let databaseURLs = Set([historyStore?.databaseURL, appModeRuleStore?.databaseURL].compactMap { $0 })
         for databaseURL in databaseURLs {

@@ -26,3 +26,6 @@ npm run landing:db:migrate
 
 The complete endpoint contract, local-device protocol, and beta license
 provisioning command are in [LICENSE_API.md](./LICENSE_API.md).
+
+Deployment requirements for `flint.moyezrabbani.dev` are in
+[DEPLOYMENT.md](./DEPLOYMENT.md).

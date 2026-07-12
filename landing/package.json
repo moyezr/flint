@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "db:migrate": "node --env-file=.env ./scripts/migrate.mjs",
-    "licenses:create": "node --env-file=.env ./scripts/create-license.mjs"
+    "licenses:create": "node --env-file=.env ./scripts/create-license.mjs",
+    "licenses:bootstrap": "node ./scripts/bootstrap-licenses.mjs",
+    "licenses:verify": "node --env-file=.env ./scripts/verify-license-flow.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

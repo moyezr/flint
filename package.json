@@ -9,6 +9,8 @@
     "landing:build": "npm --workspace flint-landing run build",
     "landing:lint": "npm --workspace flint-landing run lint",
     "landing:db:migrate": "npm --workspace flint-landing run db:migrate",
-    "landing:licenses:create": "npm --workspace flint-landing run licenses:create"
+    "landing:licenses:create": "npm --workspace flint-landing run licenses:create",
+    "landing:licenses:bootstrap": "npm --workspace flint-landing run licenses:bootstrap",
+    "landing:licenses:verify": "npm --workspace flint-landing run licenses:verify"
   }
 }
