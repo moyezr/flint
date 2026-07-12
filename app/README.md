@@ -4,6 +4,11 @@ Native macOS dictation utility prototype.
 
 Requires macOS 14 or newer for the current WhisperKit-backed prototype.
 
+For the current direct-download beta release path, see
+[DIRECT_BETA_RELEASE.md](./DIRECT_BETA_RELEASE.md). It produces an ad-hoc-signed
+DMG and checksum without requiring an Apple Developer ID certificate; it is not
+a notarized production release.
+
 ## Phase 1 Scaffold
 
 Build:

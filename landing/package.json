@@ -6,12 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:migrate": "node --env-file=.env ./scripts/migrate.mjs",
+    "licenses:create": "node --env-file=.env ./scripts/create-license.mjs"
   },
   "dependencies": {
     "next": "16.2.10",
+    "postgres": "^3.4.9",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "resend": "^6.17.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "24.10.1",

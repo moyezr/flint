@@ -7,6 +7,8 @@
   "scripts": {
     "landing:dev": "npm --workspace flint-landing run dev",
     "landing:build": "npm --workspace flint-landing run build",
-    "landing:lint": "npm --workspace flint-landing run lint"
+    "landing:lint": "npm --workspace flint-landing run lint",
+    "landing:db:migrate": "npm --workspace flint-landing run db:migrate",
+    "landing:licenses:create": "npm --workspace flint-landing run licenses:create"
   }
 }
