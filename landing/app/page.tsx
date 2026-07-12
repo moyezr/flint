@@ -1,12 +1,24 @@
-const capabilityRows = [
-  ["01", "Hold to speak", "Start with the shortcut. Release when the sentence is done."],
-  ["02", "Keep it local", "Audio and transcription stay on your Mac, where they belong."],
-  ["03", "Land at the cursor", "Your words return to the field that already has your attention."],
-];
+import Image from "next/image";
+
+import { TypingTest } from "./typing-test";
 
 const waveBars = [
-  25, 36, 54, 70, 44, 82, 58, 34, 64, 91, 52, 76, 42, 61, 86, 47, 32, 68, 57, 78, 40, 65,
-  30, 51, 73, 43, 60, 88, 49, 37, 69, 55, 80, 46, 28, 58, 71, 39, 63, 84, 50, 35, 66, 45,
+  28, 45, 64, 31, 73, 52, 87, 40, 59, 78, 44, 68, 35, 82, 55, 91, 46, 70, 34, 62, 84, 51,
+  76, 38, 58, 86, 47, 67, 30, 80, 54, 72, 42, 89, 49, 64, 37, 77, 56, 33, 83, 45, 69, 52,
+];
+
+const valuePoints = [
+  ["01", "Time returns to you", "Say the first draft while the thought is still intact. Flint writes it in the field you already chose."],
+  ["02", "Your voice gets clearer", "Turning a thought into a sentence out loud is a small practice. Over time, you hear what is worth saying."],
+  ["03", "The work stays yours", "Audio is transcribed on your Mac. Your words never need to become someone else’s training data."],
+];
+
+const planDetails = [
+  "Local transcription on your Mac",
+  "Push to talk at any cursor",
+  "Fast, balanced, or accurate models",
+  "Private vocabulary and cleanup modes",
+  "One active Mac at a time",
 ];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
@@ -17,29 +29,44 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function Waveform() {
+function WaveField() {
   return (
-    <div className="waveform" role="img" aria-label="An animated Flint audio waveform">
-      <div className="waveform-topline">
-        <BrandMark compact />
-        <span>LIVE LOCAL SIGNAL</span>
-      </div>
-      <div className="waveform-bars" aria-hidden="true">
+    <div className="wave-field" aria-hidden="true">
+      <div className="wave-field-bars">
         {waveBars.map((height, index) => (
           <span
             key={index}
             style={
               {
                 "--wave-height": `${height}%`,
-                "--wave-delay": `${(index % 11) * -0.12}s`,
+                "--wave-delay": `${(index % 9) * -0.16}s`,
               } as React.CSSProperties
             }
           />
         ))}
       </div>
-      <div className="waveform-bottomline">
-        <span className="wave-status"><i aria-hidden="true" /> READY WHEN YOU ARE</span>
-        <span>00:00:00</span>
+      <span className="wave-field-orbit wave-field-orbit-one" />
+      <span className="wave-field-orbit wave-field-orbit-two" />
+    </div>
+  );
+}
+
+function DemoSurface() {
+  return (
+    <div className="demo-surface" role="img" aria-label="Flint dictation interface preview">
+      <div className="demo-surface-topline">
+        <span>FLINT / RECORDING</span>
+        <span>00:18</span>
+      </div>
+      <div className="demo-surface-center">
+        <Image src="/flint-mark.png" alt="" width={96} height={96} priority />
+        <div className="demo-meter">
+          {Array.from({ length: 17 }).map((_, index) => <i key={index} />)}
+        </div>
+      </div>
+      <div className="demo-surface-bottomline">
+        <span><b /> LOCAL PROCESSING</span>
+        <span>RIGHT OPTION</span>
       </div>
     </div>
   );
@@ -49,47 +76,38 @@ export default function Home() {
   return (
     <main id="top">
       <section className="hero" aria-labelledby="hero-title">
+        <WaveField />
         <nav className="navigation page-shell" aria-label="Primary navigation">
-          <a className="wordmark" href="#top" aria-label="Flint home">
-            <BrandMark />
-          </a>
-          <a className="nav-link" href="#availability">
-            FOR MACOS
-          </a>
+          <a className="wordmark" href="#top" aria-label="Flint home"><BrandMark /></a>
+          <a className="nav-link" href="#typing-test">TAKE THE TEST</a>
         </nav>
-
-        <div className="hero-copy page-shell">
+        <div className="hero-content page-shell">
           <p className="eyebrow">LOCAL DICTATION FOR MAC</p>
-          <h1 id="hero-title">
-            Your voice has a <span>cursor.</span>
-          </h1>
-          <p className="hero-statement">Speak naturally. Keep writing.</p>
-          <p className="hero-detail">
-            Flint turns your voice into polished text exactly where your cursor is, without routing your work
-            through a subscription service.
-          </p>
+          <h1 id="hero-title">Speak the thought.<br /><span>Keep the flow.</span></h1>
+          <p className="hero-tagline">Flint places your voice exactly where your cursor already is.</p>
+          <a className="hero-link" href="#typing-test">See your typing gap <span aria-hidden="true">↓</span></a>
         </div>
-
-        <div className="hero-wave page-shell">
-          <Waveform />
-        </div>
-
-        <div className="hero-meta page-shell">
-          <span>01 / 03</span>
-          <span>VOICE IN, WORDS OUT</span>
-        </div>
+        <div className="hero-footnote page-shell"><span>PRIVATE BY DESIGN</span><span>MACOS 14+</span></div>
       </section>
 
-      <section className="capabilities" aria-labelledby="capabilities-title">
-        <div className="page-shell section-intro">
-          <p className="eyebrow">THE FLINT RHYTHM</p>
-          <h2 id="capabilities-title">Less interface. More flow.</h2>
-          <p>Flint is designed to disappear into the work you were already doing.</p>
+      <section className="demo-section section-space" aria-labelledby="demo-title">
+        <div className="section-heading page-shell">
+          <p className="eyebrow">THE MOMENT IT CLICKS</p>
+          <h2 id="demo-title">Your hands can stay<br />on the work.</h2>
+          <p>Hold your shortcut. Speak. Release. Flint takes care of the space between thought and text.</p>
         </div>
-        <div className="capability-list page-shell">
-          {capabilityRows.map(([index, title, detail]) => (
-            <article className="capability" key={index}>
-              <span className="capability-index">{index}</span>
+        <div className="page-shell demo-wrap"><DemoSurface /></div>
+      </section>
+
+      <section className="value-section section-space" aria-labelledby="value-title">
+        <div className="section-heading page-shell section-heading-centered">
+          <p className="eyebrow">THE BETTER DEFAULT</p>
+          <h2 id="value-title">You have better things<br />to do than type everything.</h2>
+        </div>
+        <div className="value-list page-shell">
+          {valuePoints.map(([index, title, detail]) => (
+            <article className="value-point" key={index}>
+              <span className="value-index">{index}</span>
               <h3>{title}</h3>
               <p>{detail}</p>
             </article>
@@ -97,39 +115,51 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="proof" aria-labelledby="proof-title">
-        <div className="page-shell proof-inner">
-          <div className="proof-copy">
-            <p className="eyebrow">BUILT FOR THE CURSOR</p>
-            <h2 id="proof-title">One gesture.<br />No context switch.</h2>
-            <p>
-              Draft in a document, answer in a browser, enter a command, or write a message. Flint stays small
-              and gets out of the way.
-            </p>
+      <section className="typing-section section-space" id="typing-test" aria-labelledby="typing-title">
+        <div className="section-heading page-shell section-heading-centered">
+          <p className="eyebrow">A 15-SECOND REALITY CHECK</p>
+          <h2 id="typing-title">You might not need Flint.<br /><span>Let your fingers decide.</span></h2>
+          <p>Type one short passage. See how much time your current pace asks from you every day.</p>
+        </div>
+        <div className="page-shell"><TypingTest /></div>
+      </section>
+
+      <section className="principles-section section-space" aria-labelledby="principles-title">
+        <div className="principles-intro page-shell">
+          <p className="eyebrow">WHY IT FEELS DIFFERENT</p>
+          <h2 id="principles-title">Built to disappear<br />into your day.</h2>
+        </div>
+        <div className="principles-grid page-shell">
+          <article><span>LOCAL</span><h3>Offline, by default.</h3><p>Your audio and transcription stay on your Mac after the model is ready.</p></article>
+          <article><span>FOCUSED</span><h3>One gesture.</h3><p>No workspace, no new editor, no context switch. Just your current cursor.</p></article>
+          <article><span>OWNED</span><h3>One-time investment.</h3><p>Buy the tool, keep the workflow. There is no monthly meter on your words.</p></article>
+        </div>
+      </section>
+
+      <section className="pricing-section section-space" id="pricing" aria-labelledby="pricing-title">
+        <div className="page-shell pricing-layout">
+          <div className="pricing-copy">
+            <p className="eyebrow">EARLY ACCESS</p>
+            <h2 id="pricing-title">One purchase.<br />No recurring ask.</h2>
+            <p>Flint is being prepared as a direct Mac download. Early access includes the full local dictation workflow and future product updates.</p>
           </div>
-          <div className="cursor-stage" role="img" aria-label="A Flint dictation indicator delivering words to a cursor">
-            <div className="cursor-stage-topline">
-              <span>THE ACTIVE FIELD</span>
-              <BrandMark compact />
-            </div>
-            <div className="cursor-line"><span>Words, right where you need them</span><i aria-hidden="true" /></div>
-            <div className="flint-indicator" aria-hidden="true">
-              <b />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
+          <div className="pricing-detail">
+            <p className="pricing-label">FLINT FOR MAC</p>
+            <p className="pricing-value">ONE-TIME</p>
+            <ul>
+              {planDetails.map((detail) => <li key={detail}>{detail}</li>)}
+            </ul>
+            <p className="pricing-note">Personal adaptation is on the roadmap. It is not part of the current release.</p>
           </div>
         </div>
       </section>
 
-      <section className="availability" id="availability" aria-labelledby="availability-title">
-        <div className="page-shell availability-inner">
-          <p className="eyebrow">COMING TO MACOS</p>
-          <h2 id="availability-title"><BrandMark /> for the way you work.</h2>
-          <p>Release availability will appear here when the signed Flint disk image is ready.</p>
+      <section className="contact-section" aria-labelledby="contact-title">
+        <div className="page-shell contact-inner">
+          <p className="eyebrow">MAKE ROOM FOR THE THOUGHT</p>
+          <h2 id="contact-title">Want Flint on your Mac?</h2>
+          <a className="contact-link" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20early%20access">moyezrabbani.work@gmail.com <span aria-hidden="true">↗</span></a>
+          <p>Early access, questions, and feedback go directly to Moyez.</p>
         </div>
       </section>
 
