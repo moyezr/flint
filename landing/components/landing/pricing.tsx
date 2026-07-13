@@ -12,7 +12,7 @@ const planDetails = [
 export function Pricing() {
   return (
     <section className="bg-paper py-36 max-[840px]:py-24" id="pricing" aria-labelledby="pricing-title">
-      <div className="mx-auto grid w-[min(100%-48px,1180px)] grid-cols-2 items-center gap-[98px] max-[840px]:w-[min(100%-36px,1180px)] max-[840px]:grid-cols-1 max-[840px]:gap-[52px] max-[520px]:w-[min(100%-28px,1180px)]">
+      <div className="relative z-10 mx-auto grid w-[min(100%-48px,1180px)] grid-cols-2 items-center gap-[98px] max-[840px]:w-[min(100%-36px,1180px)] max-[840px]:grid-cols-1 max-[840px]:gap-[52px] max-[520px]:w-[min(100%-28px,1180px)]">
         <div className="max-[840px]:text-center">
           <SectionHeading
             align="left"

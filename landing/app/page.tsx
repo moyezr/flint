@@ -10,13 +10,13 @@ import { ValuePropositions } from "@/components/landing/value-propositions";
 
 export default function Home() {
   return (
-    <main className="bg-paper text-ink w-full relative h-full">
-      <div className="absolute inset-0 w-full h-full" >
+    <main className="bg-paper text-ink w-full relative h-full z-10">
+      <div className="absolute inset-0 w-full h-full z-0" >
         <DotGrid
           dotSize={5}
           gap={15}
           baseColor="rgba(245, 73, 0, 0.1)"
-          activeColor="rgba(245, 73, 0, 1)"
+          activeColor="rgba(245, 73, 0, 0.55)"
           proximity={120}
           shockRadius={250}
           shockStrength={5}
@@ -33,7 +33,7 @@ export default function Home() {
       <Principles />
       <Pricing />
       <Contact />
-      <div className="bg-deep"><Footer /></div>
+      <div className="bg-deep"><div className="relative z-10"><Footer /></div></div>
     </main>
   );
 }

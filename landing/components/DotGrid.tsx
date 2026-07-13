@@ -41,14 +41,35 @@ export interface DotGridProps {
   style?: React.CSSProperties;
 }
 
-function hexToRgb(hex: string) {
-  const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if (!m) return { r: 0, g: 0, b: 0 };
-  return {
-    r: parseInt(m[1], 16),
-    g: parseInt(m[2], 16),
-    b: parseInt(m[3], 16)
-  };
+interface RgbaColor {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+function parseColor(color: string): RgbaColor {
+  const hex = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (hex) {
+    return {
+      r: parseInt(hex[1], 16),
+      g: parseInt(hex[2], 16),
+      b: parseInt(hex[3], 16),
+      a: 1
+    };
+  }
+
+  const rgba = color.match(/^rgba?\(\s*([\d.]+)[,\s]+\s*([\d.]+)[,\s]+\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
+  if (rgba) {
+    return {
+      r: Number(rgba[1]),
+      g: Number(rgba[2]),
+      b: Number(rgba[3]),
+      a: rgba[4] === undefined ? 1 : Number(rgba[4])
+    };
+  }
+
+  return { r: 0, g: 0, b: 0, a: 1 };
 }
 
 const DotGrid: React.FC<DotGridProps> = ({
@@ -80,8 +101,8 @@ const DotGrid: React.FC<DotGridProps> = ({
     lastY: 0
   });
 
-  const baseRgb = useMemo(() => hexToRgb(baseColor), [baseColor]);
-  const activeRgb = useMemo(() => hexToRgb(activeColor), [activeColor]);
+  const baseRgba = useMemo(() => parseColor(baseColor), [baseColor]);
+  const activeRgba = useMemo(() => parseColor(activeColor), [activeColor]);
 
   const circlePath = useMemo(() => {
     if (typeof window === 'undefined' || !window.Path2D) return null;
@@ -156,10 +177,11 @@ const DotGrid: React.FC<DotGridProps> = ({
         if (dsq <= proxSq) {
           const dist = Math.sqrt(dsq);
           const t = 1 - dist / proximity;
-          const r = Math.round(baseRgb.r + (activeRgb.r - baseRgb.r) * t);
-          const g = Math.round(baseRgb.g + (activeRgb.g - baseRgb.g) * t);
-          const b = Math.round(baseRgb.b + (activeRgb.b - baseRgb.b) * t);
-          style = `rgb(${r},${g},${b})`;
+          const r = Math.round(baseRgba.r + (activeRgba.r - baseRgba.r) * t);
+          const g = Math.round(baseRgba.g + (activeRgba.g - baseRgba.g) * t);
+          const b = Math.round(baseRgba.b + (activeRgba.b - baseRgba.b) * t);
+          const a = baseRgba.a + (activeRgba.a - baseRgba.a) * t;
+          style = `rgba(${r}, ${g}, ${b}, ${a})`;
         }
 
         ctx.save();
@@ -174,7 +196,7 @@ const DotGrid: React.FC<DotGridProps> = ({
 
     draw();
     return () => cancelAnimationFrame(rafId);
-  }, [proximity, baseColor, activeRgb, baseRgb, circlePath]);
+  }, [proximity, baseColor, activeRgba, baseRgba, circlePath]);
 
   useEffect(() => {
     buildGrid();
