@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { spaceGrotesk } from "../../fonts";
+import { spaceGrotesk } from "@/lib/fonts";
 
 type SectionHeadingProps = {
   eyebrow: string;

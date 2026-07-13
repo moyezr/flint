@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { spaceGrotesk } from "../fonts";
+import { spaceGrotesk } from "../../lib/fonts";
 import { TransferConfirmation } from "./transfer-confirmation";
 
 export const metadata: Metadata = {

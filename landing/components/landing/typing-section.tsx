@@ -1,4 +1,4 @@
-import { TypingTest } from "../../typing-test";
+import { TypingTest } from "@/components/typing-test";
 import { SectionHeading } from "./section-heading";
 
 export function TypingSection() {

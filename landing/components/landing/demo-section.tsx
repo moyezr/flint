@@ -3,7 +3,7 @@ import { SectionHeading } from "./section-heading";
 
 export function DemoSection() {
   return (
-    <section className="bg-mist py-36 max-[840px]:py-24" aria-labelledby="demo-title">
+    <section className="py-36 max-[840px]:py-24" aria-labelledby="demo-title">
       <div className="mx-auto w-[min(100%-48px,1180px)] max-[840px]:w-[min(100%-36px,1180px)] max-[520px]:w-[min(100%-28px,1180px)]">
         <SectionHeading
           eyebrow="THE MOMENT IT CLICKS"

@@ -1,4 +1,4 @@
-import { spaceGrotesk } from "../../fonts";
+import { spaceGrotesk } from "@/lib/fonts";
 import { SectionHeading } from "./section-heading";
 
 const planDetails = [

@@ -1,4 +1,4 @@
-import { spaceGrotesk } from "../../fonts";
+import { spaceGrotesk } from "@/lib/fonts";
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (

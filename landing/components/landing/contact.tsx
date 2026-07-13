@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { spaceGrotesk } from "../../fonts";
+import { spaceGrotesk } from "@/lib/fonts";
 import { SectionHeading } from "./section-heading";
 
 export function Contact() {
