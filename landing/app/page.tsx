@@ -1,5 +1,6 @@
 import Image from "next/image";
 
+import { spaceGrotesk } from "./fonts";
 import { TypingTest } from "./typing-test";
 
 const waveBars = [
@@ -8,9 +9,9 @@ const waveBars = [
 ];
 
 const valuePoints = [
-  ["01", "Time returns to you", "Say the first draft while the thought is still intact. Flint writes it in the field you already chose."],
-  ["02", "Your voice gets clearer", "Turning a thought into a sentence out loud is a small practice. Over time, you hear what is worth saying."],
-  ["03", "The work stays yours", "Audio is transcribed on your Mac. Your words never need to become someone else’s training data."],
+  ["Time returns to you", "Say the first draft while the thought is still intact. Flint writes it in the field you already chose."],
+  ["Your voice gets clearer", "Turning a thought into a sentence out loud is a small practice. Over time, you hear what is worth saying."],
+  ["The work stays yours", "Audio is transcribed on your Mac. Your words never need to become someone else’s training data."],
 ];
 
 const planDetails = [
@@ -23,7 +24,7 @@ const planDetails = [
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
-    <span className={compact ? "brand-mark brand-mark-compact" : "brand-mark"}>
+    <span className={`${compact ? "brand-mark brand-mark-compact" : "brand-mark"} ${spaceGrotesk.className}`}>
       FLINT<span aria-hidden="true">/</span>
     </span>
   );
@@ -83,7 +84,7 @@ export default function Home() {
         </nav>
         <div className="hero-content page-shell">
           <p className="eyebrow">LOCAL DICTATION FOR MAC</p>
-          <h1 id="hero-title">Speak the thought.<br /><span>Keep the flow.</span></h1>
+          <h1 className={spaceGrotesk.className} id="hero-title">Speak the thought.<br /><span>Keep the flow.</span></h1>
           <p className="hero-tagline">Flint places your voice exactly where your cursor already is.</p>
           <a className="hero-link" href="#typing-test">See your typing gap <span aria-hidden="true">↓</span></a>
         </div>
@@ -93,7 +94,7 @@ export default function Home() {
       <section className="demo-section section-space" aria-labelledby="demo-title">
         <div className="section-heading page-shell">
           <p className="eyebrow">THE MOMENT IT CLICKS</p>
-          <h2 id="demo-title">Your hands can stay<br />on the work.</h2>
+          <h2 className={spaceGrotesk.className} id="demo-title">Your hands can stay<br />on the work.</h2>
           <p>Hold your shortcut. Speak. Release. Flint takes care of the space between thought and text.</p>
         </div>
         <div className="page-shell demo-wrap"><DemoSurface /></div>
@@ -102,13 +103,13 @@ export default function Home() {
       <section className="value-section section-space" aria-labelledby="value-title">
         <div className="section-heading page-shell section-heading-centered">
           <p className="eyebrow">THE BETTER DEFAULT</p>
-          <h2 id="value-title">You have better things<br />to do than type everything.</h2>
+          <h2 className={spaceGrotesk.className} id="value-title">You have better things<br />to do than type everything.</h2>
         </div>
         <div className="value-list page-shell">
-          {valuePoints.map(([index, title, detail]) => (
-            <article className="value-point" key={index}>
-              <span className="value-index">{index}</span>
-              <h3>{title}</h3>
+          {valuePoints.map(([title, detail]) => (
+            <article className="value-point" key={title}>
+              <span className="value-reticle" aria-hidden="true"><i /></span>
+              <h3 className={spaceGrotesk.className}>{title}</h3>
               <p>{detail}</p>
             </article>
           ))}
@@ -118,7 +119,7 @@ export default function Home() {
       <section className="typing-section section-space" id="typing-test" aria-labelledby="typing-title">
         <div className="section-heading page-shell section-heading-centered">
           <p className="eyebrow">A 15-SECOND REALITY CHECK</p>
-          <h2 id="typing-title">You might not need Flint.<br /><span>Let your fingers decide.</span></h2>
+          <h2 className={spaceGrotesk.className} id="typing-title">You might not need Flint.<br /><span>Let your fingers decide.</span></h2>
           <p>Type one short passage. See how much time your current pace asks from you every day.</p>
         </div>
         <div className="page-shell"><TypingTest /></div>
@@ -127,12 +128,12 @@ export default function Home() {
       <section className="principles-section section-space" aria-labelledby="principles-title">
         <div className="principles-intro page-shell">
           <p className="eyebrow">WHY IT FEELS DIFFERENT</p>
-          <h2 id="principles-title">Built to disappear<br />into your day.</h2>
+          <h2 className={spaceGrotesk.className} id="principles-title">Built to disappear<br />into your day.</h2>
         </div>
         <div className="principles-grid page-shell">
-          <article><span>LOCAL</span><h3>Offline, by default.</h3><p>Your audio and transcription stay on your Mac after the model is ready.</p></article>
-          <article><span>FOCUSED</span><h3>One gesture.</h3><p>No workspace, no new editor, no context switch. Just your current cursor.</p></article>
-          <article><span>OWNED</span><h3>One-time investment.</h3><p>Buy the tool, keep the workflow. There is no monthly meter on your words.</p></article>
+          <article><span>LOCAL</span><h3 className={spaceGrotesk.className}>Offline, by default.</h3><p>Your audio and transcription stay on your Mac after the model is ready.</p></article>
+          <article><span>FOCUSED</span><h3 className={spaceGrotesk.className}>One gesture.</h3><p>No workspace, no new editor, no context switch. Just your current cursor.</p></article>
+          <article><span>OWNED</span><h3 className={spaceGrotesk.className}>One-time investment.</h3><p>Buy the tool, keep the workflow. There is no monthly meter on your words.</p></article>
         </div>
       </section>
 
@@ -140,12 +141,12 @@ export default function Home() {
         <div className="page-shell pricing-layout">
           <div className="pricing-copy">
             <p className="eyebrow">EARLY ACCESS</p>
-            <h2 id="pricing-title">One purchase.<br />No recurring ask.</h2>
+            <h2 className={spaceGrotesk.className} id="pricing-title">One purchase.<br />No recurring ask.</h2>
             <p>Flint is being prepared as a direct Mac download. Early access includes the full local dictation workflow and future product updates.</p>
           </div>
           <div className="pricing-detail">
             <p className="pricing-label">FLINT FOR MAC</p>
-            <p className="pricing-value">ONE-TIME</p>
+            <p className={`pricing-value ${spaceGrotesk.className}`}>ONE-TIME</p>
             <ul>
               {planDetails.map((detail) => <li key={detail}>{detail}</li>)}
             </ul>
@@ -157,8 +158,8 @@ export default function Home() {
       <section className="contact-section" aria-labelledby="contact-title">
         <div className="page-shell contact-inner">
           <p className="eyebrow">MAKE ROOM FOR THE THOUGHT</p>
-          <h2 id="contact-title">Want Flint on your Mac?</h2>
-          <a className="contact-link" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20early%20access">moyezrabbani.work@gmail.com <span aria-hidden="true">↗</span></a>
+          <h2 className={spaceGrotesk.className} id="contact-title">Want Flint on your Mac?</h2>
+          <a className={`contact-link ${spaceGrotesk.className}`} href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20early%20access">moyezrabbani.work@gmail.com <span aria-hidden="true">↗</span></a>
           <p>Early access, questions, and feedback go directly to Moyez.</p>
         </div>
       </section>

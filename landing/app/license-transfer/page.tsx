@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { spaceGrotesk } from "../fonts";
 import { TransferConfirmation } from "./transfer-confirmation";
 
 export const metadata: Metadata = {
@@ -17,9 +18,9 @@ export default async function LicenseTransferPage({
   return (
     <main className="transfer-page">
       <section className="transfer-panel" aria-labelledby="transfer-title">
-        <Link className="wordmark" href="/" aria-label="Flint home">FLINT<span aria-hidden="true">/</span></Link>
+        <Link className={`wordmark ${spaceGrotesk.className}`} href="/" aria-label="Flint home">FLINT<span aria-hidden="true">/</span></Link>
         <p className="eyebrow">LICENSE SECURITY</p>
-        <h1 id="transfer-title">Confirm device transfer.</h1>
+        <h1 className={spaceGrotesk.className} id="transfer-title">Confirm device transfer.</h1>
         <p>
           This will deactivate Flint on the currently active Mac and allow the new Mac to finish activation.
         </p>
