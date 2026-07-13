@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ibmPlexMono, inter, spaceGrotesk } from "./fonts";
+import { resolveBaseTheme } from "./lib/theme";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://flint.moyezrabbani.dev";
 
@@ -43,7 +44,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} ${inter.variable} ${ibmPlexMono.variable} ${inter.className}`}>{children}</body>
+      <body
+        className={`${spaceGrotesk.variable} ${inter.variable} ${ibmPlexMono.variable} ${inter.className}`}
+        data-base-theme={resolveBaseTheme()}
+      >
+        {children}
+      </body>
     </html>
   );
 }

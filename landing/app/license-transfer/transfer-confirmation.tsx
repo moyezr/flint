@@ -30,13 +30,13 @@ export function TransferConfirmation({ token }: { token: string }) {
   }
 
   return (
-    <div className="transfer-actions">
+    <div className="flex flex-col items-start gap-4">
       {state === "confirmed" ? null : (
-        <button type="button" onClick={confirm} disabled={state !== "idle"}>
+        <button className="min-h-[46px] cursor-pointer border border-deep bg-deep px-[18px] font-mono text-[13px] font-semibold text-paper disabled:cursor-wait disabled:opacity-60" type="button" onClick={confirm} disabled={state !== "idle"}>
           {state === "submitting" ? "Confirming..." : "Confirm transfer"}
         </button>
       )}
-      {message ? <p role={state === "error" ? "alert" : "status"}>{message}</p> : null}
+      {message ? <p className="m-0 text-[15px] leading-[1.5] text-muted" role={state === "error" ? "alert" : "status"}>{message}</p> : null}
     </div>
   );
 }
