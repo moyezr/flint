@@ -7,7 +7,7 @@ Next.js 16 App Router prototype for the Flint marketing site.
 From the repository root:
 
 ```sh
-npm install
+npm --prefix landing install
 npm run landing:dev
 ```
 

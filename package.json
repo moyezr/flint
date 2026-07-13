@@ -1,16 +1,13 @@
 {
   "name": "flint-monorepo",
   "private": true,
-  "workspaces": [
-    "landing"
-  ],
   "scripts": {
-    "landing:dev": "npm --workspace flint-landing run dev",
-    "landing:build": "npm --workspace flint-landing run build",
-    "landing:lint": "npm --workspace flint-landing run lint",
-    "landing:db:migrate": "npm --workspace flint-landing run db:migrate",
-    "landing:licenses:create": "npm --workspace flint-landing run licenses:create",
-    "landing:licenses:bootstrap": "npm --workspace flint-landing run licenses:bootstrap",
-    "landing:licenses:verify": "npm --workspace flint-landing run licenses:verify"
+    "landing:dev": "npm --prefix landing run dev",
+    "landing:build": "npm --prefix landing run build",
+    "landing:lint": "npm --prefix landing run lint",
+    "landing:db:migrate": "npm --prefix landing run db:migrate",
+    "landing:licenses:create": "npm --prefix landing run licenses:create",
+    "landing:licenses:bootstrap": "npm --prefix landing run licenses:bootstrap",
+    "landing:licenses:verify": "npm --prefix landing run licenses:verify"
   }
 }
