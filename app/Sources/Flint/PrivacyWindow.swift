@@ -28,7 +28,7 @@ final class PrivacyWindowController {
     }
 
     func show() {
-        model.refresh()
+        Task { await model.refresh() }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -44,6 +44,10 @@ private final class PrivacyDashboardModel: ObservableObject {
     @Published var historyEntries: [HistoryEntry] = []
     @Published var historyMessage = ""
     @Published var historyError = ""
+    @Published var learningMemories: [LearningMemory] = []
+    @Published var correctionEvidenceCount = 0
+    @Published var learningMessage = ""
+    @Published var learningError = ""
 
     private let privacyManager: PrivacyManager
     private let onDeleteAllLocalData: () -> Void
@@ -54,23 +58,32 @@ private final class PrivacyDashboardModel: ObservableObject {
     ) {
         self.privacyManager = privacyManager
         self.onDeleteAllLocalData = onDeleteAllLocalData
-        let initialSnapshot = privacyManager.snapshot()
-        snapshot = initialSnapshot
-        historyEnabled = initialSnapshot.statusRows.first { $0.id == "history" }?.value == "On"
+        snapshot = .empty
+        historyEnabled = false
         historyCount = privacyManager.historyCount()
         reloadHistory()
+        Task { await refresh() }
     }
 
-    func refresh() {
-        snapshot = privacyManager.snapshot()
+    func refresh() async {
+        snapshot = await privacyManager.snapshot()
         historyEnabled = snapshot.statusRows.first { $0.id == "history" }?.value == "On"
         historyCount = privacyManager.historyCount()
         reloadHistory()
+        do {
+            learningMemories = try await privacyManager.learningMemories()
+            correctionEvidenceCount = await privacyManager.learningSummary().evidenceCount
+            learningError = ""
+        } catch {
+            learningMemories = []
+            correctionEvidenceCount = 0
+            learningError = error.localizedDescription
+        }
     }
 
     func setHistoryEnabled(_ enabled: Bool) {
         privacyManager.setHistoryEnabled(enabled)
-        refresh()
+        Task { await refresh() }
         historyMessage = enabled ? "History enabled." : "History disabled."
         historyError = ""
     }
@@ -78,7 +91,7 @@ private final class PrivacyDashboardModel: ObservableObject {
     func deleteHistoryEntry(_ entry: HistoryEntry) {
         do {
             try privacyManager.deleteHistoryEntry(id: entry.id)
-            refresh()
+            Task { await refresh() }
             historyMessage = "Deleted history entry."
             historyError = ""
         } catch {
@@ -90,7 +103,7 @@ private final class PrivacyDashboardModel: ObservableObject {
     func deleteAllHistory() {
         do {
             try privacyManager.deleteAllHistory()
-            refresh()
+            Task { await refresh() }
             historyMessage = "Deleted all history entries."
             historyError = ""
         } catch {
@@ -120,15 +133,59 @@ private final class PrivacyDashboardModel: ObservableObject {
     }
 
     func deleteAllLocalData() {
-        do {
-            let result = try privacyManager.deleteAllLocalData()
-            onDeleteAllLocalData()
-            refresh()
-            deletionError = ""
-            deletionMessage = "Deleted \(result.customReplacementCount) vocabulary entries, \(result.installedModelCount) installed model references, \(result.historyEntryCount) history entries, \(result.appModeRuleCount) app mode rules, and license activation. Settings are back to defaults."
-        } catch {
-            deletionMessage = ""
-            deletionError = error.localizedDescription
+        Task {
+            do {
+                let result = try await privacyManager.deleteAllLocalData()
+                onDeleteAllLocalData()
+                await refresh()
+                deletionError = ""
+                deletionMessage = "Deleted \(result.learningMemoryCount) vocabulary entries, \(result.correctionEvidenceCount) explicit corrections, \(result.installedModelCount) installed model references, \(result.historyEntryCount) history entries, \(result.appModeRuleCount) app mode rules, and license activation. Settings are back to defaults."
+            } catch {
+                deletionMessage = ""
+                deletionError = error.localizedDescription
+            }
+        }
+    }
+
+    func deleteLearningMemory(_ memory: LearningMemory) {
+        Task {
+            do {
+                try await privacyManager.deleteLearningMemory(id: memory.id)
+                await refresh()
+                learningMessage = "Deleted vocabulary entry."
+                learningError = ""
+            } catch {
+                learningMessage = ""
+                learningError = error.localizedDescription
+            }
+        }
+    }
+
+    func deleteCorrectionEvidence() {
+        Task {
+            do {
+                try await privacyManager.deleteCorrectionEvidence()
+                await refresh()
+                learningMessage = "Deleted explicit correction evidence. Vocabulary was preserved."
+                learningError = ""
+            } catch {
+                learningMessage = ""
+                learningError = error.localizedDescription
+            }
+        }
+    }
+
+    func deleteAllLearningData() {
+        Task {
+            do {
+                try await privacyManager.deleteAllLearningData()
+                await refresh()
+                learningMessage = "Deleted all personalization data."
+                learningError = ""
+            } catch {
+                learningMessage = ""
+                learningError = error.localizedDescription
+            }
         }
     }
 
@@ -147,6 +204,8 @@ private struct PrivacyDashboardView: View {
     @ObservedObject var model: PrivacyDashboardModel
     @State private var isConfirmingDelete = false
     @State private var isConfirmingHistoryDelete = false
+    @State private var isConfirmingEvidenceDelete = false
+    @State private var isConfirmingLearningDelete = false
 
     var body: some View {
         ScrollView {
@@ -232,6 +291,57 @@ private struct PrivacyDashboardView: View {
                     }
                 }
 
+                PrivacySection(title: "Personalization") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Only words you teach Flint and corrections you explicitly save are stored here. Normal dictations and audio are not learning data.")
+                            .foregroundStyle(.secondary)
+
+                        if model.learningMemories.isEmpty {
+                            Text("No vocabulary entries stored.")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(model.learningMemories) { memory in
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("\(memory.heardForm) → \(memory.preferredForm)")
+                                            .font(.headline)
+                                        Text(memory.scopeKind == .global ? "Global" : memory.scopeValue)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("Delete") {
+                                        model.deleteLearningMemory(memory)
+                                    }
+                                }
+                            }
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("\(model.correctionEvidenceCount) explicit corrections")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Delete Corrections") {
+                                isConfirmingEvidenceDelete = true
+                            }
+                            .disabled(model.correctionEvidenceCount == 0)
+                            Button("Delete All Personalization") {
+                                isConfirmingLearningDelete = true
+                            }
+                            .disabled(model.correctionEvidenceCount == 0 && model.learningMemories.isEmpty)
+                        }
+
+                        if !model.learningMessage.isEmpty {
+                            Text(model.learningMessage)
+                                .foregroundStyle(.secondary)
+                        }
+                        if !model.learningError.isEmpty {
+                            Text(model.learningError)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+
                 PrivacySection(title: "Delete Local Data") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Deletes custom vocabulary, cached model files, installed model references, history entries, app mode rules, license activation, and resets app settings to defaults.")
@@ -273,6 +383,22 @@ private struct PrivacyDashboardView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This deletes stored transcript history entries. Raw audio is never stored by history.")
+        }
+        .alert("Delete explicit corrections?", isPresented: $isConfirmingEvidenceDelete) {
+            Button("Delete Corrections", role: .destructive) {
+                model.deleteCorrectionEvidence()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes saved before-and-after correction evidence but preserves active vocabulary.")
+        }
+        .alert("Delete all personalization?", isPresented: $isConfirmingLearningDelete) {
+            Button("Delete All Personalization", role: .destructive) {
+                model.deleteAllLearningData()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes active vocabulary and explicit correction evidence. History and model files are preserved.")
         }
     }
 }

@@ -37,7 +37,7 @@ final class PrivacyManagerTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testSnapshotShowsPlainPrivacyRowsPathsAndHistoryStatus() throws {
+    func testSnapshotShowsPlainPrivacyRowsPathsAndHistoryStatus() async throws {
         var settings = AppSettings.default
         settings.storeHistory = true
         settings.appAwareModesEnabled = true
@@ -46,7 +46,14 @@ final class PrivacyManagerTests: XCTestCase {
             heardPhrase: "live kit",
             preferredReplacement: "LiveKit"
         )
-        let manager = makePrivacyManager(permissionSnapshot: PermissionSnapshot(statuses: [
+        let learningStore = LearningStore(databaseURL: learningDatabaseURL)
+        _ = try await learningStore.upsertMemory(LearningMemoryDraft(
+            heardForm: "live kit",
+            preferredForm: "LiveKit"
+        ))
+        let manager = makePrivacyManager(
+            learningStore: learningStore,
+            permissionSnapshot: PermissionSnapshot(statuses: [
             PermissionStatus(kind: .microphone, readiness: .ready),
             PermissionStatus(kind: .accessibility, readiness: .denied),
             PermissionStatus(kind: .inputMonitoring, readiness: .ready)
@@ -58,26 +65,26 @@ final class PrivacyManagerTests: XCTestCase {
             mode: .email
         ))
 
-        let snapshot = manager.snapshot()
+        let snapshot = await manager.snapshot()
 
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "transcription" }?.value, "Local")
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "history" }?.value, "On")
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "app-modes" }?.value, "On")
+        XCTAssertEqual(snapshot.statusRows.first { $0.id == "learning" }?.value, "Local")
+        XCTAssertTrue(snapshot.statusRows.first { $0.id == "learning" }?.detail.contains("1 active vocabulary") == true)
         XCTAssertTrue(snapshot.statusRows.first { $0.id == "app-modes" }?.detail.contains("1 enabled bundle-ID") == true)
         XCTAssertTrue(snapshot.statusRows.first { $0.id == "history" }?.detail.contains("1 entries") == true)
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "telemetry" }?.detail, "Telemetry is not implemented.")
         XCTAssertEqual(snapshot.permissionStatuses.map(\.kind), [.microphone, .accessibility, .inputMonitoring])
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "settings" }?.path, "Test UserDefaults \(suiteName!)")
-        XCTAssertEqual(snapshot.dataLocations.first { $0.id == "vocabulary" }?.path, "Test UserDefaults \(suiteName!)")
+        XCTAssertEqual(snapshot.dataLocations.first { $0.id == "vocabulary" }?.path, learningDatabaseURL.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "model-cache" }?.path, tempRoot.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.path, historyDatabaseURL.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "history" }?.detail, "1 history entries. Audio files and blobs are never stored.")
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "app-mode-rules" }?.path, historyDatabaseURL.path)
         XCTAssertTrue(snapshot.dataLocations.first { $0.id == "app-mode-rules" }?.detail.contains("1 app-specific") == true)
-        XCTAssertEqual(
-            snapshot.dataLocations.first { $0.id == "vocabulary" }?.detail,
-            "1 custom entries stored under UserDefaults key dictionary.customReplacements."
-        )
+        XCTAssertTrue(snapshot.dataLocations.first { $0.id == "vocabulary" }?.detail.contains("1 active vocabulary") == true)
+        XCTAssertTrue(snapshot.dataLocations.first { $0.id == "vocabulary" }?.detail.contains("explicit corrections") == true)
     }
 
     func testDeleteAllLocalDataResetsSettingsVocabularyAndModelCache() async throws {
@@ -104,7 +111,12 @@ final class PrivacyManagerTests: XCTestCase {
             return folder
         }
         try await modelManager.downloadModel(for: .fast)
-        let manager = makePrivacyManager(modelManager: modelManager)
+        let learningStore = LearningStore(databaseURL: learningDatabaseURL)
+        _ = try await learningStore.saveExplicitCorrection(ExplicitCorrectionWrite(
+            memory: LearningMemoryDraft(heardForm: "live kit", preferredForm: "LiveKit"),
+            evidence: CorrectionEvidenceDraft(originalText: "live kit", correctedText: "LiveKit")
+        ))
+        let manager = makePrivacyManager(modelManager: modelManager, learningStore: learningStore)
         let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
         _ = try historyStore.insert(makeHistoryEntry())
         _ = try AppModeRuleStore(databaseURL: historyDatabaseURL).create(NewAppModeRule(
@@ -116,13 +128,15 @@ final class PrivacyManagerTests: XCTestCase {
         FileManager.default.createFile(atPath: walURL.path, contents: Data([4]))
         FileManager.default.createFile(atPath: shmURL.path, contents: Data([5]))
 
-        let result = try manager.deleteAllLocalData()
+        let result = try await manager.deleteAllLocalData()
 
         XCTAssertEqual(result.settings, .default)
         XCTAssertEqual(result.customReplacementCount, 1)
         XCTAssertEqual(result.installedModelCount, 1)
         XCTAssertEqual(result.historyEntryCount, 1)
         XCTAssertEqual(result.appModeRuleCount, 1)
+        XCTAssertEqual(result.learningMemoryCount, 1)
+        XCTAssertEqual(result.correctionEvidenceCount, 1)
         XCTAssertEqual(AppSettingsStore(defaults: defaults).load(), .default)
         XCTAssertNil(defaults.object(forKey: "shortcutOption"))
         XCTAssertNil(defaults.object(forKey: "cleanupMode"))
@@ -133,6 +147,7 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: historyDatabaseURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: walURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: shmURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: learningDatabaseURL.path))
         XCTAssertEqual(try HistoryStore(databaseURL: historyDatabaseURL).count(), 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: historyDatabaseURL.path))
         XCTAssertFalse(modelManager.metadata(for: .fast).isInstalled)
@@ -143,7 +158,7 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertEqual(nonHistoryFiles, [])
     }
 
-    func testDeleteAllLocalDataClearsLicenseState() throws {
+    func testDeleteAllLocalDataClearsLicenseState() async throws {
         try licenseManager.saveActivatedLicense(
             licenseKey: "FLINT-PRIVACY-KEY",
             activationID: "act_privacy",
@@ -152,7 +167,7 @@ final class PrivacyManagerTests: XCTestCase {
         )
         let manager = makePrivacyManager()
 
-        try manager.deleteAllLocalData()
+        try await manager.deleteAllLocalData()
 
         XCTAssertEqual(try licenseManager.load(), .inactive)
     }
@@ -196,7 +211,10 @@ final class PrivacyManagerTests: XCTestCase {
             licenseManager: failingLicenseManager
         )
 
-        XCTAssertThrowsError(try manager.deleteAllLocalData()) { error in
+        do {
+            _ = try await manager.deleteAllLocalData()
+            XCTFail("Expected license deletion to fail")
+        } catch {
             XCTAssertEqual(
                 error as? LicenseManager.LicenseManagerError,
                 .keychainFailure(operation: "delete", status: errSecAuthFailed)
@@ -230,7 +248,10 @@ final class PrivacyManagerTests: XCTestCase {
         _ = try historyStore.insert(makeHistoryEntry())
         let manager = makePrivacyManager(modelManager: modelManager)
 
-        XCTAssertThrowsError(try manager.deleteAllLocalData()) { error in
+        do {
+            _ = try await manager.deleteAllLocalData()
+            XCTFail("Expected model deletion to fail")
+        } catch {
             XCTAssertEqual(
                 error as? ModelManager.ModelManagerError,
                 .savedPathOutsideCacheRoot(outsideRoot)
@@ -246,11 +267,13 @@ final class PrivacyManagerTests: XCTestCase {
     private func makePrivacyManager(
         modelManager: ModelManager? = nil,
         licenseManager: LicenseManager? = nil,
+        learningStore: LearningStore? = nil,
         permissionSnapshot: PermissionSnapshot = PermissionSnapshot(statuses: [])
     ) -> PrivacyManager {
         PrivacyManager(
             settingsStore: AppSettingsStore(defaults: defaults),
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
+            learningStore: learningStore ?? LearningStore(databaseURL: learningDatabaseURL),
             modelManager: modelManager ?? makeModelManager(),
             historyStore: try! HistoryStore(databaseURL: historyDatabaseURL),
             appModeRuleStore: AppModeRuleStore(databaseURL: historyDatabaseURL),
@@ -262,6 +285,10 @@ final class PrivacyManagerTests: XCTestCase {
 
     private var historyDatabaseURL: URL {
         tempRoot.appendingPathComponent("History.sqlite")
+    }
+
+    private var learningDatabaseURL: URL {
+        tempRoot.appendingPathComponent("Learning.sqlite")
     }
 
     private func makeHistoryEntry() -> NewHistoryEntry {

@@ -22,6 +22,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let recorder = AudioRecorder()
     private let transcriptionEngine = TranscriptionEngine()
     private let dictionaryEngine = DictionaryEngine()
+    private let learningStore = LearningStore()
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
     private let dictationFeedback = DictationFeedback()
@@ -493,6 +494,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             privacyManager: PrivacyManager(
                 settingsStore: appSettingsStore,
                 dictionaryEngine: dictionaryEngine,
+                learningStore: learningStore,
                 modelManager: modelManager,
                 historyStore: historyStore,
                 permissionSnapshotProvider: { [permissionManager] in

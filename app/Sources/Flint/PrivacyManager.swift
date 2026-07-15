@@ -18,6 +18,12 @@ struct PrivacyDashboardSnapshot: Equatable {
     let statusRows: [PrivacyStatusRow]
     let permissionStatuses: [PermissionStatus]
     let dataLocations: [PrivacyDataLocation]
+
+    static let empty = PrivacyDashboardSnapshot(
+        statusRows: [],
+        permissionStatuses: [],
+        dataLocations: []
+    )
 }
 
 struct PrivacyDeletionResult: Equatable {
@@ -26,6 +32,8 @@ struct PrivacyDeletionResult: Equatable {
     let installedModelCount: Int
     let historyEntryCount: Int
     let appModeRuleCount: Int
+    let learningMemoryCount: Int
+    let correctionEvidenceCount: Int
 }
 
 struct PrivacyManager {
@@ -42,6 +50,7 @@ struct PrivacyManager {
 
     private let settingsStore: AppSettingsStore
     private let dictionaryEngine: DictionaryEngine
+    private let learningStore: LearningStore?
     private let modelManager: ModelManager
     private let historyStore: HistoryStore?
     private let appModeRuleStore: AppModeRuleStore?
@@ -54,6 +63,7 @@ struct PrivacyManager {
     init(
         settingsStore: AppSettingsStore = AppSettingsStore(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
+        learningStore: LearningStore? = LearningStore(),
         modelManager: ModelManager = ModelManager(),
         historyStore: HistoryStore? = try? HistoryStore(),
         appModeRuleStore: AppModeRuleStore? = AppModeRuleStore(),
@@ -65,6 +75,7 @@ struct PrivacyManager {
     ) {
         self.settingsStore = settingsStore
         self.dictionaryEngine = dictionaryEngine
+        self.learningStore = learningStore
         self.modelManager = modelManager
         self.historyStore = historyStore
         self.appModeRuleStore = appModeRuleStore
@@ -75,12 +86,17 @@ struct PrivacyManager {
         self.settingsLocation = settingsLocation
     }
 
-    func snapshot() -> PrivacyDashboardSnapshot {
+    func snapshot() async -> PrivacyDashboardSnapshot {
         let settings = settingsStore.load()
         let historyCount = (try? historyStore?.count()) ?? 0
         let appModeRules = (try? appModeRuleStore?.list()) ?? []
         let appModeRuleCount = appModeRules.count
         let activeBundleRuleCount = appModeRules.filter { $0.enabled && $0.appBundleID != nil }.count
+        let learningSummary = (try? await learningStore?.summary()) ?? LearningStoreSummary(
+            activeMemoryCount: 0,
+            evidenceCount: 0,
+            databaseSizeBytes: 0
+        )
         return PrivacyDashboardSnapshot(
             statusRows: [
                 PrivacyStatusRow(
@@ -106,6 +122,12 @@ struct PrivacyManager {
                         : "\(appModeRuleCount) app-specific cleanup rules are stored but inactive."
                 ),
                 PrivacyStatusRow(
+                    id: "learning",
+                    title: "Personalization",
+                    value: "Local",
+                    detail: "\(learningSummary.activeMemoryCount) active vocabulary entries and \(learningSummary.evidenceCount) explicit corrections are stored locally. Normal dictations and audio are not stored for learning."
+                ),
+                PrivacyStatusRow(
                     id: "telemetry",
                     title: "Telemetry",
                     value: "Off",
@@ -122,9 +144,9 @@ struct PrivacyManager {
                 ),
                 PrivacyDataLocation(
                     id: "vocabulary",
-                    title: "Custom Vocabulary",
-                    path: settingsLocation,
-                    detail: "\(dictionaryEngine.listCustomReplacements().count) custom entries stored under UserDefaults key \(dictionaryEngine.customReplacementsStorageDescription)."
+                    title: "Learning Database",
+                    path: learningStore?.databaseURL.path ?? "Unavailable",
+                    detail: "\(learningSummary.activeMemoryCount) active vocabulary entries, \(learningSummary.evidenceCount) explicit corrections, \(Self.formattedByteCount(learningSummary.databaseSizeBytes)). Legacy vocabulary remains in settings temporarily for migration rollback."
                 ),
                 PrivacyDataLocation(
                     id: "model-cache",
@@ -184,9 +206,37 @@ struct PrivacyManager {
         try historyStore.export(to: url)
     }
 
+    func learningMemories() async throws -> [LearningMemory] {
+        try await learningStore?.listMemories() ?? []
+    }
+
+    func learningSummary() async -> LearningStoreSummary {
+        (try? await learningStore?.summary()) ?? LearningStoreSummary(
+            activeMemoryCount: 0,
+            evidenceCount: 0,
+            databaseSizeBytes: 0
+        )
+    }
+
+    func deleteLearningMemory(id: UUID) async throws {
+        try await learningStore?.deleteMemory(id: id)
+    }
+
+    func deleteCorrectionEvidence() async throws {
+        try await learningStore?.deleteCorrectionEvidence()
+    }
+
+    func deleteAllLearningData() async throws {
+        try await learningStore?.deleteAllLearningData()
+    }
+
     @discardableResult
-    func deleteAllLocalData() throws -> PrivacyDeletionResult {
-        let customReplacementCount = dictionaryEngine.listCustomReplacements().count
+    func deleteAllLocalData() async throws -> PrivacyDeletionResult {
+        let learningSummary = try await learningStore?.summary()
+        let customReplacementCount = max(
+            learningSummary?.activeMemoryCount ?? 0,
+            dictionaryEngine.listCustomReplacements().count
+        )
         let installedModelCount = modelManager.metadata().filter { $0.isInstalled }.count
         let historyEntryCount = (try? historyStore?.count()) ?? 0
         let appModeRuleCount = (try? appModeRuleStore?.list().count) ?? 0
@@ -199,6 +249,7 @@ struct PrivacyManager {
         for databaseURL in databaseURLs {
             try HistoryStore(databaseURL: databaseURL).deleteDatabaseFiles()
         }
+        try await learningStore?.deleteDatabaseFiles()
         settingsStore.removePersistedSettings()
         dictionaryEngine.removeAllCustomReplacements()
 
@@ -207,8 +258,16 @@ struct PrivacyManager {
             customReplacementCount: customReplacementCount,
             installedModelCount: installedModelCount,
             historyEntryCount: historyEntryCount,
-            appModeRuleCount: appModeRuleCount
+            appModeRuleCount: appModeRuleCount,
+            learningMemoryCount: learningSummary?.activeMemoryCount ?? 0,
+            correctionEvidenceCount: learningSummary?.evidenceCount ?? 0
         )
+    }
+
+    private static func formattedByteCount(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 
     static func defaultSettingsLocation() -> String {
