@@ -114,13 +114,17 @@ final class OverlayWindow {
     }
 
     func show(state: OverlayState) {
+        let screen = preferredScreen()
+        let screenGeometry = screen.map(OverlayLayout.screenGeometry(for:))
         withAnimation(.snappy(duration: 0.32, extraBounce: 0.08)) {
+            model.notchWidth = screenGeometry?.notchWidth ?? 0
+            model.reservesHardwareNotch = screenGeometry?.hasHardwareNotch ?? false
             model.state = state
         }
 
         let visibilityPlan = autoHideCoordinator.show(state)
         window.ignoresMouseEvents = !state.showsActions
-        animateWindow(to: state)
+        animateWindow(to: state, on: screen, geometry: screenGeometry)
         window.orderFrontRegardless()
 
         if let delay = state.autoHideDelay {
@@ -140,9 +144,17 @@ final class OverlayWindow {
         }
     }
 
-    private func animateWindow(to state: OverlayState) {
-        guard let screen = preferredScreen() else { return }
-        let targetFrame = OverlayLayout.frame(on: screen.frame, for: state)
+    private func animateWindow(
+        to state: OverlayState,
+        on screen: NSScreen?,
+        geometry: OverlayScreenGeometry?
+    ) {
+        guard let screen else { return }
+        let targetFrame = OverlayLayout.frame(
+            on: screen.frame,
+            for: state,
+            geometry: geometry
+        )
         if !window.isVisible {
             window.setFrame(targetFrame, display: true)
             return
@@ -161,41 +173,148 @@ final class OverlayWindow {
     }
 }
 
+struct OverlayScreenGeometry: Equatable {
+    let screenFrame: CGRect
+    let notchMinX: CGFloat
+    let notchWidth: CGFloat
+    let hasHardwareNotch: Bool
+
+    var notchMaxX: CGFloat { notchMinX + notchWidth }
+}
+
+struct OverlayWingWidths: Equatable {
+    let left: CGFloat
+    let right: CGFloat
+}
+
 enum OverlayLayout {
-    static let compactSize = CGSize(width: 142, height: 42)
-    static let listeningSize = CGSize(width: 190, height: compactSize.height)
-    static let activitySize = CGSize(width: 184, height: compactSize.height)
-    static let completedSize = CGSize(width: 248, height: compactSize.height)
-    static let minimumErrorWidth: CGFloat = 190
-    static let maximumErrorWidth: CGFloat = 312
+    static let defaultNotchWidth: CGFloat = 142
+    static let islandHeight: CGFloat = 42
+    static let compactSize = CGSize(width: defaultNotchWidth, height: islandHeight)
+    static let statusWingWidth: CGFloat = 42
+    static let activityWingWidth: CGFloat = 104
+    static let completedActionsWingWidth: CGFloat = 136
+    static let errorStatusWingWidth: CGFloat = 36
+    static let minimumErrorMessageWingWidth: CGFloat = 132
+    static let maximumErrorMessageWingWidth: CGFloat = 250
     static let meterBarCount = 9
 
-    static func size(for state: OverlayState) -> CGSize {
+    static var listeningSize: CGSize { size(for: .listening) }
+    static var activitySize: CGSize { size(for: .processingLocally) }
+    static var completedSize: CGSize { size(for: .inserted) }
+
+    static func wingWidths(for state: OverlayState) -> OverlayWingWidths {
         switch state {
         case .ready, .cancelled:
-            return compactSize
+            if state == .cancelled {
+                return OverlayWingWidths(left: statusWingWidth, right: 78)
+            }
+            return OverlayWingWidths(left: 0, right: 0)
         case .listening:
-            return listeningSize
+            return OverlayWingWidths(left: statusWingWidth, right: activityWingWidth)
         case .preparingModel, .processingLocally, .inserting:
-            return activitySize
+            return OverlayWingWidths(left: statusWingWidth, right: activityWingWidth)
         case .inserted, .copiedToClipboard:
-            return completedSize
+            return OverlayWingWidths(left: statusWingWidth, right: completedActionsWingWidth)
         case .error(let message):
-            return errorSize(for: message)
+            return OverlayWingWidths(
+                left: errorStatusWingWidth,
+                right: errorMessageWingWidth(for: message)
+            )
         }
     }
 
-    static func errorSize(for message: String) -> CGSize {
-        let estimatedTextWidth = CGFloat(message.count) * 5.7
-        let width = min(max(estimatedTextWidth + 54, minimumErrorWidth), maximumErrorWidth)
-        return CGSize(width: width.rounded(.up), height: compactSize.height)
+    static func size(
+        for state: OverlayState,
+        notchWidth: CGFloat = 0,
+        reservesHardwareNotch: Bool = false
+    ) -> CGSize {
+        let wings = wingWidths(for: state)
+        let centerWidth = centerWidth(
+            for: state,
+            notchWidth: notchWidth,
+            reservesHardwareNotch: reservesHardwareNotch
+        )
+        return CGSize(
+            width: centerWidth + wings.left + wings.right,
+            height: islandHeight
+        )
     }
 
-    static func frame(on screenFrame: CGRect, for state: OverlayState) -> CGRect {
-        let size = size(for: state)
-        let compactOriginX = screenFrame.midX - compactSize.width / 2
+    static func centerWidth(
+        for state: OverlayState,
+        notchWidth: CGFloat,
+        reservesHardwareNotch: Bool
+    ) -> CGFloat {
+        if reservesHardwareNotch {
+            return max(notchWidth, 0)
+        }
+        return state == .ready ? defaultNotchWidth : 0
+    }
+
+    static func errorMessageWingWidth(for message: String) -> CGFloat {
+        let estimatedTextWidth = CGFloat(message.count) * 5.7 + 22
+        return min(
+            max(estimatedTextWidth.rounded(.up), minimumErrorMessageWingWidth),
+            maximumErrorMessageWingWidth
+        )
+    }
+
+    static func screenGeometry(for screen: NSScreen) -> OverlayScreenGeometry {
+        screenGeometry(
+            screenFrame: screen.frame,
+            auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+            auxiliaryTopRightArea: screen.auxiliaryTopRightArea
+        )
+    }
+
+    static func screenGeometry(
+        screenFrame: CGRect,
+        auxiliaryTopLeftArea: CGRect?,
+        auxiliaryTopRightArea: CGRect?
+    ) -> OverlayScreenGeometry {
+        if let leftArea = auxiliaryTopLeftArea,
+           let rightArea = auxiliaryTopRightArea,
+           !leftArea.isEmpty,
+           !rightArea.isEmpty,
+           leftArea.maxX < rightArea.minX {
+            return OverlayScreenGeometry(
+                screenFrame: screenFrame,
+                notchMinX: leftArea.maxX,
+                notchWidth: rightArea.minX - leftArea.maxX,
+                hasHardwareNotch: true
+            )
+        }
+
+        return OverlayScreenGeometry(
+            screenFrame: screenFrame,
+            notchMinX: screenFrame.midX,
+            notchWidth: 0,
+            hasHardwareNotch: false
+        )
+    }
+
+    static func frame(
+        on screenFrame: CGRect,
+        for state: OverlayState,
+        geometry: OverlayScreenGeometry? = nil
+    ) -> CGRect {
+        let geometry = geometry ?? screenGeometry(
+            screenFrame: screenFrame,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil
+        )
+        let wings = wingWidths(for: state)
+        let size = size(
+            for: state,
+            notchWidth: geometry.notchWidth,
+            reservesHardwareNotch: geometry.hasHardwareNotch
+        )
+        let originX = geometry.hasHardwareNotch
+            ? geometry.notchMinX - wings.left
+            : screenFrame.midX - size.width / 2
         return CGRect(
-            x: compactOriginX,
+            x: originX,
             y: screenFrame.maxY - size.height,
             width: size.width,
             height: size.height
@@ -207,6 +326,8 @@ enum OverlayLayout {
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
     @Published var audioLevel: Float = 0
+    @Published var notchWidth: CGFloat = 0
+    @Published var reservesHardwareNotch = false
 
     var onFix: @MainActor () -> Void = {}
     var onTeach: @MainActor () -> Void = {}
@@ -294,9 +415,8 @@ struct OverlayView: View {
     var body: some View {
         stateContent
             .frame(
-                width: OverlayLayout.size(for: model.state).width,
-                height: OverlayLayout.size(for: model.state).height,
-                alignment: .bottom
+                width: islandSize.width,
+                height: islandSize.height
             )
             .background(Color.black)
             .clipShape(
@@ -314,59 +434,105 @@ struct OverlayView: View {
             }
             .shadow(color: accentColor.opacity(model.state.isActive ? 0.25 : 0.1), radius: 18, y: 8)
             .animation(.snappy(duration: 0.3, extraBounce: 0.08), value: model.state)
+            .animation(.snappy(duration: 0.3, extraBounce: 0.08), value: model.notchWidth)
+            .animation(.snappy(duration: 0.3, extraBounce: 0.08), value: model.reservesHardwareNotch)
+    }
+
+    private var islandSize: CGSize {
+        OverlayLayout.size(
+            for: model.state,
+            notchWidth: model.notchWidth,
+            reservesHardwareNotch: model.reservesHardwareNotch
+        )
+    }
+
+    private var stateContent: some View {
+        let wings = OverlayLayout.wingWidths(for: model.state)
+        let centerWidth = OverlayLayout.centerWidth(
+            for: model.state,
+            notchWidth: model.notchWidth,
+            reservesHardwareNotch: model.reservesHardwareNotch
+        )
+        return HStack(spacing: 0) {
+            leftAccessory
+                .frame(width: wings.left, height: OverlayLayout.islandHeight)
+
+            centerNotchContent
+                .frame(width: centerWidth, height: OverlayLayout.islandHeight)
+
+            rightAccessory
+                .frame(width: wings.right, height: OverlayLayout.islandHeight)
+        }
     }
 
     @ViewBuilder
-    private var stateContent: some View {
+    private var leftAccessory: some View {
         switch model.state {
         case .ready:
-            compactStatus(icon: "waveform", title: "Flint", color: orange)
+            EmptyView()
         case .cancelled:
-            compactStatus(icon: "xmark", title: "Cancelled", color: .secondary)
+            statusIcon("xmark", color: .secondary)
         case .listening:
-            HStack(spacing: 14) {
-                pulsingDot(audioReactive: true)
-                Spacer(minLength: 0)
-                levelMeter
-            }
-            .padding(.leading, 17)
-            .padding(.trailing, 14)
-            .padding(.bottom, 8)
+            pulsingDot(audioReactive: true)
         case .preparingModel, .processingLocally, .inserting:
-            HStack(spacing: 14) {
-                pulsingDot(audioReactive: false)
-                Spacer(minLength: 0)
-                activityMeter
-            }
-            .padding(.leading, 17)
-            .padding(.trailing, 14)
-            .padding(.bottom, 8)
+            pulsingDot(audioReactive: false)
         case .inserted, .copiedToClipboard:
-            HStack(spacing: 10) {
-                Image(systemName: model.state == .inserted ? "checkmark.circle.fill" : "doc.on.clipboard.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(green)
-                Spacer(minLength: 0)
+            statusIcon(
+                model.state == .inserted ? "checkmark.circle.fill" : "doc.on.clipboard.fill",
+                color: green,
+                size: 17
+            )
+        case .error:
+            statusIcon("exclamationmark.triangle.fill", color: red)
+        }
+    }
+
+    @ViewBuilder
+    private var centerNotchContent: some View {
+        if model.state == .ready {
+            compactStatus(icon: "waveform", title: "Flint", color: orange)
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private var rightAccessory: some View {
+        switch model.state {
+        case .ready:
+            EmptyView()
+        case .cancelled:
+            Text("Cancelled")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 7)
+        case .listening:
+            levelMeter
+        case .preparingModel, .processingLocally, .inserting:
+            activityMeter
+        case .inserted, .copiedToClipboard:
+            HStack(spacing: 7) {
                 actionButton("Fix", systemImage: "pencil", action: model.onFix)
                 actionButton("Teach", systemImage: "plus", action: model.onTeach)
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 7)
+            .padding(.trailing, 9)
         case .error(let message):
-            HStack(spacing: 9) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(red)
-                Text(message)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.82))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 15)
-            .padding(.bottom, 8)
+            Text(message)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 7)
+                .padding(.trailing, 12)
         }
+    }
+
+    private func statusIcon(_ name: String, color: Color, size: CGFloat = 12) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(color)
     }
 
     private func compactStatus(icon: String, title: String, color: Color) -> some View {
@@ -378,7 +544,6 @@ struct OverlayView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.9))
         }
-        .padding(.bottom, 9)
     }
 
     private func pulsingDot(audioReactive: Bool) -> some View {

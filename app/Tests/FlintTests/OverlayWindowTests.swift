@@ -59,39 +59,72 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 9)
     }
 
-    func testOverlayUsesCompactOneSidedNotchIslandLayout() {
+    func testOverlayUsesCompactCenteredPillWithoutHardwareNotch() {
         XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 190)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 146)
         XCTAssertEqual(OverlayLayout.size(for: .listening).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .preparingModel), OverlayLayout.activitySize)
-        XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 248)
+        XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 178)
         XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 42)
-        XCTAssertEqual(OverlayLayout.size(for: .error("No speech detected.")).width, 190)
+        XCTAssertEqual(OverlayLayout.size(for: .error("No speech detected.")).width, 168)
         XCTAssertEqual(OverlayLayout.meterBarCount, 9)
     }
 
-    func testOverlayFrameAttachesToTopAndExtendsOnlyToTheRight() {
+    func testOverlayFrameCentersCompactPillWhenScreenHasNoNotch() {
         let screen = CGRect(x: 0, y: 0, width: 1_512, height: 982)
         let readyFrame = OverlayLayout.frame(on: screen, for: .ready)
         let frame = OverlayLayout.frame(on: screen, for: .listening)
 
         XCTAssertEqual(readyFrame.midX, screen.midX)
-        XCTAssertEqual(frame.minX, readyFrame.minX)
-        XCTAssertGreaterThan(frame.maxX, readyFrame.maxX)
+        XCTAssertEqual(frame.midX, screen.midX)
         XCTAssertEqual(frame.maxY, screen.maxY)
         XCTAssertEqual(frame.size, OverlayLayout.listeningSize)
     }
 
-    func testErrorWidthGrowsOnlyAsMuchAsItsMessageNeeds() {
-        let shortError = OverlayLayout.size(for: .error("No speech detected."))
-        let longError = OverlayLayout.size(for: .error(
-            "Model preparation failed. Press the dictation shortcut to retry."
-        ))
+    func testScreenGeometryUsesMacOSNotchAreasInsteadOfAssumingCenter() {
+        let screen = CGRect(x: 0, y: 0, width: 1_512, height: 982)
+        let leftArea = CGRect(x: 0, y: 944, width: 666, height: 38)
+        let rightArea = CGRect(x: 846, y: 944, width: 666, height: 38)
+        let geometry = OverlayLayout.screenGeometry(
+            screenFrame: screen,
+            auxiliaryTopLeftArea: leftArea,
+            auxiliaryTopRightArea: rightArea
+        )
 
-        XCTAssertEqual(shortError.width, OverlayLayout.minimumErrorWidth)
-        XCTAssertGreaterThan(longError.width, shortError.width)
-        XCTAssertLessThanOrEqual(longError.width, OverlayLayout.maximumErrorWidth)
-        XCTAssertEqual(longError.height, OverlayLayout.compactSize.height)
+        XCTAssertEqual(geometry.notchMinX, 666)
+        XCTAssertEqual(geometry.notchWidth, 180)
+        XCTAssertEqual(geometry.notchMaxX, 846)
+        XCTAssertTrue(geometry.hasHardwareNotch)
+
+        let frame = OverlayLayout.frame(on: screen, for: .listening, geometry: geometry)
+        XCTAssertEqual(frame.minX, geometry.notchMinX - OverlayLayout.statusWingWidth)
+        XCTAssertEqual(frame.maxX, geometry.notchMaxX + OverlayLayout.activityWingWidth)
+        XCTAssertEqual(frame.width, 180 + OverlayLayout.statusWingWidth + OverlayLayout.activityWingWidth)
+        XCTAssertEqual(frame.maxY, screen.maxY)
+    }
+
+    func testScreenGeometryFallsBackToCenteredVirtualNotch() {
+        let screen = CGRect(x: 300, y: 20, width: 1_200, height: 800)
+        let geometry = OverlayLayout.screenGeometry(
+            screenFrame: screen,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil
+        )
+
+        XCTAssertEqual(geometry.notchWidth, 0)
+        XCTAssertEqual(geometry.notchMinX, screen.midX)
+        XCTAssertFalse(geometry.hasHardwareNotch)
+    }
+
+    func testErrorWidthGrowsOnlyAsMuchAsItsMessageNeeds() {
+        let shortError = OverlayLayout.errorMessageWingWidth(for: "No speech detected.")
+        let longError = OverlayLayout.errorMessageWingWidth(for:
+            "Model preparation failed. Press the dictation shortcut to retry."
+        )
+
+        XCTAssertEqual(shortError, OverlayLayout.minimumErrorMessageWingWidth)
+        XCTAssertGreaterThan(longError, shortError)
+        XCTAssertLessThanOrEqual(longError, OverlayLayout.maximumErrorMessageWingWidth)
     }
 
     func testEveryIslandStateKeepsTheCompactHeight() {
@@ -108,7 +141,7 @@ final class OverlayWindowTests: XCTestCase {
         ]
 
         for state in states {
-            XCTAssertEqual(OverlayLayout.size(for: state).height, OverlayLayout.compactSize.height)
+            XCTAssertEqual(OverlayLayout.size(for: state).height, OverlayLayout.islandHeight)
         }
     }
 
