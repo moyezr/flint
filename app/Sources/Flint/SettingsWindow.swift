@@ -10,21 +10,25 @@ final class SettingsWindowController {
         settingsStore: AppSettingsStore = AppSettingsStore(),
         modelManager: ModelManager = ModelManager(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
+        learningStore: LearningStore? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
         modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
-        onShowPrivacy: @escaping () -> Void = {}
+        onShowPrivacy: @escaping () -> Void = {},
+        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in }
     ) {
         model = SettingsModel(
             settingsStore: settingsStore,
             modelManager: modelManager,
             dictionaryEngine: dictionaryEngine,
+            learningStore: learningStore,
             onSettingsChanged: onSettingsChanged,
             onModelMetadataChanged: onModelMetadataChanged,
             modelPreparationAction: modelPreparationAction,
             onShowAppModes: onShowAppModes,
-            onShowPrivacy: onShowPrivacy
+            onShowPrivacy: onShowPrivacy,
+            onLearningChanged: onLearningChanged
         )
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 700),
@@ -40,6 +44,7 @@ final class SettingsWindowController {
 
     func show() {
         model.refresh()
+        Task { await model.refreshVocabulary() }
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -49,13 +54,25 @@ final class SettingsWindowController {
     }
 }
 
+struct VocabularyApplicationOption: Identifiable, Hashable {
+    let name: String
+    let bundleIdentifier: String
+
+    var id: String { bundleIdentifier }
+}
+
 @MainActor
 final class SettingsModel: ObservableObject {
     @Published private(set) var settings: AppSettings
     @Published private(set) var modelMetadata: [ModelMetadata] = []
-    @Published private(set) var customReplacements: [DictionaryReplacement] = []
+    @Published private(set) var customReplacements: [LearningMemory] = []
     @Published var newHeardPhrase = ""
     @Published var newPreferredReplacement = ""
+    @Published var newVocabularyLanguage = "auto"
+    @Published var newVocabularyScope: LearningScopeKind = .global
+    @Published var newVocabularyApplicationBundleID = ""
+    @Published private(set) var vocabularyApplications: [VocabularyApplicationOption] = []
+    @Published var pendingVocabularyConflict: LearningMemory?
     @Published private(set) var statusMessage = ""
     @Published private(set) var errorMessage = ""
     @Published private(set) var activeModelOperationTier: ModelTier?
@@ -63,38 +80,51 @@ final class SettingsModel: ObservableObject {
     private let settingsStore: AppSettingsStore
     private let modelManager: ModelManager
     private let dictionaryEngine: DictionaryEngine
+    private let learningStore: LearningStore?
     private let onSettingsChanged: (AppSettings) -> Void
     private let onModelMetadataChanged: () -> Void
     private let modelPreparationAction: (ModelTier) async throws -> Void
     private let onShowAppModes: () -> Void
     private let onShowPrivacy: () -> Void
+    private let onLearningChanged: (MemorySnapshot) -> Void
+    private let runningApplicationsProvider: @MainActor () -> [VocabularyApplicationOption]
 
     init(
         settingsStore: AppSettingsStore = AppSettingsStore(),
         modelManager: ModelManager = ModelManager(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
+        learningStore: LearningStore? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
         modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
-        onShowPrivacy: @escaping () -> Void = {}
+        onShowPrivacy: @escaping () -> Void = {},
+        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
+        runningApplicationsProvider: @escaping @MainActor () -> [VocabularyApplicationOption] = SettingsModel.runningApplications
     ) {
         self.settingsStore = settingsStore
         self.modelManager = modelManager
         self.dictionaryEngine = dictionaryEngine
+        self.learningStore = learningStore
         self.onSettingsChanged = onSettingsChanged
         self.onModelMetadataChanged = onModelMetadataChanged
         self.modelPreparationAction = modelPreparationAction
         self.onShowAppModes = onShowAppModes
         self.onShowPrivacy = onShowPrivacy
+        self.onLearningChanged = onLearningChanged
+        self.runningApplicationsProvider = runningApplicationsProvider
         settings = settingsStore.load()
+        newVocabularyLanguage = settings.language
         refresh()
     }
 
     func refresh() {
         settings = settingsStore.load()
         modelMetadata = modelManager.metadata()
-        customReplacements = dictionaryEngine.listCustomReplacements()
+        vocabularyApplications = runningApplicationsProvider()
+        if learningStore == nil {
+            customReplacements = dictionaryEngine.listCustomReplacements().map(Self.legacyMemory)
+        }
     }
 
     func setShortcutOption(_ option: ShortcutOption) {
@@ -114,6 +144,16 @@ final class SettingsModel: ObservableObject {
     func setCleanupMode(_ mode: CleanupMode) {
         settingsStore.saveCleanupMode(mode)
         publishSettingsChange("Default cleanup mode saved.")
+    }
+
+    func setRemoveFillerWords(_ enabled: Bool) {
+        settingsStore.saveRemoveFillerWords(enabled)
+        publishSettingsChange(enabled ? "Filler-word removal enabled." : "Filler-word removal disabled.")
+    }
+
+    func setAddTerminalPunctuation(_ enabled: Bool) {
+        settingsStore.saveAddTerminalPunctuation(enabled)
+        publishSettingsChange(enabled ? "Terminal punctuation enabled." : "Terminal punctuation disabled.")
     }
 
     func setInsertionTargetBehavior(_ behavior: InsertionTargetBehavior) {
@@ -173,7 +213,7 @@ final class SettingsModel: ObservableObject {
         activeModelOperationTier = nil
     }
 
-    func addVocabularyReplacement() {
+    func addVocabularyReplacement(replaceExisting: Bool = false) async {
         let heardPhrase = newHeardPhrase.trimmingCharacters(in: .whitespacesAndNewlines)
         let preferredReplacement = newPreferredReplacement.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !heardPhrase.isEmpty, !preferredReplacement.isEmpty else {
@@ -181,21 +221,87 @@ final class SettingsModel: ObservableObject {
             errorMessage = "Enter both phrases before adding a vocabulary item."
             return
         }
+        guard heardPhrase != preferredReplacement else {
+            statusMessage = ""
+            errorMessage = "Heard and preferred forms must be different."
+            return
+        }
+        let scopeValue = newVocabularyScope == .global
+            ? ""
+            : newVocabularyApplicationBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard newVocabularyScope != .application || !scopeValue.isEmpty else {
+            statusMessage = ""
+            errorMessage = "Choose an application for an app-specific vocabulary item."
+            return
+        }
 
-        _ = dictionaryEngine.addReplacement(
-            heardPhrase: heardPhrase,
-            preferredReplacement: preferredReplacement
-        )
+        if let learningStore {
+            do {
+                let language = newVocabularyLanguage.trimmingCharacters(in: .whitespacesAndNewlines)
+                let normalizedLanguage = language.isEmpty ? "auto" : language
+                let existing = try await learningStore.listMemories().first { memory in
+                    memory.scopeKind == newVocabularyScope
+                        && memory.scopeValue == scopeValue
+                        && memory.language == normalizedLanguage
+                        && memory.heardKey == VocabularyNormalizer.key(for: heardPhrase)
+                }
+                if let existing,
+                   existing.preferredForm != preferredReplacement,
+                   !replaceExisting {
+                    pendingVocabularyConflict = existing
+                    statusMessage = ""
+                    errorMessage = "A mapping for this phrase already exists in the selected scope."
+                    return
+                }
+
+                _ = try await learningStore.upsertMemory(LearningMemoryDraft(
+                    heardForm: heardPhrase,
+                    preferredForm: preferredReplacement,
+                    scopeKind: newVocabularyScope,
+                    scopeValue: scopeValue,
+                    language: normalizedLanguage,
+                    status: .active,
+                    origin: .seeded
+                ))
+                let snapshot = try await learningStore.memorySnapshot()
+                onLearningChanged(snapshot)
+                await refreshVocabulary()
+                pendingVocabularyConflict = nil
+            } catch {
+                statusMessage = ""
+                errorMessage = error.localizedDescription
+                return
+            }
+        } else {
+            _ = dictionaryEngine.addReplacement(
+                heardPhrase: heardPhrase,
+                preferredReplacement: preferredReplacement
+            )
+            customReplacements = dictionaryEngine.listCustomReplacements().map(Self.legacyMemory)
+        }
+
         newHeardPhrase = ""
         newPreferredReplacement = ""
-        refreshVocabulary()
-        statusMessage = "Vocabulary item added."
+        statusMessage = replaceExisting ? "Vocabulary item replaced." : "Vocabulary item added."
         errorMessage = ""
     }
 
-    func deleteVocabularyReplacement(_ replacement: DictionaryReplacement) {
-        dictionaryEngine.removeReplacement(id: replacement.id)
-        refreshVocabulary()
+    func deleteVocabularyReplacement(_ replacement: LearningMemory) async {
+        if let learningStore {
+            do {
+                try await learningStore.deleteMemory(id: replacement.id)
+                let snapshot = try await learningStore.memorySnapshot()
+                onLearningChanged(snapshot)
+                await refreshVocabulary()
+            } catch {
+                statusMessage = ""
+                errorMessage = error.localizedDescription
+                return
+            }
+        } else {
+            dictionaryEngine.removeReplacement(id: replacement.id)
+            customReplacements = dictionaryEngine.listCustomReplacements().map(Self.legacyMemory)
+        }
         statusMessage = "Vocabulary item deleted."
         errorMessage = ""
     }
@@ -234,8 +340,51 @@ final class SettingsModel: ObservableObject {
         modelMetadata = modelManager.metadata()
     }
 
-    private func refreshVocabulary() {
-        customReplacements = dictionaryEngine.listCustomReplacements()
+    func refreshVocabulary() async {
+        guard let learningStore else { return }
+        do {
+            customReplacements = try await learningStore.listMemories()
+            errorMessage = ""
+        } catch {
+            customReplacements = []
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private static func legacyMemory(_ replacement: DictionaryReplacement) -> LearningMemory {
+        LearningMemory(
+            id: replacement.id,
+            memoryType: .vocabulary,
+            scopeKind: .global,
+            scopeValue: "",
+            language: "auto",
+            heardForm: replacement.heardPhrase,
+            heardKey: VocabularyNormalizer.key(for: replacement.heardPhrase),
+            preferredForm: replacement.preferredReplacement,
+            confidence: 1,
+            evidenceCount: 1,
+            usageCount: replacement.usageCount,
+            status: .active,
+            origin: .seeded,
+            createdAt: replacement.createdAt,
+            updatedAt: replacement.updatedAt,
+            lastUsedAt: nil
+        )
+    }
+
+    private static func runningApplications() -> [VocabularyApplicationOption] {
+        var seen: Set<String> = []
+        return NSWorkspace.shared.runningApplications
+            .compactMap { application -> VocabularyApplicationOption? in
+                guard let bundleIdentifier = application.bundleIdentifier,
+                      !bundleIdentifier.isEmpty,
+                      seen.insert(bundleIdentifier).inserted else { return nil }
+                return VocabularyApplicationOption(
+                    name: application.localizedName ?? bundleIdentifier,
+                    bundleIdentifier: bundleIdentifier
+                )
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 }
 
@@ -344,6 +493,24 @@ struct SettingsView: View {
                     .settingsRowBorder()
                 }
 
+                SettingsSection("Formatting") {
+                    Toggle("Remove filler words", isOn: Binding(
+                        get: { model.settings.removeFillerWords },
+                        set: { model.setRemoveFillerWords($0) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .padding(12)
+                    .settingsRowBorder()
+
+                    Toggle("Add terminal punctuation", isOn: Binding(
+                        get: { model.settings.addTerminalPunctuation },
+                        set: { model.setAddTerminalPunctuation($0) }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .padding(12)
+                    .settingsRowBorder()
+                }
+
                 SettingsSection("Models") {
                     SettingsPickerRow(
                         title: "Selected Model",
@@ -374,15 +541,40 @@ struct SettingsView: View {
                 }
 
                 SettingsSection("Custom Vocabulary") {
-                    HStack(spacing: 8) {
-                        TextField("Heard phrase", text: $model.newHeardPhrase)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("Replacement", text: $model.newPreferredReplacement)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Add") {
-                            model.addVocabularyReplacement()
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            TextField("Flint hears", text: $model.newHeardPhrase)
+                                .textFieldStyle(.roundedBorder)
+                            TextField("Flint should write", text: $model.newPreferredReplacement)
+                                .textFieldStyle(.roundedBorder)
                         }
-                        .buttonStyle(.borderedProminent)
+
+                        HStack(spacing: 8) {
+                            Picker("Scope", selection: $model.newVocabularyScope) {
+                                Text("Global").tag(LearningScopeKind.global)
+                                Text("Application").tag(LearningScopeKind.application)
+                            }
+                            .frame(width: 180)
+
+                            if model.newVocabularyScope == .application {
+                                Picker("Application", selection: $model.newVocabularyApplicationBundleID) {
+                                    Text("Choose an app").tag("")
+                                    ForEach(model.vocabularyApplications) { application in
+                                        Text(application.name).tag(application.bundleIdentifier)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+
+                            TextField("Language (auto)", text: $model.newVocabularyLanguage)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 140)
+
+                            Button("Teach Flint") {
+                                Task { await model.addVocabularyReplacement() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
                     }
 
                     if model.customReplacements.isEmpty {
@@ -393,14 +585,17 @@ struct SettingsView: View {
                             ForEach(model.customReplacements) { replacement in
                                 HStack(spacing: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(replacement.heardPhrase)
+                                        Text(replacement.heardForm)
                                             .font(.system(size: 13, weight: .semibold))
-                                        Text(replacement.preferredReplacement)
+                                        Text(replacement.preferredForm)
                                             .foregroundStyle(.secondary)
+                                        Text(replacement.scopeKind == .global ? "Global" : replacement.scopeValue)
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(.tertiary)
                                     }
                                     Spacer()
                                     Button("Delete", role: .destructive) {
-                                        model.deleteVocabularyReplacement(replacement)
+                                        Task { await model.deleteVocabularyReplacement(replacement) }
                                     }
                                 }
                                 .padding(12)
@@ -439,6 +634,24 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(minWidth: 760, minHeight: 700)
+        .alert(
+            "Replace existing mapping?",
+            isPresented: Binding(
+                get: { model.pendingVocabularyConflict != nil },
+                set: { if !$0 { model.pendingVocabularyConflict = nil } }
+            )
+        ) {
+            Button("Replace") {
+                Task { await model.addVocabularyReplacement(replaceExisting: true) }
+            }
+            Button("Cancel", role: .cancel) {
+                model.pendingVocabularyConflict = nil
+            }
+        } message: {
+            if let conflict = model.pendingVocabularyConflict {
+                Text("“\(conflict.heardForm)” currently becomes “\(conflict.preferredForm)” in this scope.")
+            }
+        }
     }
 }
 

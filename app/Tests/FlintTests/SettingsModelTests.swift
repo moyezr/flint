@@ -128,24 +128,61 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertEqual(modelMetadataChangeCount, 2)
     }
 
-    func testVocabularyAddAndDeleteUsesDictionaryEngineStorage() throws {
-        let model = makeModel()
+    func testVocabularyAddAndDeleteUsesLearningStore() async throws {
+        let learningStore = LearningStore(databaseURL: tempRoot.appendingPathComponent("Learning.sqlite"))
+        var publishedSnapshots: [MemorySnapshot] = []
+        let model = makeModel(
+            learningStore: learningStore,
+            onLearningChanged: { publishedSnapshots.append($0) }
+        )
         model.newHeardPhrase = " api "
         model.newPreferredReplacement = " API "
 
-        model.addVocabularyReplacement()
+        await model.addVocabularyReplacement()
 
-        let storedReplacement = try XCTUnwrap(DictionaryEngine(userDefaults: defaults).listCustomReplacements().first)
-        XCTAssertEqual(storedReplacement.heardPhrase, "api")
-        XCTAssertEqual(storedReplacement.preferredReplacement, "API")
+        let savedMemories = try await learningStore.listMemories()
+        let storedReplacement = try XCTUnwrap(savedMemories.first)
+        XCTAssertEqual(storedReplacement.heardForm, "api")
+        XCTAssertEqual(storedReplacement.preferredForm, "API")
         XCTAssertEqual(model.customReplacements, [storedReplacement])
         XCTAssertEqual(model.statusMessage, "Vocabulary item added.")
+        XCTAssertEqual(publishedSnapshots.last?.memories, [storedReplacement])
 
-        model.deleteVocabularyReplacement(storedReplacement)
+        await model.deleteVocabularyReplacement(storedReplacement)
 
-        XCTAssertTrue(DictionaryEngine(userDefaults: defaults).listCustomReplacements().isEmpty)
+        let remainingMemories = try await learningStore.listMemories()
+        XCTAssertTrue(remainingMemories.isEmpty)
         XCTAssertTrue(model.customReplacements.isEmpty)
         XCTAssertEqual(model.statusMessage, "Vocabulary item deleted.")
+        XCTAssertEqual(publishedSnapshots.last, .empty)
+    }
+
+    func testVocabularyApplicationScopeValidationAndConflictConfirmation() async throws {
+        let learningStore = LearningStore(databaseURL: tempRoot.appendingPathComponent("Learning.sqlite"))
+        let model = makeModel(learningStore: learningStore)
+        model.newHeardPhrase = "flask"
+        model.newPreferredReplacement = "Flask"
+        model.newVocabularyScope = .application
+
+        await model.addVocabularyReplacement()
+        XCTAssertEqual(model.errorMessage, "Choose an application for an app-specific vocabulary item.")
+
+        model.newVocabularyApplicationBundleID = "com.microsoft.VSCode"
+        await model.addVocabularyReplacement()
+        var memories = try await learningStore.listMemories()
+        XCTAssertEqual(memories.count, 1)
+
+        model.newHeardPhrase = "flask"
+        model.newPreferredReplacement = "FLASK"
+        await model.addVocabularyReplacement()
+        XCTAssertNotNil(model.pendingVocabularyConflict)
+        memories = try await learningStore.listMemories()
+        XCTAssertEqual(memories.first?.preferredForm, "Flask")
+
+        await model.addVocabularyReplacement(replaceExisting: true)
+        XCTAssertNil(model.pendingVocabularyConflict)
+        memories = try await learningStore.listMemories()
+        XCTAssertEqual(memories.first?.preferredForm, "FLASK")
     }
 
     func testHistoryTogglePersistsNotifiesAndOpensPrivacy() {
@@ -179,12 +216,28 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertTrue(receivedSettings.last?.playStopSound ?? false)
     }
 
+    func testFormattingTogglesPersistAndNotify() {
+        var receivedSettings: [AppSettings] = []
+        let model = makeModel(onSettingsChanged: { receivedSettings.append($0) })
+
+        model.setRemoveFillerWords(false)
+        model.setAddTerminalPunctuation(false)
+
+        let persisted = AppSettingsStore(defaults: defaults).load()
+        XCTAssertFalse(persisted.removeFillerWords)
+        XCTAssertFalse(persisted.addTerminalPunctuation)
+        XCTAssertFalse(receivedSettings.last?.removeFillerWords ?? true)
+        XCTAssertFalse(receivedSettings.last?.addTerminalPunctuation ?? true)
+    }
+
     private func makeModel(
+        learningStore: LearningStore? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
         modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {},
+        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
         downloader: @escaping ModelManager.Downloader = { _, _, _ in
             XCTFail("Unexpected production-style download in unit test.")
             return URL(fileURLWithPath: "/unexpected", isDirectory: true)
@@ -198,11 +251,14 @@ final class SettingsModelTests: XCTestCase {
                 downloader: downloader
             ),
             dictionaryEngine: DictionaryEngine(userDefaults: defaults),
+            learningStore: learningStore,
             onSettingsChanged: onSettingsChanged,
             onModelMetadataChanged: onModelMetadataChanged,
             modelPreparationAction: modelPreparationAction,
             onShowAppModes: onShowAppModes,
-            onShowPrivacy: onShowPrivacy
+            onShowPrivacy: onShowPrivacy,
+            onLearningChanged: onLearningChanged,
+            runningApplicationsProvider: { [] }
         )
     }
 }

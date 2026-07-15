@@ -28,6 +28,11 @@ struct DictionaryReplacement: Codable, Equatable, Identifiable {
     }
 }
 
+struct DictionaryApplicationResult: Equatable, Sendable {
+    let text: String
+    let matchedMemoryCounts: [UUID: Int]
+}
+
 struct DictionaryEngine {
     private let userDefaults: UserDefaults
     private let customReplacementsKey = "dictionary.customReplacements"
@@ -129,19 +134,59 @@ struct DictionaryEngine {
         return result
     }
 
+    func apply(
+        to transcript: String,
+        snapshot: MemorySnapshot,
+        activeApp: ActiveAppInfo?,
+        language: String
+    ) -> DictionaryApplicationResult {
+        let learnedResult = snapshot.applyVocabulary(
+            to: transcript,
+            language: language,
+            applicationBundleID: activeApp?.bundleIdentifier
+        )
+        var result = learnedResult.text
+        for replacement in sortedForApplication(defaultReplacements) where
+            !learnedResult.applicableHeardKeys.contains(VocabularyNormalizer.key(for: replacement.heardPhrase)) {
+            result = apply(replacement, to: result).text
+        }
+
+        return DictionaryApplicationResult(
+            text: result,
+            matchedMemoryCounts: learnedResult.matchedMemoryCounts
+        )
+    }
+
     private func apply(_ replacement: DictionaryReplacement, to text: String) -> (text: String, replacementCount: Int) {
         guard let regex = regex(for: replacement) else {
             return (text, 0)
         }
 
+        return apply(
+            regularExpression: regex,
+            preferredReplacement: replacement.preferredReplacement,
+            to: text
+        )
+    }
+
+    private func apply(
+        regularExpression: NSRegularExpression,
+        preferredReplacement: String,
+        to text: String
+    ) -> (text: String, replacementCount: Int) {
+
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        let matches = regex.matches(in: text, range: range)
+        let matches = regularExpression.matches(in: text, range: range)
         guard !matches.isEmpty else {
             return (text, 0)
         }
 
-        let template = NSRegularExpression.escapedTemplate(for: replacement.preferredReplacement)
-        let updatedText = regex.stringByReplacingMatches(in: text, range: range, withTemplate: template)
+        let template = NSRegularExpression.escapedTemplate(for: preferredReplacement)
+        let updatedText = regularExpression.stringByReplacingMatches(
+            in: text,
+            range: range,
+            withTemplate: template
+        )
         return (updatedText, matches.count)
     }
 

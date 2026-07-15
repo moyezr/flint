@@ -14,6 +14,42 @@ struct AppSettings: Equatable {
     var appAwareModesEnabled: Bool
     var autoInsert: Bool
     var hasCompletedOnboarding: Bool
+    var removeFillerWords: Bool
+    var addTerminalPunctuation: Bool
+
+    init(
+        shortcutSettings: ShortcutSettings,
+        cleanupMode: CleanupMode,
+        selectedModelTier: ModelTier,
+        insertionTargetBehavior: InsertionTargetBehavior,
+        language: String,
+        launchAtLogin: Bool,
+        showOverlay: Bool,
+        playStartSound: Bool,
+        playStopSound: Bool,
+        storeHistory: Bool,
+        appAwareModesEnabled: Bool,
+        autoInsert: Bool,
+        hasCompletedOnboarding: Bool,
+        removeFillerWords: Bool = true,
+        addTerminalPunctuation: Bool = true
+    ) {
+        self.shortcutSettings = shortcutSettings
+        self.cleanupMode = cleanupMode
+        self.selectedModelTier = selectedModelTier
+        self.insertionTargetBehavior = insertionTargetBehavior
+        self.language = language
+        self.launchAtLogin = launchAtLogin
+        self.showOverlay = showOverlay
+        self.playStartSound = playStartSound
+        self.playStopSound = playStopSound
+        self.storeHistory = storeHistory
+        self.appAwareModesEnabled = appAwareModesEnabled
+        self.autoInsert = autoInsert
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.removeFillerWords = removeFillerWords
+        self.addTerminalPunctuation = addTerminalPunctuation
+    }
 
     static let `default` = AppSettings(
         shortcutSettings: .default,
@@ -28,7 +64,9 @@ struct AppSettings: Equatable {
         storeHistory: false,
         appAwareModesEnabled: false,
         autoInsert: true,
-        hasCompletedOnboarding: false
+        hasCompletedOnboarding: false,
+        removeFillerWords: true,
+        addTerminalPunctuation: true
     )
 }
 
@@ -50,6 +88,8 @@ struct AppSettingsStore {
         static let appAwareModesEnabled = "appAwareModesEnabled"
         static let autoInsert = "autoInsert"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+        static let removeFillerWords = "removeFillerWords"
+        static let addTerminalPunctuation = "addTerminalPunctuation"
 
         static let all = [
             shortcutOption,
@@ -65,7 +105,9 @@ struct AppSettingsStore {
             storeHistory,
             appAwareModesEnabled,
             autoInsert,
-            hasCompletedOnboarding
+            hasCompletedOnboarding,
+            removeFillerWords,
+            addTerminalPunctuation
         ]
     }
 
@@ -98,6 +140,14 @@ struct AppSettingsStore {
             hasCompletedOnboarding: bool(
                 forKey: Key.hasCompletedOnboarding,
                 defaultValue: AppSettings.default.hasCompletedOnboarding
+            ),
+            removeFillerWords: bool(
+                forKey: Key.removeFillerWords,
+                defaultValue: AppSettings.default.removeFillerWords
+            ),
+            addTerminalPunctuation: bool(
+                forKey: Key.addTerminalPunctuation,
+                defaultValue: AppSettings.default.addTerminalPunctuation
             )
         )
     }
@@ -116,6 +166,8 @@ struct AppSettingsStore {
         defaults.set(settings.appAwareModesEnabled, forKey: Key.appAwareModesEnabled)
         defaults.set(settings.autoInsert, forKey: Key.autoInsert)
         defaults.set(settings.hasCompletedOnboarding, forKey: Key.hasCompletedOnboarding)
+        defaults.set(settings.removeFillerWords, forKey: Key.removeFillerWords)
+        defaults.set(settings.addTerminalPunctuation, forKey: Key.addTerminalPunctuation)
     }
 
     func resetToDefaults() {
@@ -166,6 +218,14 @@ struct AppSettingsStore {
 
     func saveAppAwareModesEnabled(_ appAwareModesEnabled: Bool) {
         defaults.set(appAwareModesEnabled, forKey: Key.appAwareModesEnabled)
+    }
+
+    func saveRemoveFillerWords(_ removeFillerWords: Bool) {
+        defaults.set(removeFillerWords, forKey: Key.removeFillerWords)
+    }
+
+    func saveAddTerminalPunctuation(_ addTerminalPunctuation: Bool) {
+        defaults.set(addTerminalPunctuation, forKey: Key.addTerminalPunctuation)
     }
 
     private func bool(forKey key: String, defaultValue: Bool) -> Bool {

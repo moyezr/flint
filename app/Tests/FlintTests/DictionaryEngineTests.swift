@@ -91,4 +91,116 @@ final class DictionaryEngineTests: XCTestCase {
         XCTAssertTrue(engine.listCustomReplacements().isEmpty)
         XCTAssertEqual(engine.apply(to: "api and live kit"), "API and live kit")
     }
+
+    func testSnapshotApplicationReturnsMatchesWithoutWritingUserDefaults() {
+        let memory = makeMemory(heard: "post grass", preferred: "Postgres")
+        let result = engine.apply(
+            to: "Use post grass and post grass",
+            snapshot: MemorySnapshot(memories: [memory]),
+            activeApp: nil,
+            language: "auto"
+        )
+
+        XCTAssertEqual(result.text, "Use Postgres and Postgres")
+        XCTAssertEqual(result.matchedMemoryCounts, [memory.id: 2])
+        XCTAssertTrue(engine.listCustomReplacements().isEmpty)
+    }
+
+    func testApplicationSnapshotMappingOverridesGlobal() {
+        let global = makeMemory(heard: "flask", preferred: "Flask")
+        let application = makeMemory(
+            heard: "flask",
+            preferred: "FLASK",
+            scope: .application,
+            scopeValue: "com.microsoft.VSCode"
+        )
+        let snapshot = MemorySnapshot(memories: [global, application])
+
+        XCTAssertEqual(
+            engine.apply(
+                to: "use flask",
+                snapshot: snapshot,
+                activeApp: ActiveAppInfo(name: "Code", bundleIdentifier: "com.microsoft.VSCode"),
+                language: "auto"
+            ).text,
+            "use FLASK"
+        )
+        XCTAssertEqual(
+            engine.apply(
+                to: "use flask",
+                snapshot: snapshot,
+                activeApp: ActiveAppInfo(name: "Notes", bundleIdentifier: "com.apple.Notes"),
+                language: "auto"
+            ).text,
+            "use Flask"
+        )
+    }
+
+    func testUserSnapshotMappingCanOverrideBuiltInMapping() {
+        let memory = makeMemory(heard: "api", preferred: "api")
+        let result = engine.apply(
+            to: "API design",
+            snapshot: MemorySnapshot(memories: [memory]),
+            activeApp: nil,
+            language: "auto"
+        )
+
+        XCTAssertEqual(result.text, "api design")
+        XCTAssertEqual(result.matchedMemoryCounts, [memory.id: 1])
+    }
+
+    func testEmptySnapshotPreservesBuiltInDictionary() {
+        let result = engine.apply(
+            to: "next dot js uses json",
+            snapshot: .empty,
+            activeApp: nil,
+            language: "auto"
+        )
+
+        XCTAssertEqual(result.text, "Next.js uses JSON")
+        XCTAssertTrue(result.matchedMemoryCounts.isEmpty)
+    }
+
+    func testSnapshotWithOneThousandIndexedMappingsAppliesCorrectEntry() {
+        let memories = (0..<1_000).map { index in
+            makeMemory(heard: "term \(index)", preferred: "Term\(index)")
+        }
+        let snapshot = MemorySnapshot(memories: memories)
+
+        let result = engine.apply(
+            to: "Use term 999 in this sentence",
+            snapshot: snapshot,
+            activeApp: nil,
+            language: "auto"
+        )
+
+        XCTAssertEqual(result.text, "Use Term999 in this sentence")
+        XCTAssertEqual(result.matchedMemoryCounts.values.reduce(0, +), 1)
+    }
+
+    private func makeMemory(
+        heard: String,
+        preferred: String,
+        scope: LearningScopeKind = .global,
+        scopeValue: String = ""
+    ) -> LearningMemory {
+        LearningMemory(
+            id: UUID(),
+            memoryType: .vocabulary,
+            scopeKind: scope,
+            scopeValue: scopeValue,
+            language: "auto",
+            heardForm: heard,
+            heardKey: VocabularyNormalizer.key(for: heard),
+            preferredForm: preferred,
+            confidence: 1,
+            evidenceCount: 1,
+            usageCount: 0,
+            status: .active,
+            origin: .seeded,
+            createdAt: .distantPast,
+            updatedAt: .distantPast,
+            lastUsedAt: nil
+        )
+    }
 }

@@ -9,11 +9,13 @@ final class PrivacyWindowController {
 
     init(
         privacyManager: PrivacyManager,
-        onDeleteAllLocalData: @escaping () -> Void
+        onDeleteAllLocalData: @escaping () -> Void,
+        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in }
     ) {
         model = PrivacyDashboardModel(
             privacyManager: privacyManager,
-            onDeleteAllLocalData: onDeleteAllLocalData
+            onDeleteAllLocalData: onDeleteAllLocalData,
+            onLearningChanged: onLearningChanged
         )
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 680, height: 620),
@@ -51,13 +53,16 @@ private final class PrivacyDashboardModel: ObservableObject {
 
     private let privacyManager: PrivacyManager
     private let onDeleteAllLocalData: () -> Void
+    private let onLearningChanged: (MemorySnapshot) -> Void
 
     init(
         privacyManager: PrivacyManager,
-        onDeleteAllLocalData: @escaping () -> Void
+        onDeleteAllLocalData: @escaping () -> Void,
+        onLearningChanged: @escaping (MemorySnapshot) -> Void
     ) {
         self.privacyManager = privacyManager
         self.onDeleteAllLocalData = onDeleteAllLocalData
+        self.onLearningChanged = onLearningChanged
         snapshot = .empty
         historyEnabled = false
         historyCount = privacyManager.historyCount()
@@ -151,6 +156,7 @@ private final class PrivacyDashboardModel: ObservableObject {
         Task {
             do {
                 try await privacyManager.deleteLearningMemory(id: memory.id)
+                onLearningChanged(try await privacyManager.memorySnapshot())
                 await refresh()
                 learningMessage = "Deleted vocabulary entry."
                 learningError = ""
@@ -179,6 +185,7 @@ private final class PrivacyDashboardModel: ObservableObject {
         Task {
             do {
                 try await privacyManager.deleteAllLearningData()
+                onLearningChanged(.empty)
                 await refresh()
                 learningMessage = "Deleted all personalization data."
                 learningError = ""

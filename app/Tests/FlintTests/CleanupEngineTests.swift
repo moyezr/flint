@@ -13,6 +13,34 @@ final class CleanupEngineTests: XCTestCase {
         )
     }
 
+    func testFormattingPreferencesCanPreserveFillersAndOmitAddedPunctuation() {
+        let preferences = CleanupPreferences(
+            removeFillerWords: false,
+            addTerminalPunctuation: false
+        )
+
+        XCTAssertEqual(
+            CleanupEngine().clean(" um this is useful ", mode: .clean, preferences: preferences),
+            "Um this is useful"
+        )
+    }
+
+    func testFormattingPreferencesApplyToDerivedModesButNotVerbatim() {
+        let preferences = CleanupPreferences(
+            removeFillerWords: false,
+            addTerminalPunctuation: false
+        )
+
+        XCTAssertEqual(
+            CleanupEngine().clean("um please review this", mode: .polished, preferences: preferences),
+            "Um please review this"
+        )
+        XCTAssertEqual(
+            CleanupEngine().clean("  um please review this  ", mode: .verbatim, preferences: preferences),
+            "um please review this"
+        )
+    }
+
     func testCleanRemovesFillersWhitespaceAndPunctuationSpacing() {
         let transcript = "  um, hello   world ,  this is uh a test  "
 

@@ -44,52 +44,68 @@ struct CleanupModeSelectionStore {
     }
 }
 
+struct CleanupPreferences: Equatable, Sendable {
+    var removeFillerWords: Bool
+    var addTerminalPunctuation: Bool
+
+    static let `default` = CleanupPreferences(
+        removeFillerWords: true,
+        addTerminalPunctuation: true
+    )
+}
+
 struct CleanupEngine {
-    func clean(_ transcript: String, mode: CleanupMode = .clean) -> String {
+    func clean(
+        _ transcript: String,
+        mode: CleanupMode = .clean,
+        preferences: CleanupPreferences = .default
+    ) -> String {
         switch mode {
         case .verbatim:
             return transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         case .clean:
-            return clean(transcript)
+            return clean(transcript, preferences: preferences)
         case .polished:
-            return polish(transcript)
+            return polish(transcript, preferences: preferences)
         case .prompt:
-            return makePrompt(transcript)
+            return makePrompt(transcript, preferences: preferences)
         case .message:
-            return makeMessage(transcript)
+            return makeMessage(transcript, preferences: preferences)
         case .email:
-            return makeEmail(transcript)
+            return makeEmail(transcript, preferences: preferences)
         }
     }
 
-    private func clean(_ transcript: String) -> String {
+    private func clean(_ transcript: String, preferences: CleanupPreferences) -> String {
         var text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }
 
         text = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        text = removeFillers(from: text)
+        if preferences.removeFillerWords {
+            text = removeFillers(from: text)
+        }
         text = text.replacingOccurrences(of: #"\s+([,.;:!?])"#, with: "$1", options: .regularExpression)
         text = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         text = capitalizeSentenceStarts(in: text)
 
-        if shouldAddTerminalPunctuation(to: text) {
+        if preferences.addTerminalPunctuation && shouldAddTerminalPunctuation(to: text) {
             text += "."
         }
 
         return text
     }
 
-    private func polish(_ transcript: String) -> String {
-        var text = clean(transcript)
+    private func polish(_ transcript: String, preferences: CleanupPreferences) -> String {
+        var text = clean(transcript, preferences: preferences)
         text = capitalizeStandaloneI(in: text)
         text = normalizeRepeatedTerminalPunctuation(in: text)
         text = normalizeQuestionTerminalPunctuation(in: text)
         return text
     }
 
-    private func makePrompt(_ transcript: String) -> String {
-        var text = polish(transcript)
+    private func makePrompt(_ transcript: String, preferences: CleanupPreferences) -> String {
+        var text = polish(transcript, preferences: preferences)
         text = text.replacingOccurrences(
             of: #"(?i)^(?:hey\s+)?(?:chatgpt|claude|cursor|copilot)[,;:]?\s+"#,
             with: "",
@@ -103,8 +119,8 @@ struct CleanupEngine {
         return text
     }
 
-    private func makeMessage(_ transcript: String) -> String {
-        var text = polish(transcript)
+    private func makeMessage(_ transcript: String, preferences: CleanupPreferences) -> String {
+        var text = polish(transcript, preferences: preferences)
         text = text.replacingOccurrences(
             of: #"(?i)^(?:hey|hi|hello)[,;:]\s+"#,
             with: "",
@@ -117,9 +133,9 @@ struct CleanupEngine {
         return text
     }
 
-    private func makeEmail(_ transcript: String) -> String {
-        let text = polish(transcript)
-        return formatEmailBlockIfUseful(from: text) ?? text
+    private func makeEmail(_ transcript: String, preferences: CleanupPreferences) -> String {
+        let text = polish(transcript, preferences: preferences)
+        return formatEmailBlockIfUseful(from: text, preferences: preferences) ?? text
     }
 
     private func removeFillers(from text: String) -> String {
@@ -231,7 +247,7 @@ struct CleanupEngine {
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: replacement)
     }
 
-    private func formatEmailBlockIfUseful(from text: String) -> String? {
+    private func formatEmailBlockIfUseful(from text: String, preferences: CleanupPreferences) -> String? {
         let pattern = #"(?i)^(hi|hello|hey|dear)\s+([^,!.?]+)[,!.?]\s*(.+)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let nsText = text as NSString
@@ -260,7 +276,7 @@ struct CleanupEngine {
         }
 
         body = capitalizeSentenceStarts(in: body.trimmingCharacters(in: .whitespacesAndNewlines))
-        if shouldAddTerminalPunctuation(to: body) {
+        if preferences.addTerminalPunctuation && shouldAddTerminalPunctuation(to: body) {
             body += "."
         }
 

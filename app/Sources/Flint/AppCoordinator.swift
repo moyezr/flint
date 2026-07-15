@@ -38,6 +38,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let activeAppDetector = ActiveAppDetector()
 
     private var onboardingWindow: OnboardingWindowController?
+    private var memorySnapshot: MemorySnapshot = .empty
     private var isRecording = false
     private var didCancelCurrentRecording = false
     private var recordingStartedAt: Date?
@@ -111,6 +112,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateModelMenuUI()
         overlay.show(state: .ready)
         licenseAuthorization.start()
+        Task { [weak self] in
+            await self?.initializeLearning()
+        }
 
         shortcutManager.onStart = { [weak self] in
             Task { @MainActor in
@@ -415,6 +419,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             settingsStore: appSettingsStore,
             modelManager: modelManager,
             dictionaryEngine: dictionaryEngine,
+            learningStore: learningStore,
             onSettingsChanged: { [weak self] settings in
                 self?.applySettingsFromWindow(settings)
             },
@@ -434,6 +439,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             },
             onShowPrivacy: { [weak self] in
                 self?.showPrivacy()
+            },
+            onLearningChanged: { [weak self] snapshot in
+                self?.memorySnapshot = snapshot
             }
         )
         settingsWindow = controller
@@ -503,6 +511,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             ),
             onDeleteAllLocalData: { [weak self] in
                 self?.applyPrivacyDeletionDefaults()
+            },
+            onLearningChanged: { [weak self] snapshot in
+                self?.memorySnapshot = snapshot
             }
         )
         privacyWindow = controller
@@ -633,8 +644,24 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         shortcutSettings = settings.shortcutSettings
         insertionTargetBehavior = settings.insertionTargetBehavior
         appAwareModesEnabled = settings.appAwareModesEnabled
+        memorySnapshot = .empty
         updateModelMenuUI()
         updatePermissionMenuItem()
+    }
+
+    private func initializeLearning() async {
+        do {
+            let legacyReplacements = dictionaryEngine.listCustomReplacements()
+            _ = try await learningStore.migrateLegacyVocabulary(
+                legacyReplacements,
+                userDefaults: appSettingsStore.defaults
+            )
+            memorySnapshot = try await learningStore.memorySnapshot()
+            try await learningStore.runRetention()
+        } catch {
+            memorySnapshot = .empty
+            NSLog("Flint learning storage unavailable; continuing with built-in vocabulary: \(error.localizedDescription)")
+        }
     }
 
     private func prepareSelectedModelIfInstalled() {
@@ -822,8 +849,20 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             let appliedModelName = modelManager.selectedConfigurationDescriptor().modelName
             let transcript = try await transcriptionEngine.transcribe(audioFileURL: audioURL)
             guard activeProcessingID == processingID else { return }
-            let dictionaryTranscript = dictionaryEngine.apply(to: transcript)
-            let cleanedTranscript = cleanupEngine.clean(dictionaryTranscript, mode: appliedCleanupMode)
+            let dictionaryResult = dictionaryEngine.apply(
+                to: transcript,
+                snapshot: memorySnapshot,
+                activeApp: activeApp,
+                language: appliedSettings.language
+            )
+            let cleanedTranscript = cleanupEngine.clean(
+                dictionaryResult.text,
+                mode: appliedCleanupMode,
+                preferences: CleanupPreferences(
+                    removeFillerWords: appliedSettings.removeFillerWords,
+                    addTerminalPunctuation: appliedSettings.addTerminalPunctuation
+                )
+            )
 
             guard let usableTranscript = DictationOutputPolicy.usableOutput(from: cleanedTranscript) else {
                 overlay.show(state: .error(DictationOutputPolicy.emptyOutputMessage))
@@ -856,6 +895,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 modelName: appliedModelName,
                 settings: appliedSettings
             )
+            if !dictionaryResult.matchedMemoryCounts.isEmpty {
+                Task { [learningStore] in
+                    try? await learningStore.incrementUsageCounts(dictionaryResult.matchedMemoryCounts)
+                }
+            }
         } catch {
             overlay.show(state: .error(TranscriptionEngine.userFacingMessage(for: error)))
             dictationFeedback.perform(.failed, settings: appSettingsStore.load())

@@ -218,6 +218,10 @@ struct PrivacyManager {
         )
     }
 
+    func memorySnapshot() async throws -> MemorySnapshot {
+        try await learningStore?.memorySnapshot() ?? .empty
+    }
+
     func deleteLearningMemory(id: UUID) async throws {
         try await learningStore?.deleteMemory(id: id)
     }

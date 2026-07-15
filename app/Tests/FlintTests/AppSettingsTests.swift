@@ -37,6 +37,8 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.appAwareModesEnabled)
         XCTAssertTrue(settings.autoInsert)
         XCTAssertFalse(settings.hasCompletedOnboarding)
+        XCTAssertTrue(settings.removeFillerWords)
+        XCTAssertTrue(settings.addTerminalPunctuation)
     }
 
     func testRoundTripPersistsAllFields() {
@@ -54,7 +56,9 @@ final class AppSettingsTests: XCTestCase {
             storeHistory: true,
             appAwareModesEnabled: true,
             autoInsert: false,
-            hasCompletedOnboarding: true
+            hasCompletedOnboarding: true,
+            removeFillerWords: false,
+            addTerminalPunctuation: false
         )
 
         store.save(settings)
@@ -173,6 +177,20 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: "appAwareModesEnabled"))
         XCTAssertNil(defaults.object(forKey: "autoInsert"))
         XCTAssertNil(defaults.object(forKey: "hasCompletedOnboarding"))
+        XCTAssertNil(defaults.object(forKey: "removeFillerWords"))
+        XCTAssertNil(defaults.object(forKey: "addTerminalPunctuation"))
         XCTAssertEqual(store.load(), .default)
+    }
+
+    func testFormattingPreferencesPersistIndependentlyAndDefaultOn() {
+        let store = AppSettingsStore(defaults: defaults)
+        XCTAssertTrue(store.load().removeFillerWords)
+        XCTAssertTrue(store.load().addTerminalPunctuation)
+
+        store.saveRemoveFillerWords(false)
+        store.saveAddTerminalPunctuation(false)
+
+        XCTAssertFalse(store.load().removeFillerWords)
+        XCTAssertFalse(store.load().addTerminalPunctuation)
     }
 }
