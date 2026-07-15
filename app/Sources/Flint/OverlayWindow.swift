@@ -3,6 +3,7 @@ import SwiftUI
 
 enum OverlayState: Equatable {
     case ready
+    case preparingModel
     case listening
     case processingLocally
     case inserting
@@ -15,6 +16,8 @@ enum OverlayState: Equatable {
         switch self {
         case .ready:
             return "READY"
+        case .preparingModel:
+            return "PREPARING MODEL"
         case .listening:
             return "LISTENING"
         case .processingLocally:
@@ -36,6 +39,8 @@ enum OverlayState: Equatable {
         switch self {
         case .ready:
             return settings.readyHint
+        case .preparingModel:
+            return "First launch can take a moment"
         case .listening:
             return settings.listeningHint
         case .processingLocally:
@@ -54,7 +59,7 @@ enum OverlayState: Equatable {
     }
 
     var isActive: Bool {
-        self == .listening || self == .processingLocally || self == .inserting
+        self == .preparingModel || self == .listening || self == .processingLocally || self == .inserting
     }
 
     var showsActions: Bool {
@@ -170,7 +175,7 @@ enum OverlayLayout {
             return compactSize
         case .listening:
             return listeningSize
-        case .processingLocally, .inserting:
+        case .preparingModel, .processingLocally, .inserting:
             return activitySize
         case .inserted, .copiedToClipboard:
             return completedSize
@@ -226,7 +231,7 @@ struct OverlayPresentation: Equatable {
             let clampedLevel = min(max(audioLevel, 0), 1)
             guard clampedLevel >= 0.03 else { return 0 }
             return max(1, Int((clampedLevel * Float(OverlayLayout.meterBarCount)).rounded(.up)))
-        case .processingLocally, .inserting:
+        case .preparingModel, .processingLocally, .inserting:
             return OverlayLayout.meterBarCount
         case .error:
             return 3
@@ -236,13 +241,13 @@ struct OverlayPresentation: Equatable {
     }
 
     var usesActivityPulse: Bool {
-        state == .processingLocally || state == .inserting
+        state == .preparingModel || state == .processingLocally || state == .inserting
     }
 
     func isMeterBarActive(_ index: Int, animationPhase: Int) -> Bool {
         guard (0..<OverlayLayout.meterBarCount).contains(index) else { return false }
         switch state {
-        case .processingLocally, .inserting:
+        case .preparingModel, .processingLocally, .inserting:
             let pulseWidth = 4
             let travelDistance = OverlayLayout.meterBarCount + pulseWidth
             let start = animationPhase % travelDistance - pulseWidth
@@ -322,13 +327,13 @@ struct OverlayView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 10)
-        case .processingLocally, .inserting:
+        case .preparingModel, .processingLocally, .inserting:
             HStack(spacing: 11) {
                 ProgressView()
                     .controlSize(.small)
                     .tint(orange)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(model.state == .inserting ? "Inserting" : "Processing")
+                    Text(activityTitle)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white)
                     activityMeter
@@ -420,6 +425,17 @@ struct OverlayView: View {
                         .frame(width: 9, height: 4)
                 }
             }
+        }
+    }
+
+    private var activityTitle: String {
+        switch model.state {
+        case .preparingModel:
+            return "Preparing Flint"
+        case .inserting:
+            return "Inserting"
+        default:
+            return "Processing"
         }
     }
 

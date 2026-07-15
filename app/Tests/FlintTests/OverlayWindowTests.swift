@@ -4,6 +4,7 @@ import XCTest
 final class OverlayWindowTests: XCTestCase {
     func testOverlayStateLabelsCoverRequiredStates() {
         XCTAssertEqual(OverlayState.ready.label, "READY")
+        XCTAssertEqual(OverlayState.preparingModel.label, "PREPARING MODEL")
         XCTAssertEqual(OverlayState.listening.label, "LISTENING")
         XCTAssertEqual(OverlayState.processingLocally.label, "PROCESSING")
         XCTAssertEqual(OverlayState.inserting.label, "INSERTING")
@@ -18,6 +19,7 @@ final class OverlayWindowTests: XCTestCase {
         let toggle = ShortcutSettings(option: .controlSpace, behavior: .toggle)
 
         XCTAssertEqual(OverlayState.ready.hint(settings: pushToTalk), "Hold Right Option to dictate")
+        XCTAssertEqual(OverlayState.preparingModel.hint(settings: pushToTalk), "First launch can take a moment")
         XCTAssertEqual(OverlayState.ready.hint(settings: toggle), "Press Control+Space to dictate")
         XCTAssertEqual(OverlayState.listening.hint(settings: pushToTalk), "Release to insert · Esc cancel")
         XCTAssertEqual(OverlayState.listening.hint(settings: toggle), "Press again to insert · Esc cancel")
@@ -39,6 +41,7 @@ final class OverlayWindowTests: XCTestCase {
 
     func testOverlayPresentationAccentRoles() {
         XCTAssertEqual(presentation(for: .ready).accent, .inactive)
+        XCTAssertEqual(presentation(for: .preparingModel).accent, .active)
         XCTAssertEqual(presentation(for: .listening).accent, .active)
         XCTAssertEqual(presentation(for: .processingLocally).accent, .active)
         XCTAssertEqual(presentation(for: .inserting).accent, .active)
@@ -60,6 +63,7 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
         XCTAssertEqual(OverlayLayout.size(for: .listening).width, 224)
         XCTAssertEqual(OverlayLayout.size(for: .listening).height, 62)
+        XCTAssertEqual(OverlayLayout.size(for: .preparingModel), OverlayLayout.activitySize)
         XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 326)
         XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 82)
         XCTAssertEqual(OverlayLayout.meterBarCount, 9)
@@ -76,6 +80,7 @@ final class OverlayWindowTests: XCTestCase {
 
     func testOverlayMeterBarsRepresentNonListeningStates() {
         XCTAssertEqual(presentation(for: .ready, audioLevel: 1).filledBars, 0)
+        XCTAssertEqual(presentation(for: .preparingModel, audioLevel: 0).filledBars, 9)
         XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 9)
         XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 9)
         XCTAssertEqual(presentation(for: .error("Failed"), audioLevel: 1).filledBars, 3)
@@ -116,6 +121,7 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertTrue(OverlayState.copiedToClipboard.shouldAutoHide)
 
         XCTAssertFalse(OverlayState.listening.shouldAutoHide)
+        XCTAssertFalse(OverlayState.preparingModel.shouldAutoHide)
         XCTAssertFalse(OverlayState.processingLocally.shouldAutoHide)
         XCTAssertFalse(OverlayState.inserting.shouldAutoHide)
         XCTAssertFalse(OverlayState.error("Failed").shouldAutoHide)

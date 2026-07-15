@@ -66,7 +66,11 @@ struct TranscriptionEngine {
     }
 
     func prepareSelectedModel() async throws {
-        let descriptor = modelManager.selectedConfigurationDescriptor()
+        try await prepareModel(for: modelManager.selectedTier())
+    }
+
+    func prepareModel(for tier: ModelTier) async throws {
+        let descriptor = modelManager.configurationDescriptor(for: tier)
         _ = try await TranscriptionPipeline.shared.whisperKit(for: descriptor)
     }
 

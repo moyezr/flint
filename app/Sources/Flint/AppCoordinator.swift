@@ -47,8 +47,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var recordingCleanupMode: CleanupMode?
     private var audioMeterTimer: Timer?
     private var focusedStartInsertionTarget: TextInsertionTarget?
-    private var preparingModelTier: ModelTier?
-    private var modelPreparationError: String?
+    private var modelPreparation = ModelPreparationLifecycle()
+    private var modelPreparationTask: Task<Void, Never>?
+    private var modelPreparationTimeoutTask: Task<Void, Never>?
     private var processingTimeoutTask: Task<Void, Never>?
     private var activeProcessingID: UUID?
     private var cleanupMode: CleanupMode = .clean {
@@ -152,6 +153,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         stopAudioMetering()
         processingTimeoutTask?.cancel()
         processingTimeoutTask = nil
+        modelPreparationTask?.cancel()
+        modelPreparationTask = nil
+        modelPreparationTimeoutTask?.cancel()
+        modelPreparationTimeoutTask = nil
+        modelPreparation.reset()
         activeProcessingID = nil
         shortcutManager.stop()
         licenseAuthorization.stop()
@@ -333,10 +339,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func modelMenuTitle(for tier: ModelTier) -> String {
-        if preparingModelTier == tier {
+        if modelPreparation.preparingTier == tier {
             return "Model: \(tier.displayName) (Preparing...)"
         }
-        if modelPreparationError != nil {
+        if modelPreparation.error(for: tier) != nil {
             return "Model: \(tier.displayName) (Unavailable)"
         }
         return "Model: \(tier.displayName)"
@@ -806,48 +812,84 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         }
     }
 
-    private func prepareSelectedModelIfInstalled() {
+    private func prepareSelectedModelIfInstalled(force: Bool = false) {
         let tier = modelManager.selectedTier()
-        guard modelManager.metadata(for: tier).isInstalled,
-              preparingModelTier != tier else {
+        guard modelManager.metadata(for: tier).isInstalled else {
+            cancelModelPreparation()
+            updateModelMenuUI()
             return
         }
+        guard let generation = modelPreparation.begin(tier: tier, force: force) else { return }
 
-        preparingModelTier = tier
-        modelPreparationError = nil
+        modelPreparationTask?.cancel()
+        modelPreparationTimeoutTask?.cancel()
         updateModelMenuUI()
+        NSLog("Flint is preparing the \(tier.displayName) model.")
 
-        Task { [weak self] in
-            guard let self else { return }
-
+        modelPreparationTask = Task { [weak self, transcriptionEngine] in
             do {
-                try await transcriptionEngine.prepareSelectedModel()
-                guard modelManager.selectedTier() == tier else { return }
-                preparingModelTier = nil
-                updateModelMenuUI()
+                try await transcriptionEngine.prepareModel(for: tier)
+                guard !Task.isCancelled else { return }
+                self?.completeModelPreparation(tier: tier, generation: generation)
             } catch {
-                guard modelManager.selectedTier() == tier else { return }
-                try? modelManager.deleteModel(for: tier)
-                preparingModelTier = nil
-                modelPreparationError = error.localizedDescription
-                updateModelMenuUI()
-                NSLog("Flint model preparation failed: \(error.localizedDescription)")
+                guard !Task.isCancelled else { return }
+                self?.failModelPreparation(tier: tier, generation: generation, error: error)
             }
+        }
+
+        modelPreparationTimeoutTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(120))
+            } catch {
+                return
+            }
+            self?.timeOutModelPreparation(tier: tier, generation: generation)
         }
     }
 
-    private func selectedModelReadinessMessage() -> String? {
-        let tier = modelManager.selectedTier()
-        guard modelManager.metadata(for: tier).isInstalled else {
-            return "Download the selected model before dictation."
+    private func completeModelPreparation(tier: ModelTier, generation: Int) {
+        guard modelPreparation.complete(tier: tier, generation: generation) else { return }
+        modelPreparationTask = nil
+        modelPreparationTimeoutTask?.cancel()
+        modelPreparationTimeoutTask = nil
+        updateModelMenuUI()
+        if modelManager.selectedTier() == tier, !isRecording {
+            overlay.show(state: .ready)
         }
-        if preparingModelTier == tier {
-            return "Model is preparing. Try dictation again shortly."
-        }
-        if modelPreparationError != nil {
-            return "Selected model could not be prepared. Restart Flint or download it again."
-        }
-        return nil
+        NSLog("Flint \(tier.displayName) model is ready.")
+    }
+
+    private func failModelPreparation(tier: ModelTier, generation: Int, error: Error) {
+        guard modelPreparation.fail(
+            tier: tier,
+            generation: generation,
+            message: error.localizedDescription
+        ) else { return }
+        modelPreparationTask = nil
+        modelPreparationTimeoutTask?.cancel()
+        modelPreparationTimeoutTask = nil
+        updateModelMenuUI()
+        overlay.show(state: .error("Model preparation failed. Press the dictation shortcut to retry."))
+        NSLog("Flint model preparation failed: \(error.localizedDescription)")
+    }
+
+    private func timeOutModelPreparation(tier: ModelTier, generation: Int) {
+        let message = "Model preparation timed out."
+        guard modelPreparation.fail(tier: tier, generation: generation, message: message) else { return }
+        modelPreparationTask?.cancel()
+        modelPreparationTask = nil
+        modelPreparationTimeoutTask = nil
+        updateModelMenuUI()
+        overlay.show(state: .error("Model preparation took too long. Press the dictation shortcut to retry."))
+        NSLog("Flint \(tier.displayName) model preparation timed out.")
+    }
+
+    private func cancelModelPreparation() {
+        modelPreparationTask?.cancel()
+        modelPreparationTask = nil
+        modelPreparationTimeoutTask?.cancel()
+        modelPreparationTimeoutTask = nil
+        modelPreparation.reset()
     }
 
     private func beginProcessingTimeout(for processingID: UUID) {
@@ -899,9 +941,19 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
 
-        if let modelReadinessMessage = selectedModelReadinessMessage() {
-            overlay.show(state: .error(modelReadinessMessage))
+        let selectedTier = modelManager.selectedTier()
+        guard modelManager.metadata(for: selectedTier).isInstalled else {
+            overlay.show(state: .error("Download the selected model before dictation."))
             dictationFeedback.perform(.failed, settings: appSettingsStore.load())
+            return
+        }
+        if modelPreparation.preparingTier == selectedTier {
+            overlay.show(state: .preparingModel)
+            return
+        }
+        if modelPreparation.error(for: selectedTier) != nil {
+            prepareSelectedModelIfInstalled(force: true)
+            overlay.show(state: .preparingModel)
             return
         }
 
