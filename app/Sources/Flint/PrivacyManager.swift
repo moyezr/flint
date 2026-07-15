@@ -51,6 +51,7 @@ struct PrivacyManager {
     private let settingsStore: AppSettingsStore
     private let dictionaryEngine: DictionaryEngine
     private let learningStore: LearningStore?
+    private let learningMetrics: LearningMetrics?
     private let modelManager: ModelManager
     private let historyStore: HistoryStore?
     private let appModeRuleStore: AppModeRuleStore?
@@ -64,6 +65,7 @@ struct PrivacyManager {
         settingsStore: AppSettingsStore = AppSettingsStore(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         learningStore: LearningStore? = LearningStore(),
+        learningMetrics: LearningMetrics? = nil,
         modelManager: ModelManager = ModelManager(),
         historyStore: HistoryStore? = try? HistoryStore(),
         appModeRuleStore: AppModeRuleStore? = AppModeRuleStore(),
@@ -76,6 +78,7 @@ struct PrivacyManager {
         self.settingsStore = settingsStore
         self.dictionaryEngine = dictionaryEngine
         self.learningStore = learningStore
+        self.learningMetrics = learningMetrics
         self.modelManager = modelManager
         self.historyStore = historyStore
         self.appModeRuleStore = appModeRuleStore
@@ -97,6 +100,7 @@ struct PrivacyManager {
             evidenceCount: 0,
             databaseSizeBytes: 0
         )
+        let metricsSnapshot = await learningMetrics?.snapshot() ?? .empty
         return PrivacyDashboardSnapshot(
             statusRows: [
                 PrivacyStatusRow(
@@ -147,6 +151,12 @@ struct PrivacyManager {
                     title: "Learning Database",
                     path: learningStore?.databaseURL.path ?? "Unavailable",
                     detail: "\(learningSummary.activeMemoryCount) active vocabulary entries, \(learningSummary.evidenceCount) explicit corrections, \(Self.formattedByteCount(learningSummary.databaseSizeBytes)). Legacy vocabulary remains in settings temporarily for migration rollback."
+                ),
+                PrivacyDataLocation(
+                    id: "learning-metrics",
+                    title: "Local Learning Counters",
+                    path: learningMetrics?.storageDescription ?? "Disabled",
+                    detail: "Content-free aggregate counters only. \(metricsSnapshot[.completedUsableDictations]) usable dictations and \(metricsSnapshot[.fixSaves]) explicit fixes recorded. Nothing is uploaded."
                 ),
                 PrivacyDataLocation(
                     id: "model-cache",
@@ -222,6 +232,11 @@ struct PrivacyManager {
         try await learningStore?.memorySnapshot() ?? .empty
     }
 
+    func learningMetricsSummary() async -> String {
+        await learningMetrics?.snapshot().plainTextSummary
+            ?? LearningMetricsSnapshot.empty.plainTextSummary
+    }
+
     func deleteLearningMemory(id: UUID) async throws {
         try await learningStore?.deleteMemory(id: id)
     }
@@ -254,6 +269,7 @@ struct PrivacyManager {
             try HistoryStore(databaseURL: databaseURL).deleteDatabaseFiles()
         }
         try await learningStore?.deleteDatabaseFiles()
+        await learningMetrics?.reset()
         settingsStore.removePersistedSettings()
         dictionaryEngine.removeAllCustomReplacements()
 

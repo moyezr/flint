@@ -23,6 +23,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let transcriptionEngine = TranscriptionEngine()
     private let dictionaryEngine = DictionaryEngine()
     private let learningStore = LearningStore()
+    private let learningMetrics = LearningMetrics()
     private let cleanupEngine = CleanupEngine()
     private let textInsertionEngine = TextInsertionEngine()
     private let dictationFeedback = DictationFeedback()
@@ -93,10 +94,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var deleteModelMenuItem: NSMenuItem?
     private weak var permissionMenuItem: NSMenuItem?
     private weak var appAwareModesMenuItem: NSMenuItem?
+    private weak var fixThisDictationMenuItem: NSMenuItem?
     private var privacyWindow: PrivacyWindowController?
     private var licenseWindow: LicenseWindowController?
     private var appModeSettingsWindow: AppModeSettingsWindowController?
     private var settingsWindow: SettingsWindowController?
+    private var fixThisDictationWindow: FixThisDictationWindowController?
+    private var recentDictationBuffer = RecentDictationBuffer()
 
     func start() {
         let settings = appSettingsStore.load()
@@ -155,6 +159,14 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Start/Pause Dictation", action: #selector(toggleDictation), keyEquivalent: ""))
+        let fixItem = NSMenuItem(
+            title: "Fix This Dictation…",
+            action: #selector(showFixThisDictation),
+            keyEquivalent: ""
+        )
+        fixItem.isEnabled = false
+        menu.addItem(fixItem)
+        fixThisDictationMenuItem = fixItem
         let modeItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         let modeSubmenu = NSMenu()
         cleanupModeSelectionMenuItems = CleanupMode.allCases.map { mode in
@@ -253,6 +265,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updatePermissionMenuItem()
+        fixThisDictationMenuItem?.isEnabled = !recentDictationBuffer.isEmpty
     }
 
     private func updateCleanupModeUI() {
@@ -420,6 +433,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             modelManager: modelManager,
             dictionaryEngine: dictionaryEngine,
             learningStore: learningStore,
+            learningMetrics: learningMetrics,
             onSettingsChanged: { [weak self] settings in
                 self?.applySettingsFromWindow(settings)
             },
@@ -442,6 +456,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             },
             onLearningChanged: { [weak self] snapshot in
                 self?.memorySnapshot = snapshot
+            },
+            vocabularyApplicationsProvider: { [weak self] in
+                self?.vocabularyApplicationOptions() ?? SettingsModel.runningApplications()
             }
         )
         settingsWindow = controller
@@ -503,6 +520,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 settingsStore: appSettingsStore,
                 dictionaryEngine: dictionaryEngine,
                 learningStore: learningStore,
+                learningMetrics: learningMetrics,
                 modelManager: modelManager,
                 historyStore: historyStore,
                 permissionSnapshotProvider: { [permissionManager] in
@@ -517,6 +535,46 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             }
         )
         privacyWindow = controller
+        controller.show()
+    }
+
+    @objc private func showFixThisDictation() {
+        guard !recentDictationBuffer.isEmpty else { return }
+        Task { [learningMetrics] in
+            await learningMetrics.increment(.fixPanelOpens)
+        }
+        let entries = recentDictationBuffer.newestFirst
+        if let fixThisDictationWindow {
+            fixThisDictationWindow.update(entries: entries)
+            fixThisDictationWindow.show()
+            return
+        }
+
+        let controller = FixThisDictationWindowController(
+            entries: entries,
+            learningStore: learningStore,
+            onLearningChanged: { [weak self] snapshot in
+                self?.memorySnapshot = snapshot
+            },
+            onSaved: { [learningMetrics] acceptedMapping in
+                Task {
+                    await learningMetrics.increment(.fixSaves)
+                    if acceptedMapping {
+                        await learningMetrics.increment(.explicitMappingsAccepted)
+                    }
+                }
+            },
+            onCancel: { [learningMetrics] in
+                Task { await learningMetrics.increment(.fixCancellations) }
+            },
+            onProposalShown: { [learningMetrics] in
+                Task { await learningMetrics.increment(.eligibleMappingsShown) }
+            },
+            onDismiss: { [weak self] in
+                self?.fixThisDictationWindow = nil
+            }
+        )
+        fixThisDictationWindow = controller
         controller.show()
     }
 
@@ -661,6 +719,23 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         } catch {
             memorySnapshot = .empty
             NSLog("Flint learning storage unavailable; continuing with built-in vocabulary: \(error.localizedDescription)")
+        }
+    }
+
+    private func vocabularyApplicationOptions() -> [VocabularyApplicationOption] {
+        var options = SettingsModel.runningApplications()
+        var seen = Set(options.map(\.bundleIdentifier))
+        for entry in recentDictationBuffer.newestFirst {
+            guard let bundleIdentifier = entry.applicationBundleID,
+                  !bundleIdentifier.isEmpty,
+                  seen.insert(bundleIdentifier).inserted else { continue }
+            options.append(VocabularyApplicationOption(
+                name: entry.applicationName ?? bundleIdentifier,
+                bundleIdentifier: bundleIdentifier
+            ))
+        }
+        return options.sorted {
+            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
     }
 
@@ -885,6 +960,24 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 dictationFeedback.perform(.failed, settings: appSettingsStore.load())
             } else {
                 overlay.show(state: .copiedToClipboard)
+            }
+            recentDictationBuffer.append(RecentDictation(
+                rawText: transcript,
+                insertedText: usableTranscript,
+                applicationName: activeApp?.name,
+                applicationBundleID: activeApp?.bundleIdentifier,
+                language: appliedSettings.language,
+                cleanupMode: appliedCleanupMode,
+                deliveryResult: result
+            ))
+            fixThisDictationMenuItem?.isEnabled = true
+            fixThisDictationWindow?.update(entries: recentDictationBuffer.newestFirst)
+            Task { [learningMetrics] in
+                await learningMetrics.increment(.completedUsableDictations)
+                let appliedCount = dictionaryResult.matchedMemoryCounts.values.reduce(0, +)
+                if appliedCount > 0 {
+                    await learningMetrics.increment(.activeMemoriesApplied, by: appliedCount)
+                }
             }
             recordHistoryIfEnabled(
                 rawTranscript: transcript,

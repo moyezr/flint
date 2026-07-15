@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-enum TextInsertionResult {
+enum TextInsertionResult: Equatable, Sendable {
     case inserted
     case copiedToClipboard
 }

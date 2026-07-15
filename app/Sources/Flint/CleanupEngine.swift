@@ -1,6 +1,6 @@
 import Foundation
 
-enum CleanupMode: String, CaseIterable {
+enum CleanupMode: String, CaseIterable, Sendable {
     case clean
     case verbatim
     case polished

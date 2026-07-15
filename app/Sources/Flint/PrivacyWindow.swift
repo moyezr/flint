@@ -50,6 +50,7 @@ private final class PrivacyDashboardModel: ObservableObject {
     @Published var correctionEvidenceCount = 0
     @Published var learningMessage = ""
     @Published var learningError = ""
+    @Published var learningMetricsSummary = ""
 
     private let privacyManager: PrivacyManager
     private let onDeleteAllLocalData: () -> Void
@@ -78,6 +79,7 @@ private final class PrivacyDashboardModel: ObservableObject {
         do {
             learningMemories = try await privacyManager.learningMemories()
             correctionEvidenceCount = await privacyManager.learningSummary().evidenceCount
+            learningMetricsSummary = await privacyManager.learningMetricsSummary()
             learningError = ""
         } catch {
             learningMemories = []
@@ -194,6 +196,13 @@ private final class PrivacyDashboardModel: ObservableObject {
                 learningError = error.localizedDescription
             }
         }
+    }
+
+    func copyLearningMetrics() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(learningMetricsSummary, forType: .string)
+        learningMessage = "Copied content-free learning counters."
+        learningError = ""
     }
 
     private func reloadHistory() {
@@ -336,6 +345,9 @@ private struct PrivacyDashboardView: View {
                                 isConfirmingLearningDelete = true
                             }
                             .disabled(model.correctionEvidenceCount == 0 && model.learningMemories.isEmpty)
+                            Button("Copy Gate Metrics") {
+                                model.copyLearningMetrics()
+                            }
                         }
 
                         if !model.learningMessage.isEmpty {

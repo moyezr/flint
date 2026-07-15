@@ -11,24 +11,28 @@ final class SettingsWindowController {
         modelManager: ModelManager = ModelManager(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         learningStore: LearningStore? = nil,
+        learningMetrics: LearningMetrics? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
         modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {},
-        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in }
+        onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
+        vocabularyApplicationsProvider: @escaping @MainActor () -> [VocabularyApplicationOption] = SettingsModel.runningApplications
     ) {
         model = SettingsModel(
             settingsStore: settingsStore,
             modelManager: modelManager,
             dictionaryEngine: dictionaryEngine,
             learningStore: learningStore,
+            learningMetrics: learningMetrics,
             onSettingsChanged: onSettingsChanged,
             onModelMetadataChanged: onModelMetadataChanged,
             modelPreparationAction: modelPreparationAction,
             onShowAppModes: onShowAppModes,
             onShowPrivacy: onShowPrivacy,
-            onLearningChanged: onLearningChanged
+            onLearningChanged: onLearningChanged,
+            runningApplicationsProvider: vocabularyApplicationsProvider
         )
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 700),
@@ -81,6 +85,7 @@ final class SettingsModel: ObservableObject {
     private let modelManager: ModelManager
     private let dictionaryEngine: DictionaryEngine
     private let learningStore: LearningStore?
+    private let learningMetrics: LearningMetrics?
     private let onSettingsChanged: (AppSettings) -> Void
     private let onModelMetadataChanged: () -> Void
     private let modelPreparationAction: (ModelTier) async throws -> Void
@@ -94,6 +99,7 @@ final class SettingsModel: ObservableObject {
         modelManager: ModelManager = ModelManager(),
         dictionaryEngine: DictionaryEngine = DictionaryEngine(),
         learningStore: LearningStore? = nil,
+        learningMetrics: LearningMetrics? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
         onModelMetadataChanged: @escaping () -> Void = {},
         modelPreparationAction: @escaping (ModelTier) async throws -> Void = { _ in },
@@ -106,6 +112,7 @@ final class SettingsModel: ObservableObject {
         self.modelManager = modelManager
         self.dictionaryEngine = dictionaryEngine
         self.learningStore = learningStore
+        self.learningMetrics = learningMetrics
         self.onSettingsChanged = onSettingsChanged
         self.onModelMetadataChanged = onModelMetadataChanged
         self.modelPreparationAction = modelPreparationAction
@@ -266,6 +273,7 @@ final class SettingsModel: ObservableObject {
                 let snapshot = try await learningStore.memorySnapshot()
                 onLearningChanged(snapshot)
                 await refreshVocabulary()
+                await learningMetrics?.increment(.teachWordSaves)
                 pendingVocabularyConflict = nil
             } catch {
                 statusMessage = ""
@@ -372,7 +380,7 @@ final class SettingsModel: ObservableObject {
         )
     }
 
-    private static func runningApplications() -> [VocabularyApplicationOption] {
+    static func runningApplications() -> [VocabularyApplicationOption] {
         var seen: Set<String> = []
         return NSWorkspace.shared.runningApplications
             .compactMap { application -> VocabularyApplicationOption? in
