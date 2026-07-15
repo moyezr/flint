@@ -59,23 +59,57 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 9)
     }
 
-    func testOverlayUsesExpandedNotchIslandLayout() {
+    func testOverlayUsesCompactOneSidedNotchIslandLayout() {
         XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 224)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 62)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 190)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .preparingModel), OverlayLayout.activitySize)
-        XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 326)
-        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 82)
+        XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 248)
+        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 42)
+        XCTAssertEqual(OverlayLayout.size(for: .error("No speech detected.")).width, 190)
         XCTAssertEqual(OverlayLayout.meterBarCount, 9)
     }
 
-    func testOverlayFrameAttachesToTopCenterOfScreen() {
+    func testOverlayFrameAttachesToTopAndExtendsOnlyToTheRight() {
         let screen = CGRect(x: 0, y: 0, width: 1_512, height: 982)
+        let readyFrame = OverlayLayout.frame(on: screen, for: .ready)
         let frame = OverlayLayout.frame(on: screen, for: .listening)
 
-        XCTAssertEqual(frame.midX, screen.midX)
+        XCTAssertEqual(readyFrame.midX, screen.midX)
+        XCTAssertEqual(frame.minX, readyFrame.minX)
+        XCTAssertGreaterThan(frame.maxX, readyFrame.maxX)
         XCTAssertEqual(frame.maxY, screen.maxY)
         XCTAssertEqual(frame.size, OverlayLayout.listeningSize)
+    }
+
+    func testErrorWidthGrowsOnlyAsMuchAsItsMessageNeeds() {
+        let shortError = OverlayLayout.size(for: .error("No speech detected."))
+        let longError = OverlayLayout.size(for: .error(
+            "Model preparation failed. Press the dictation shortcut to retry."
+        ))
+
+        XCTAssertEqual(shortError.width, OverlayLayout.minimumErrorWidth)
+        XCTAssertGreaterThan(longError.width, shortError.width)
+        XCTAssertLessThanOrEqual(longError.width, OverlayLayout.maximumErrorWidth)
+        XCTAssertEqual(longError.height, OverlayLayout.compactSize.height)
+    }
+
+    func testEveryIslandStateKeepsTheCompactHeight() {
+        let states: [OverlayState] = [
+            .ready,
+            .preparingModel,
+            .listening,
+            .processingLocally,
+            .inserting,
+            .inserted,
+            .copiedToClipboard,
+            .cancelled,
+            .error("No speech detected.")
+        ]
+
+        for state in states {
+            XCTAssertEqual(OverlayLayout.size(for: state).height, OverlayLayout.compactSize.height)
+        }
     }
 
     func testOverlayMeterBarsRepresentNonListeningStates() {

@@ -163,10 +163,11 @@ final class OverlayWindow {
 
 enum OverlayLayout {
     static let compactSize = CGSize(width: 142, height: 42)
-    static let listeningSize = CGSize(width: 224, height: 62)
-    static let activitySize = CGSize(width: 208, height: 58)
-    static let completedSize = CGSize(width: 326, height: 72)
-    static let errorSize = CGSize(width: 330, height: 82)
+    static let listeningSize = CGSize(width: 190, height: compactSize.height)
+    static let activitySize = CGSize(width: 184, height: compactSize.height)
+    static let completedSize = CGSize(width: 248, height: compactSize.height)
+    static let minimumErrorWidth: CGFloat = 190
+    static let maximumErrorWidth: CGFloat = 312
     static let meterBarCount = 9
 
     static func size(for state: OverlayState) -> CGSize {
@@ -179,15 +180,22 @@ enum OverlayLayout {
             return activitySize
         case .inserted, .copiedToClipboard:
             return completedSize
-        case .error:
-            return errorSize
+        case .error(let message):
+            return errorSize(for: message)
         }
+    }
+
+    static func errorSize(for message: String) -> CGSize {
+        let estimatedTextWidth = CGFloat(message.count) * 5.7
+        let width = min(max(estimatedTextWidth + 54, minimumErrorWidth), maximumErrorWidth)
+        return CGSize(width: width.rounded(.up), height: compactSize.height)
     }
 
     static func frame(on screenFrame: CGRect, for state: OverlayState) -> CGRect {
         let size = size(for: state)
+        let compactOriginX = screenFrame.midX - compactSize.width / 2
         return CGRect(
-            x: screenFrame.midX - size.width / 2,
+            x: compactOriginX,
             y: screenFrame.maxY - size.height,
             width: size.width,
             height: size.height
@@ -316,61 +324,48 @@ struct OverlayView: View {
         case .cancelled:
             compactStatus(icon: "xmark", title: "Cancelled", color: .secondary)
         case .listening:
-            HStack(spacing: 12) {
-                listeningOrb
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Listening")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                    levelMeter
-                }
+            HStack(spacing: 14) {
+                pulsingDot(audioReactive: true)
+                Spacer(minLength: 0)
+                levelMeter
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 10)
+            .padding(.leading, 17)
+            .padding(.trailing, 14)
+            .padding(.bottom, 8)
         case .preparingModel, .processingLocally, .inserting:
-            HStack(spacing: 11) {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(orange)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(activityTitle)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                    activityMeter
-                }
+            HStack(spacing: 14) {
+                pulsingDot(audioReactive: false)
+                Spacer(minLength: 0)
+                activityMeter
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 10)
+            .padding(.leading, 17)
+            .padding(.trailing, 14)
+            .padding(.bottom, 8)
         case .inserted, .copiedToClipboard:
             HStack(spacing: 10) {
                 Image(systemName: model.state == .inserted ? "checkmark.circle.fill" : "doc.on.clipboard.fill")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(green)
-                Text(model.state == .inserted ? "Inserted" : "Copied")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                Spacer(minLength: 2)
+                Spacer(minLength: 0)
                 actionButton("Fix", systemImage: "pencil", action: model.onFix)
                 actionButton("Teach", systemImage: "plus", action: model.onTeach)
             }
             .padding(.horizontal, 14)
-            .padding(.bottom, 10)
+            .padding(.bottom, 7)
         case .error(let message):
-            HStack(alignment: .top, spacing: 10) {
+            HStack(spacing: 9) {
                 Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(red)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Something went wrong")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(message)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.68))
-                        .lineLimit(2)
-                }
+                Text(message)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 15)
+            .padding(.bottom, 8)
         }
     }
 
@@ -386,16 +381,23 @@ struct OverlayView: View {
         .padding(.bottom, 9)
     }
 
-    private var listeningOrb: some View {
-        ZStack {
-            Circle()
-                .fill(orange.opacity(0.15))
-                .frame(width: 30, height: 30)
-                .scaleEffect(1 + CGFloat(model.audioLevel) * 0.16)
-            Circle()
-                .fill(orange)
-                .frame(width: 10, height: 10)
-                .shadow(color: orange.opacity(0.8), radius: 7)
+    private func pulsingDot(audioReactive: Bool) -> some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { context in
+            let phase = context.date.timeIntervalSinceReferenceDate * 2.4
+            let pulse = (sin(phase * .pi) + 1) / 2
+            let audioBoost = audioReactive ? Double(model.audioLevel) * 0.12 : 0
+
+            ZStack {
+                Circle()
+                    .fill(orange.opacity(0.12 + pulse * 0.12))
+                    .frame(width: 21, height: 21)
+                    .scaleEffect(0.88 + pulse * 0.18 + audioBoost)
+                Circle()
+                    .fill(orange)
+                    .frame(width: 7, height: 7)
+                    .shadow(color: orange.opacity(0.65 + pulse * 0.25), radius: 4 + pulse * 3)
+            }
+            .frame(width: 22, height: 22)
         }
     }
 
@@ -425,17 +427,6 @@ struct OverlayView: View {
                         .frame(width: 9, height: 4)
                 }
             }
-        }
-    }
-
-    private var activityTitle: String {
-        switch model.state {
-        case .preparingModel:
-            return "Preparing Flint"
-        case .inserting:
-            return "Inserting"
-        default:
-            return "Processing"
         }
     }
 
