@@ -7,7 +7,8 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(OverlayState.listening.label, "LISTENING")
         XCTAssertEqual(OverlayState.processingLocally.label, "PROCESSING")
         XCTAssertEqual(OverlayState.inserting.label, "INSERTING")
-        XCTAssertEqual(OverlayState.copiedToClipboard.label, "COPIED TO CLIPBOARD")
+        XCTAssertEqual(OverlayState.inserted.label, "INSERTED")
+        XCTAssertEqual(OverlayState.copiedToClipboard.label, "COPIED")
         XCTAssertEqual(OverlayState.cancelled.label, "CANCELLED")
         XCTAssertEqual(OverlayState.error("No permission").label, "ERROR")
     }
@@ -20,8 +21,9 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(OverlayState.ready.hint(settings: toggle), "Press Control+Space to dictate")
         XCTAssertEqual(OverlayState.listening.hint(settings: pushToTalk), "Release to insert · Esc cancel")
         XCTAssertEqual(OverlayState.listening.hint(settings: toggle), "Press again to insert · Esc cancel")
-        XCTAssertEqual(OverlayState.processingLocally.hint(settings: pushToTalk), "Transcribing")
+        XCTAssertEqual(OverlayState.processingLocally.hint(settings: pushToTalk), "Turning speech into text")
         XCTAssertEqual(OverlayState.inserting.hint(settings: pushToTalk), "Pasting at cursor")
+        XCTAssertEqual(OverlayState.inserted.hint(settings: pushToTalk), "Inserted at cursor")
         XCTAssertEqual(OverlayState.copiedToClipboard.hint(settings: pushToTalk), "Paste manually if needed")
         XCTAssertEqual(OverlayState.cancelled.hint(settings: pushToTalk), "Recording discarded")
         XCTAssertEqual(OverlayState.error("Microphone permission is required.").hint(settings: pushToTalk), "Microphone permission is required.")
@@ -40,7 +42,8 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening).accent, .active)
         XCTAssertEqual(presentation(for: .processingLocally).accent, .active)
         XCTAssertEqual(presentation(for: .inserting).accent, .active)
-        XCTAssertEqual(presentation(for: .copiedToClipboard).accent, .inactive)
+        XCTAssertEqual(presentation(for: .inserted).accent, .success)
+        XCTAssertEqual(presentation(for: .copiedToClipboard).accent, .success)
         XCTAssertEqual(presentation(for: .cancelled).accent, .inactive)
         XCTAssertEqual(presentation(for: .error("No permission")).accent, .error)
     }
@@ -49,22 +52,32 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .listening, audioLevel: -1).filledBars, 0)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.02).filledBars, 0)
         XCTAssertEqual(presentation(for: .listening, audioLevel: 0.03).filledBars, 1)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 6)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 12)
+        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 5)
+        XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 9)
     }
 
-    func testOverlayUsesCompactBottomLayout() {
-        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 124)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 32)
-        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).width, 230)
-        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 68)
-        XCTAssertEqual(OverlayLayout.meterBarCount, 12)
+    func testOverlayUsesExpandedNotchIslandLayout() {
+        XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 224)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).height, 62)
+        XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 326)
+        XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 82)
+        XCTAssertEqual(OverlayLayout.meterBarCount, 9)
+    }
+
+    func testOverlayFrameAttachesToTopCenterOfScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 1_512, height: 982)
+        let frame = OverlayLayout.frame(on: screen, for: .listening)
+
+        XCTAssertEqual(frame.midX, screen.midX)
+        XCTAssertEqual(frame.maxY, screen.maxY)
+        XCTAssertEqual(frame.size, OverlayLayout.listeningSize)
     }
 
     func testOverlayMeterBarsRepresentNonListeningStates() {
         XCTAssertEqual(presentation(for: .ready, audioLevel: 1).filledBars, 0)
-        XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 12)
-        XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 12)
+        XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 9)
+        XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 9)
         XCTAssertEqual(presentation(for: .error("Failed"), audioLevel: 1).filledBars, 3)
         XCTAssertEqual(presentation(for: .copiedToClipboard, audioLevel: 1).filledBars, 0)
         XCTAssertEqual(presentation(for: .cancelled, audioLevel: 1).filledBars, 0)
@@ -79,8 +92,8 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertFalse(presentation(for: .listening, audioLevel: 0.5).usesActivityPulse)
         XCTAssertFalse(earlyPulse.isEmpty)
         XCTAssertNotEqual(earlyPulse, laterPulse)
-        XCTAssertLessThanOrEqual(earlyPulse.count, 5)
-        XCTAssertLessThanOrEqual(laterPulse.count, 5)
+        XCTAssertLessThanOrEqual(earlyPulse.count, 4)
+        XCTAssertLessThanOrEqual(laterPulse.count, 4)
     }
 
     func testAutoHideCoordinatorOnlyAcceptsCurrentGeneration() {
@@ -99,6 +112,7 @@ final class OverlayWindowTests: XCTestCase {
     func testOnlyTransientStatesScheduleAutoHide() {
         XCTAssertTrue(OverlayState.ready.shouldAutoHide)
         XCTAssertTrue(OverlayState.cancelled.shouldAutoHide)
+        XCTAssertTrue(OverlayState.inserted.shouldAutoHide)
         XCTAssertTrue(OverlayState.copiedToClipboard.shouldAutoHide)
 
         XCTAssertFalse(OverlayState.listening.shouldAutoHide)

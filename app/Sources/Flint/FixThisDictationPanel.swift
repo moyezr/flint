@@ -1,6 +1,11 @@
 import AppKit
 import SwiftUI
 
+enum FixThisDictationPresentation {
+    case full
+    case quick
+}
+
 @MainActor
 final class FixThisDictationWindowController {
     private let window: NSWindow
@@ -13,7 +18,8 @@ final class FixThisDictationWindowController {
         onSaved: @escaping (Bool) -> Void = { _ in },
         onCancel: @escaping () -> Void = {},
         onProposalShown: @escaping () -> Void = {},
-        onDismiss: @escaping () -> Void = {}
+        onDismiss: @escaping () -> Void = {},
+        presentation: FixThisDictationPresentation = .full
     ) {
         model = FixThisDictationModel(
             entries: entries,
@@ -23,14 +29,17 @@ final class FixThisDictationWindowController {
             onCancel: onCancel,
             onProposalShown: onProposalShown
         )
+        let windowSize = presentation == .quick
+            ? NSSize(width: 590, height: 500)
+            : NSSize(width: 720, height: 640)
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 640),
+            contentRect: NSRect(origin: .zero, size: windowSize),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Fix This Dictation"
-        window.contentView = NSHostingView(rootView: FixThisDictationView(model: model))
+        window.title = presentation == .quick ? "Correct Last Dictation" : "Fix This Dictation"
+        window.contentView = NSHostingView(rootView: FixThisDictationView(model: model, presentation: presentation))
         window.isReleasedWhenClosed = false
         window.center()
 
@@ -72,6 +81,7 @@ final class FixThisDictationModel: ObservableObject {
     @Published var scopeKind: LearningScopeKind = .global
     @Published var includeMapping = true
     @Published private(set) var proposal: CorrectionProposal?
+    @Published private(set) var mappingSafety: CorrectionMappingSafety = .direct
     @Published private(set) var isSaving = false
     @Published private(set) var statusMessage = ""
     @Published private(set) var errorMessage = ""
@@ -79,6 +89,7 @@ final class FixThisDictationModel: ObservableObject {
     var onDismiss: () -> Void = {}
 
     private let extractor: CorrectionDiffExtractor
+    private let mappingPolicy: CorrectionMappingPolicy
     private let saveAction: SaveAction
     private let snapshotAction: SnapshotAction
     private let copyAction: @MainActor (String) -> Void
@@ -92,6 +103,7 @@ final class FixThisDictationModel: ObservableObject {
         entries: [RecentDictation],
         learningStore: LearningStore,
         extractor: CorrectionDiffExtractor = CorrectionDiffExtractor(),
+        mappingPolicy: CorrectionMappingPolicy = CorrectionMappingPolicy(),
         copyAction: @escaping @MainActor (String) -> Void = FixThisDictationModel.copyToClipboard,
         onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
         onSaved: @escaping (Bool) -> Void = { _ in },
@@ -101,6 +113,7 @@ final class FixThisDictationModel: ObservableObject {
         self.entries = entries
         selectedID = entries.first?.id
         self.extractor = extractor
+        self.mappingPolicy = mappingPolicy
         saveAction = { write in try await learningStore.saveExplicitCorrection(write) }
         snapshotAction = { try await learningStore.memorySnapshot() }
         self.copyAction = copyAction
@@ -114,6 +127,7 @@ final class FixThisDictationModel: ObservableObject {
     init(
         entries: [RecentDictation],
         extractor: CorrectionDiffExtractor = CorrectionDiffExtractor(),
+        mappingPolicy: CorrectionMappingPolicy = CorrectionMappingPolicy(),
         saveAction: @escaping SaveAction,
         snapshotAction: @escaping SnapshotAction = { .empty },
         copyAction: @escaping @MainActor (String) -> Void = { _ in },
@@ -125,6 +139,7 @@ final class FixThisDictationModel: ObservableObject {
         self.entries = entries
         selectedID = entries.first?.id
         self.extractor = extractor
+        self.mappingPolicy = mappingPolicy
         self.saveAction = saveAction
         self.snapshotAction = snapshotAction
         self.copyAction = copyAction
@@ -171,7 +186,7 @@ final class FixThisDictationModel: ObservableObject {
         defer { isSaving = false }
 
         let memoryDraft: LearningMemoryDraft?
-        if includeMapping, let proposal {
+        if includeMapping, mappingSafety == .direct, let proposal {
             let effectiveScope: LearningScopeKind = scopeKind == .application && canUseApplicationScope
                 ? .application
                 : .global
@@ -225,6 +240,7 @@ final class FixThisDictationModel: ObservableObject {
             originalText = ""
             correctedText = ""
             proposal = nil
+            mappingSafety = .direct
             scopeKind = .global
             return
         }
@@ -243,8 +259,10 @@ final class FixThisDictationModel: ObservableObject {
             return
         }
         proposal = extractor.extract(original: originalText, corrected: correctedText)
-        includeMapping = proposal != nil
+        mappingSafety = proposal.map(mappingPolicy.safety) ?? .direct
+        includeMapping = proposal != nil && mappingSafety == .direct
         if proposal != nil,
+           mappingSafety == .direct,
            let selectedID,
            entriesWithShownProposal.insert(selectedID).inserted {
             onProposalShown()
@@ -259,19 +277,25 @@ final class FixThisDictationModel: ObservableObject {
 
 private struct FixThisDictationView: View {
     @ObservedObject var model: FixThisDictationModel
+    let presentation: FixThisDictationPresentation
+    @FocusState private var isCorrectionFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("Fix This Dictation")
+                Text(presentation == .quick ? "Correct Last Dictation" : "Fix This Dictation")
                     .font(.system(size: 26, weight: .semibold))
-                Text("Choose a frozen recent output, correct it, then explicitly decide whether Flint should reuse the change.")
+                Text(presentation == .quick
+                    ? "Edit what Flint wrote. A reusable correction is suggested only when the change is safe and specific."
+                    : "Choose a frozen recent output, correct it, then explicitly decide whether Flint should reuse the change.")
                     .foregroundStyle(.secondary)
             }
 
-            Picker("Recent dictation", selection: $model.selectedID) {
-                ForEach(model.entries) { entry in
-                    Text(Self.label(for: entry)).tag(Optional(entry.id))
+            if presentation == .full || model.entries.count > 1 {
+                Picker("Recent dictation", selection: $model.selectedID) {
+                    ForEach(model.entries) { entry in
+                        Text(Self.label(for: entry)).tag(Optional(entry.id))
+                    }
                 }
             }
 
@@ -284,7 +308,10 @@ private struct FixThisDictationView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
                 }
-                .frame(minHeight: 90, maxHeight: 130)
+                .frame(
+                    minHeight: presentation == .quick ? 58 : 90,
+                    maxHeight: presentation == .quick ? 82 : 130
+                )
                 .overlay(Rectangle().stroke(Color(nsColor: .separatorColor)))
             }
 
@@ -293,12 +320,13 @@ private struct FixThisDictationView: View {
                     .font(.headline)
                 TextEditor(text: $model.correctedText)
                     .font(.body)
-                    .frame(minHeight: 110)
+                    .frame(minHeight: presentation == .quick ? 88 : 110)
                     .padding(6)
                     .overlay(Rectangle().stroke(Color(nsColor: .separatorColor)))
+                    .focused($isCorrectionFocused)
             }
 
-            if let proposal = model.proposal {
+            if let proposal = model.proposal, model.mappingSafety == .direct {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle(isOn: $model.includeMapping) {
                         Text("Learn “\(proposal.heardForm)” → “\(proposal.preferredForm)” \(model.proposalScopeDescription)")
@@ -312,6 +340,17 @@ private struct FixThisDictationView: View {
                     }
                     .frame(width: 260)
                     .disabled(!model.includeMapping)
+                }
+                .padding(12)
+                .background(Color.orange.opacity(0.08))
+                .overlay(Rectangle().stroke(Color.orange.opacity(0.35)))
+            } else if model.proposal != nil, model.mappingSafety == .contextRequired {
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .foregroundStyle(.orange)
+                    Text("This phrase has another common meaning, so Flint will save the correction as evidence without creating a blind replacement. In Teach Flint, use a distinctive spoken form such as “next jay ess” instead.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
                 .padding(12)
                 .background(Color.orange.opacity(0.08))
@@ -343,7 +382,15 @@ private struct FixThisDictationView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 720, minHeight: 640)
+        .frame(
+            minWidth: presentation == .quick ? 590 : 720,
+            minHeight: presentation == .quick ? 500 : 640
+        )
+        .onAppear {
+            if presentation == .quick {
+                DispatchQueue.main.async { isCorrectionFocused = true }
+            }
+        }
     }
 
     private static func label(for entry: RecentDictation) -> String {

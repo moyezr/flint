@@ -100,6 +100,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var appModeSettingsWindow: AppModeSettingsWindowController?
     private var settingsWindow: SettingsWindowController?
     private var fixThisDictationWindow: FixThisDictationWindowController?
+    private var quickVocabularyWindow: QuickVocabularyWindowController?
     private var recentDictationBuffer = RecentDictationBuffer()
 
     func start() {
@@ -114,6 +115,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateInsertionTargetBehaviorUI()
         updateAppAwareModesUI()
         updateModelMenuUI()
+        overlay.configureActions(
+            onFix: { [weak self] in self?.showQuickCorrection() },
+            onTeach: { [weak self] in self?.showQuickVocabulary() }
+        )
         overlay.show(state: .ready)
         licenseAuthorization.start()
         Task { [weak self] in
@@ -167,6 +172,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         fixItem.isEnabled = false
         menu.addItem(fixItem)
         fixThisDictationMenuItem = fixItem
+        menu.addItem(NSMenuItem(title: "Teach Flint…", action: #selector(showQuickVocabulary), keyEquivalent: ""))
         let modeItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         let modeSubmenu = NSMenu()
         cleanupModeSelectionMenuItems = CleanupMode.allCases.map { mode in
@@ -578,6 +584,67 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         controller.show()
     }
 
+    private func showQuickCorrection() {
+        guard let latest = recentDictationBuffer.newestFirst.first else { return }
+        Task { [learningMetrics] in
+            await learningMetrics.increment(.fixPanelOpens)
+        }
+        if let fixThisDictationWindow {
+            fixThisDictationWindow.update(entries: [latest])
+            fixThisDictationWindow.show()
+            return
+        }
+
+        let controller = FixThisDictationWindowController(
+            entries: [latest],
+            learningStore: learningStore,
+            onLearningChanged: { [weak self] snapshot in
+                self?.memorySnapshot = snapshot
+            },
+            onSaved: { [learningMetrics] acceptedMapping in
+                Task {
+                    await learningMetrics.increment(.fixSaves)
+                    if acceptedMapping {
+                        await learningMetrics.increment(.explicitMappingsAccepted)
+                    }
+                }
+            },
+            onCancel: { [learningMetrics] in
+                Task { await learningMetrics.increment(.fixCancellations) }
+            },
+            onProposalShown: { [learningMetrics] in
+                Task { await learningMetrics.increment(.eligibleMappingsShown) }
+            },
+            onDismiss: { [weak self] in
+                self?.fixThisDictationWindow = nil
+            },
+            presentation: .quick
+        )
+        fixThisDictationWindow = controller
+        controller.show()
+    }
+
+    @objc private func showQuickVocabulary() {
+        if let quickVocabularyWindow {
+            quickVocabularyWindow.show()
+            return
+        }
+
+        let controller = QuickVocabularyWindowController(
+            recentDictation: recentDictationBuffer.newestFirst.first,
+            learningStore: learningStore,
+            learningMetrics: learningMetrics,
+            onLearningChanged: { [weak self] snapshot in
+                self?.memorySnapshot = snapshot
+            },
+            onDismiss: { [weak self] in
+                self?.quickVocabularyWindow = nil
+            }
+        )
+        quickVocabularyWindow = controller
+        controller.show()
+    }
+
     @objc private func showOnboarding() {
         if let onboardingWindow {
             onboardingWindow.show()
@@ -951,16 +1018,6 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 preferredTarget: focusedStartInsertionTarget,
                 targetBehavior: insertionTargetBehavior
             )
-            if result == .inserted {
-                overlay.show(state: .ready)
-                dictationFeedback.perform(.inserted, settings: appSettingsStore.load())
-            } else if !permissionManager.snapshot().status(for: .accessibility).isReady {
-                overlay.show(state: .error(PermissionStatus(kind: .accessibility, readiness: .denied).failureMessage))
-                updatePermissionMenuItem()
-                dictationFeedback.perform(.failed, settings: appSettingsStore.load())
-            } else {
-                overlay.show(state: .copiedToClipboard)
-            }
             recentDictationBuffer.append(RecentDictation(
                 rawText: transcript,
                 insertedText: usableTranscript,
@@ -972,6 +1029,16 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             ))
             fixThisDictationMenuItem?.isEnabled = true
             fixThisDictationWindow?.update(entries: recentDictationBuffer.newestFirst)
+            if result == .inserted {
+                overlay.show(state: .inserted)
+                dictationFeedback.perform(.inserted, settings: appSettingsStore.load())
+            } else if !permissionManager.snapshot().status(for: .accessibility).isReady {
+                overlay.show(state: .error(PermissionStatus(kind: .accessibility, readiness: .denied).failureMessage))
+                updatePermissionMenuItem()
+                dictationFeedback.perform(.failed, settings: appSettingsStore.load())
+            } else {
+                overlay.show(state: .copiedToClipboard)
+            }
             Task { [learningMetrics] in
                 await learningMetrics.increment(.completedUsableDictations)
                 let appliedCount = dictionaryResult.matchedMemoryCounts.values.reduce(0, +)

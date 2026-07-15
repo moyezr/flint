@@ -43,6 +43,12 @@ final class TextInsertionEngineTests: XCTestCase {
                 placeholderValue: "Message Claude"
             )
         )
+        XCTAssertTrue(
+            TextInsertionEngine.shouldReplacePlaceholderValue(
+                "Ask ChatGPT",
+                placeholderValue: nil
+            )
+        )
         XCTAssertFalse(
             TextInsertionEngine.shouldReplacePlaceholderValue(
                 "Write a message about launch planning.",
@@ -54,6 +60,27 @@ final class TextInsertionEngineTests: XCTestCase {
                 "Actual dictated text",
                 placeholderValue: "Write a message..."
             )
+        )
+    }
+
+    func testChatGPTComposerRemainsPasteOnlyAfterItContainsUserText() {
+        XCTAssertEqual(
+            TextInsertionEngine.targetKind(
+                value: "Existing prompt text",
+                placeholderValue: "Ask ChatGPT",
+                isInsideWebArea: false,
+                bundleIdentifier: "com.openai.chat"
+            ),
+            .richWebComposer
+        )
+        XCTAssertEqual(
+            TextInsertionEngine.targetKind(
+                value: "Existing prompt text",
+                placeholderValue: "Ask ChatGPT",
+                isInsideWebArea: false,
+                bundleIdentifier: nil
+            ),
+            .richWebComposer
         )
     }
 
@@ -86,6 +113,75 @@ final class TextInsertionEngineTests: XCTestCase {
         XCTAssertEqual(result, .inserted)
         XCTAssertEqual(insertAttempts, 1)
         XCTAssertEqual(insertedText, "dictated text")
+    }
+
+    func testCapturedWebComposerUsesOnePasteAttemptAndNeverAccessibilityInsertion() async {
+        let capturedTarget = TextInsertionTarget(
+            element: AXUIElementCreateSystemWide(),
+            kind: .richWebComposer,
+            processIdentifier: 42
+        )
+        let focusedTarget = TextInsertionTarget(
+            element: AXUIElementCreateApplication(getpid()),
+            kind: .richWebComposer,
+            processIdentifier: 42
+        )
+        var events: [String] = []
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                events.append("focusedTarget")
+                return focusedTarget
+            },
+            accessibilityInserter: { _, _ in
+                XCTFail("Rich web composers must not mix AX mutation with paste.")
+                return false
+            },
+            pasteFallback: { text in
+                events.append("paste:\(text)")
+                return true
+            },
+            copyToClipboard: { _ in
+                XCTFail("Copy fallback should not run when the single paste succeeds.")
+            }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .inserted)
+        XCTAssertEqual(events, ["focusedTarget", "paste:dictated text"])
+    }
+
+    func testCapturedWebComposerCopiesInsteadOfPastingIntoAnotherApplication() async {
+        let capturedTarget = TextInsertionTarget(
+            element: AXUIElementCreateSystemWide(),
+            kind: .richWebComposer,
+            processIdentifier: 42
+        )
+        let focusedTarget = TextInsertionTarget(
+            element: AXUIElementCreateApplication(getpid()),
+            kind: .richWebComposer,
+            processIdentifier: 84
+        )
+        var copiedText: String?
+
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: { focusedTarget },
+            accessibilityInserter: { _, _ in
+                XCTFail("Accessibility insertion should not run for rich web composers.")
+                return false
+            },
+            pasteFallback: { _ in
+                XCTFail("Flint must not paste into an application that gained focus mid-dictation.")
+                return false
+            },
+            copyToClipboard: { copiedText = $0 }
+        )
+
+        let result = await engine.insert("dictated text", preferredTarget: capturedTarget)
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
     }
 
     func testRecordingStartUsesCurrentFocusedFieldWhenCapturedTargetRejectsInsertion() async {

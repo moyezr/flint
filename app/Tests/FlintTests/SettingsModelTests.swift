@@ -185,6 +185,19 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertEqual(memories.first?.preferredForm, "FLASK")
     }
 
+    func testVocabularyRejectsAmbiguousCommonPhraseMapping() async throws {
+        let learningStore = LearningStore(databaseURL: tempRoot.appendingPathComponent("Learning.sqlite"))
+        let model = makeModel(learningStore: learningStore)
+        model.newHeardPhrase = "next year"
+        model.newPreferredReplacement = "Next.js"
+
+        await model.addVocabularyReplacement()
+
+        let memories = try await learningStore.listMemories()
+        XCTAssertTrue(memories.isEmpty)
+        XCTAssertTrue(model.errorMessage.contains("common phrase"))
+    }
+
     func testHistoryTogglePersistsNotifiesAndOpensPrivacy() {
         var receivedSettings: [AppSettings] = []
         var showPrivacyCount = 0

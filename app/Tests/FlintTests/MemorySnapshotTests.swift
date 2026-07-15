@@ -52,6 +52,22 @@ final class MemorySnapshotTests: XCTestCase {
         XCTAssertTrue(snapshot.memories.isEmpty)
     }
 
+    func testExistingAmbiguousMappingsArePausedAtRuntime() {
+        let snapshot = MemorySnapshot(memories: [
+            makeMemory(heard: "next year", preferred: "Next.js")
+        ])
+
+        XCTAssertTrue(snapshot.memories.isEmpty)
+        XCTAssertEqual(
+            snapshot.applyVocabulary(
+                to: "We will revisit this next year.",
+                language: "auto",
+                applicationBundleID: nil
+            ).text,
+            "We will revisit this next year."
+        )
+    }
+
     private func makeMemory(
         heard: String = "flask",
         preferred: String,

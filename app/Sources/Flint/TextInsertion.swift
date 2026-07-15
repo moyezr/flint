@@ -39,8 +39,33 @@ struct InsertionTargetBehaviorStore {
     }
 }
 
+enum TextInsertionTargetKind: Equatable, Sendable {
+    case standard
+    case richWebComposer
+}
+
 struct TextInsertionTarget {
     let element: AXUIElement
+    let kind: TextInsertionTargetKind
+    let processIdentifier: pid_t?
+
+    init(
+        element: AXUIElement,
+        kind: TextInsertionTargetKind = .standard,
+        processIdentifier: pid_t? = nil
+    ) {
+        self.element = element
+        self.kind = kind
+        self.processIdentifier = processIdentifier ?? Self.processIdentifier(for: element)
+    }
+
+    private static func processIdentifier(for element: AXUIElement) -> pid_t? {
+        var processIdentifier = pid_t()
+        guard AXUIElementGetPid(element, &processIdentifier) == .success else {
+            return nil
+        }
+        return processIdentifier
+    }
 }
 
 struct TextInsertionEngine {
@@ -74,23 +99,26 @@ struct TextInsertionEngine {
     ) async -> TextInsertionResult {
         switch targetBehavior {
         case .recordingStart:
+            if let preferredTarget, preferredTarget.kind == .richWebComposer {
+                return insertIntoCapturedWebComposer(text, preferredTarget: preferredTarget)
+            }
+
             if let preferredTarget, accessibilityInserter(preferredTarget, text) {
                 return .inserted
             }
 
             // Accessibility can return a distinct object instance for the same browser field.
             // Do not use object identity to decide whether the paste fallback is safe to attempt.
-            if let focusedTarget = focusedTargetProvider(),
-               accessibilityInserter(focusedTarget, text) {
-                return .inserted
+            if let focusedTarget = focusedTargetProvider() {
+                if focusedTarget.kind == .richWebComposer {
+                    return pasteOnceOrCopy(text)
+                }
+                if accessibilityInserter(focusedTarget, text) {
+                    return .inserted
+                }
             }
 
-            if pasteFallback(text) {
-                return .inserted
-            }
-
-            copyToClipboard(text)
-            return .copiedToClipboard
+            return pasteOnceOrCopy(text)
 
         case .transcriptionFinish:
             return insertAtCurrentTargetOrFallback(text)
@@ -99,11 +127,38 @@ struct TextInsertionEngine {
 
     @MainActor
     private func insertAtCurrentTargetOrFallback(_ text: String) -> TextInsertionResult {
-        if let focusedTarget = focusedTargetProvider(),
-           accessibilityInserter(focusedTarget, text) {
-            return .inserted
+        if let focusedTarget = focusedTargetProvider() {
+            if focusedTarget.kind == .richWebComposer {
+                return pasteOnceOrCopy(text)
+            }
+            if accessibilityInserter(focusedTarget, text) {
+                return .inserted
+            }
         }
 
+        return pasteOnceOrCopy(text)
+    }
+
+    @MainActor
+    private func insertIntoCapturedWebComposer(
+        _ text: String,
+        preferredTarget: TextInsertionTarget
+    ) -> TextInsertionResult {
+        // Rich web editors often report stale AXValue contents after accepting an
+        // AXSelectedText mutation. Retrying through AX or paste can then insert the
+        // same dictation twice. Only paste when the captured editor's process still
+        // owns keyboard focus, and make that the sole mutation attempt.
+        guard let focusedTarget = focusedTargetProvider(),
+              focusedTarget.kind == .richWebComposer,
+              focusedTarget.processIdentifier == preferredTarget.processIdentifier else {
+            copyToClipboard(text)
+            return .copiedToClipboard
+        }
+        return pasteOnceOrCopy(text)
+    }
+
+    @MainActor
+    private func pasteOnceOrCopy(_ text: String) -> TextInsertionResult {
         if pasteFallback(text) {
             return .inserted
         }
@@ -121,7 +176,10 @@ struct TextInsertionEngine {
         }
 
         let focusedElement = focusedObject as! AXUIElement
-        return TextInsertionTarget(element: focusedElement)
+        return TextInsertionTarget(
+            element: focusedElement,
+            kind: targetKind(for: focusedElement)
+        )
     }
 
     private static func insert(_ target: TextInsertionTarget, _ text: String) -> Bool {
@@ -144,47 +202,32 @@ struct TextInsertionEngine {
             )
         }
 
-        guard AXUIElementSetAttributeValue(
+        let selectedTextResult = AXUIElementSetAttributeValue(
             target.element,
             kAXSelectedTextAttribute as CFString,
             text as CFTypeRef
-        ) == .success else {
-            return false
-        }
-
-        guard let valueAfterInsertion = stringValue(
-            of: target.element,
-            attribute: kAXValueAttribute as CFString
-        ) else {
-            return false
-        }
-
-        if didAccessibilityValueChange(
-            from: valueBeforeInsertion,
-            to: valueAfterInsertion
-        ) {
+        )
+        if selectedTextResult == .success {
+            // Some content editors update their accessibility tree asynchronously.
+            // AX has accepted the mutation, so a second strategy would risk a
+            // duplicate even when AXValue still appears unchanged for a moment.
             return true
         }
 
         guard let selectedRange = selectedTextRange(of: target.element),
               let replacementValue = replacingSelectedText(
-                in: valueBeforeInsertion,
-                selectedRange: selectedRange,
-                with: text
-              ),
-              AXUIElementSetAttributeValue(
-                target.element,
-                kAXValueAttribute as CFString,
-                replacementValue as CFTypeRef
-              ) == .success,
-              let valueAfterReplacement = stringValue(
-                of: target.element,
-                attribute: kAXValueAttribute as CFString
+                  in: valueBeforeInsertion,
+                  selectedRange: selectedRange,
+                  with: text
               ) else {
             return false
         }
 
-        return valueAfterReplacement == replacementValue
+        return AXUIElementSetAttributeValue(
+            target.element,
+            kAXValueAttribute as CFString,
+            replacementValue as CFTypeRef
+        ) == .success
     }
 
     static func didAccessibilityValueChange(from before: String, to after: String) -> Bool {
@@ -204,7 +247,7 @@ struct TextInsertionEngine {
             return true
         }
 
-        return normalizedValue == "Write a message..." || normalizedValue == "Write a message…"
+        return knownComposerPlaceholders.contains(normalizedValue.lowercased())
     }
 
     static func replacingSelectedText(
@@ -229,24 +272,22 @@ struct TextInsertionEngine {
         with text: String
     ) -> Bool {
         let fullPlaceholderRange = NSRange(location: 0, length: (placeholderValue as NSString).length)
-        if setSelectedRange(fullPlaceholderRange, on: element),
-           AXUIElementSetAttributeValue(
-               element,
-               kAXSelectedTextAttribute as CFString,
-               text as CFTypeRef
-           ) == .success,
-           stringValue(of: element, attribute: kAXValueAttribute as CFString) == text {
-            return true
+        if setSelectedRange(fullPlaceholderRange, on: element) {
+            let result = AXUIElementSetAttributeValue(
+                element,
+                kAXSelectedTextAttribute as CFString,
+                text as CFTypeRef
+            )
+            if result == .success {
+                return true
+            }
         }
 
-        guard AXUIElementSetAttributeValue(
+        return AXUIElementSetAttributeValue(
             element,
             kAXValueAttribute as CFString,
             text as CFTypeRef
-        ) == .success else {
-            return false
-        }
-        return stringValue(of: element, attribute: kAXValueAttribute as CFString) == text
+        ) == .success
     }
 
     private static func setSelectedRange(_ range: NSRange, on element: AXUIElement) -> Bool {
@@ -292,6 +333,78 @@ struct TextInsertionEngine {
         }
         return NSRange(location: range.location, length: range.length)
     }
+
+    private static func targetKind(for element: AXUIElement) -> TextInsertionTargetKind {
+        let value = stringValue(of: element, attribute: kAXValueAttribute as CFString) ?? ""
+        let placeholder = stringValue(of: element, attribute: kAXPlaceholderValueAttribute as CFString)
+        var processIdentifier = pid_t()
+        let bundleIdentifier: String?
+        if AXUIElementGetPid(element, &processIdentifier) == .success {
+            bundleIdentifier = NSRunningApplication(processIdentifier: processIdentifier)?.bundleIdentifier
+        } else {
+            bundleIdentifier = nil
+        }
+        return targetKind(
+            value: value,
+            placeholderValue: placeholder,
+            isInsideWebArea: isInsideWebArea(element),
+            bundleIdentifier: bundleIdentifier
+        )
+    }
+
+    static func targetKind(
+        value: String,
+        placeholderValue: String?,
+        isInsideWebArea: Bool,
+        bundleIdentifier: String?
+    ) -> TextInsertionTargetKind {
+        if isInsideWebArea || bundleIdentifier?.lowercased() == "com.openai.chat" {
+            return .richWebComposer
+        }
+
+        if let placeholderValue,
+           knownComposerPlaceholders.contains(
+               placeholderValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+           ) {
+            return .richWebComposer
+        }
+
+        if shouldReplacePlaceholderValue(value, placeholderValue: placeholderValue) {
+            return .richWebComposer
+        }
+        return .standard
+    }
+
+    private static func isInsideWebArea(_ element: AXUIElement) -> Bool {
+        var current: AXUIElement? = element
+        for _ in 0..<32 {
+            guard let candidate = current else { return false }
+            if stringValue(of: candidate, attribute: kAXRoleAttribute as CFString) == "AXWebArea" {
+                return true
+            }
+
+            var parentValue: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(
+                candidate,
+                kAXParentAttribute as CFString,
+                &parentValue
+            ) == .success,
+            let parentValue else {
+                return false
+            }
+            current = (parentValue as! AXUIElement)
+        }
+        return false
+    }
+
+    private static let knownComposerPlaceholders: Set<String> = [
+        "ask chatgpt",
+        "message chatgpt",
+        "message claude",
+        "ask anything",
+        "write a message...",
+        "write a message…"
+    ]
 
     private static func copyToClipboard(_ text: String) {
         NSPasteboard.general.clearContents()

@@ -16,7 +16,13 @@ struct MemorySnapshot: Equatable, Sendable {
 
     init(memories: [LearningMemory]) {
         let activeMemories = memories
-            .filter { $0.memoryType == .vocabulary && $0.status == .active }
+            .filter { memory in
+                guard memory.memoryType == .vocabulary, memory.status == .active else { return false }
+                return CorrectionMappingPolicy().safety(for: CorrectionProposal(
+                    heardForm: memory.heardForm,
+                    preferredForm: memory.preferredForm
+                )) == .direct
+            }
             .sorted(by: Self.applicationOrder)
         self.memories = activeMemories
 

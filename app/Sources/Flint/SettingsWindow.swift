@@ -233,6 +233,15 @@ final class SettingsModel: ObservableObject {
             errorMessage = "Heard and preferred forms must be different."
             return
         }
+        let mappingSafety = CorrectionMappingPolicy().safety(for: CorrectionProposal(
+            heardForm: heardPhrase,
+            preferredForm: preferredReplacement
+        ))
+        guard mappingSafety == .direct else {
+            statusMessage = ""
+            errorMessage = "That spoken form is also a common phrase. Use a distinctive form such as “next jay ess” instead."
+            return
+        }
         let scopeValue = newVocabularyScope == .global
             ? ""
             : newVocabularyApplicationBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -600,6 +609,14 @@ struct SettingsView: View {
                                         Text(replacement.scopeKind == .global ? "Global" : replacement.scopeValue)
                                             .font(.system(size: 11))
                                             .foregroundStyle(.tertiary)
+                                        if CorrectionMappingPolicy().safety(for: CorrectionProposal(
+                                            heardForm: replacement.heardForm,
+                                            preferredForm: replacement.preferredForm
+                                        )) == .contextRequired {
+                                            Text("Automatic replacement paused — this phrase needs context")
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundStyle(.orange)
+                                        }
                                     }
                                     Spacer()
                                     Button("Delete", role: .destructive) {

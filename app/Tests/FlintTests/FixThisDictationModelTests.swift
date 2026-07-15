@@ -103,6 +103,30 @@ final class FixThisDictationModelTests: XCTestCase {
         XCTAssertEqual(evidence.count, 1)
     }
 
+    func testAmbiguousCommonPhraseSavesEvidenceWithoutBlindReplacement() async throws {
+        let store = LearningStore(databaseURL: tempRoot.appendingPathComponent("Learning.sqlite"))
+        let model = FixThisDictationModel(
+            entries: [makeEntry(text: "We use next year for this project.")],
+            learningStore: store,
+            copyAction: { _ in }
+        )
+        model.correctedText = "We use Next.js for this project."
+
+        XCTAssertEqual(
+            model.proposal,
+            CorrectionProposal(heardForm: "next year", preferredForm: "Next.js")
+        )
+        XCTAssertEqual(model.mappingSafety, .contextRequired)
+        XCTAssertFalse(model.includeMapping)
+
+        await model.saveAndCopy()
+
+        let memories = try await store.listMemories()
+        let evidence = try await store.listEvidence()
+        XCTAssertTrue(memories.isEmpty)
+        XCTAssertEqual(evidence.count, 1)
+    }
+
     func testIneligibleRewriteSavesEvidenceOnly() async throws {
         let store = LearningStore(databaseURL: tempRoot.appendingPathComponent("Learning.sqlite"))
         let model = FixThisDictationModel(
