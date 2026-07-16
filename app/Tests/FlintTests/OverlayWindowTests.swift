@@ -51,23 +51,16 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertEqual(presentation(for: .error("No permission")).accent, .error)
     }
 
-    func testOverlayMeterBarsClampAudioLevel() {
-        XCTAssertEqual(presentation(for: .listening, audioLevel: -1).filledBars, 0)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.02).filledBars, 0)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.03).filledBars, 1)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 0.5).filledBars, 5)
-        XCTAssertEqual(presentation(for: .listening, audioLevel: 1.5).filledBars, 9)
-    }
-
     func testOverlayUsesCompactCenteredPillWithoutHardwareNotch() {
         XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
         XCTAssertEqual(OverlayLayout.size(for: .listening).width, 100)
         XCTAssertEqual(OverlayLayout.size(for: .listening).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .preparingModel), OverlayLayout.activitySize)
+        XCTAssertEqual(OverlayLayout.size(for: .processingLocally).width, 80)
         XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 178)
         XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .error("No speech detected.")).width, 168)
-        XCTAssertEqual(OverlayLayout.meterBarCount, 9)
+        XCTAssertLessThan(OverlayLayout.spinnerWingWidth, OverlayLayout.waveformWingWidth)
     }
 
     func testWindowMotionSlidesIntoTopEdgeWithoutChangingSize() {
@@ -199,29 +192,6 @@ final class OverlayWindowTests: XCTestCase {
         }
     }
 
-    func testOverlayMeterBarsRepresentNonListeningStates() {
-        XCTAssertEqual(presentation(for: .ready, audioLevel: 1).filledBars, 0)
-        XCTAssertEqual(presentation(for: .preparingModel, audioLevel: 0).filledBars, 9)
-        XCTAssertEqual(presentation(for: .processingLocally, audioLevel: 0).filledBars, 9)
-        XCTAssertEqual(presentation(for: .inserting, audioLevel: 0).filledBars, 9)
-        XCTAssertEqual(presentation(for: .error("Failed"), audioLevel: 1).filledBars, 3)
-        XCTAssertEqual(presentation(for: .copiedToClipboard, audioLevel: 1).filledBars, 0)
-        XCTAssertEqual(presentation(for: .cancelled, audioLevel: 1).filledBars, 0)
-    }
-
-    func testProcessingPulseMovesAcrossTheMeterWithoutChangingListeningBars() {
-        let processing = presentation(for: .processingLocally)
-        let earlyPulse = activeMeterBars(in: processing, phase: 5)
-        let laterPulse = activeMeterBars(in: processing, phase: 11)
-
-        XCTAssertTrue(processing.usesActivityPulse)
-        XCTAssertFalse(presentation(for: .listening, audioLevel: 0.5).usesActivityPulse)
-        XCTAssertFalse(earlyPulse.isEmpty)
-        XCTAssertNotEqual(earlyPulse, laterPulse)
-        XCTAssertLessThanOrEqual(earlyPulse.count, 4)
-        XCTAssertLessThanOrEqual(laterPulse.count, 4)
-    }
-
     func testAutoHideCoordinatorOnlyAcceptsCurrentGeneration() {
         var coordinator = OverlayAutoHideCoordinator()
 
@@ -248,16 +218,7 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertFalse(OverlayState.error("Failed").shouldAutoHide)
     }
 
-    private func presentation(for state: OverlayState, audioLevel: Float = 0) -> OverlayPresentation {
-        OverlayPresentation(
-            state: state,
-            audioLevel: audioLevel
-        )
-    }
-
-    private func activeMeterBars(in presentation: OverlayPresentation, phase: Int) -> Set<Int> {
-        Set((0..<OverlayLayout.meterBarCount).filter {
-            presentation.isMeterBarActive($0, animationPhase: phase)
-        })
+    private func presentation(for state: OverlayState) -> OverlayPresentation {
+        OverlayPresentation(state: state)
     }
 }

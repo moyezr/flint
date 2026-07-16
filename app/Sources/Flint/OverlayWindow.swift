@@ -239,12 +239,11 @@ enum OverlayLayout {
     static let compactSize = CGSize(width: defaultNotchWidth, height: islandHeight)
     static let statusWingWidth: CGFloat = 42
     static let waveformWingWidth: CGFloat = 58
-    static let activityWingWidth: CGFloat = 104
+    static let spinnerWingWidth: CGFloat = 38
     static let completedActionsWingWidth: CGFloat = 136
     static let errorStatusWingWidth: CGFloat = 36
     static let minimumErrorMessageWingWidth: CGFloat = 132
     static let maximumErrorMessageWingWidth: CGFloat = 250
-    static let meterBarCount = 9
 
     static var listeningSize: CGSize { size(for: .listening) }
     static var activitySize: CGSize { size(for: .processingLocally) }
@@ -260,7 +259,7 @@ enum OverlayLayout {
         case .listening:
             return OverlayWingWidths(left: statusWingWidth, right: waveformWingWidth)
         case .preparingModel, .processingLocally, .inserting:
-            return OverlayWingWidths(left: statusWingWidth, right: activityWingWidth)
+            return OverlayWingWidths(left: statusWingWidth, right: spinnerWingWidth)
         case .inserted, .copiedToClipboard:
             return OverlayWingWidths(left: statusWingWidth, right: completedActionsWingWidth)
         case .error(let message):
@@ -408,7 +407,7 @@ final class OverlayModel: ObservableObject {
     var onTeach: @MainActor () -> Void = {}
 
     var presentation: OverlayPresentation {
-        OverlayPresentation(state: state, audioLevel: audioLevel)
+        OverlayPresentation(state: state)
     }
 
     func updateAudioLevel(_ level: Float) {
@@ -433,44 +432,11 @@ enum OverlayAccent: Equatable {
 
 struct OverlayPresentation: Equatable {
     let state: OverlayState
-    let audioLevel: Float
 
     var accent: OverlayAccent {
         if case .error = state { return .error }
         if state == .inserted || state == .copiedToClipboard { return .success }
         return state.isActive ? .active : .inactive
-    }
-
-    var filledBars: Int {
-        switch state {
-        case .listening:
-            let clampedLevel = min(max(audioLevel, 0), 1)
-            guard clampedLevel >= 0.03 else { return 0 }
-            return max(1, Int((clampedLevel * Float(OverlayLayout.meterBarCount)).rounded(.up)))
-        case .preparingModel, .processingLocally, .inserting:
-            return OverlayLayout.meterBarCount
-        case .error:
-            return 3
-        default:
-            return 0
-        }
-    }
-
-    var usesActivityPulse: Bool {
-        state == .preparingModel || state == .processingLocally || state == .inserting
-    }
-
-    func isMeterBarActive(_ index: Int, animationPhase: Int) -> Bool {
-        guard (0..<OverlayLayout.meterBarCount).contains(index) else { return false }
-        switch state {
-        case .preparingModel, .processingLocally, .inserting:
-            let pulseWidth = 4
-            let travelDistance = OverlayLayout.meterBarCount + pulseWidth
-            let start = animationPhase % travelDistance - pulseWidth
-            return (start..<(start + pulseWidth)).contains(index)
-        default:
-            return index < filledBars
-        }
     }
 }
 
@@ -597,7 +563,11 @@ struct OverlayView: View {
         case .listening:
             levelMeter
         case .preparingModel, .processingLocally, .inserting:
-            activityMeter
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                .tint(orange)
+                .scaleEffect(0.78)
         case .inserted, .copiedToClipboard:
             HStack(spacing: 7) {
                 actionButton("Fix", systemImage: "pencil", action: model.onFix)
@@ -666,23 +636,6 @@ struct OverlayView: View {
             }
         }
         .frame(width: 34, height: 22)
-    }
-
-    private var activityMeter: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { context in
-            let phase = Int(context.date.timeIntervalSinceReferenceDate * 12)
-            HStack(spacing: 3) {
-                ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
-                    Capsule()
-                        .fill(
-                            model.presentation.isMeterBarActive(index, animationPhase: phase)
-                                ? orange
-                                : Color.white.opacity(0.14)
-                        )
-                        .frame(width: 9, height: 4)
-                }
-            }
-        }
     }
 
     private func actionButton(
