@@ -967,7 +967,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             )
             focusedStartInsertionTarget = textInsertionEngine.captureFocusedTarget()
             isRecording = true
-            overlay.updateAudioLevel(0)
+            overlay.resetAudioLevel()
             overlay.show(state: .listening)
             try await recorder.start()
             guard isRecording else {
@@ -1137,7 +1137,6 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     private func startAudioMetering() {
         stopAudioMetering()
-        overlay.updateAudioLevel(0)
 
         let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -1151,7 +1150,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func stopAudioMetering() {
         audioMeterTimer?.invalidate()
         audioMeterTimer = nil
-        overlay.updateAudioLevel(0)
+        overlay.resetAudioLevel()
     }
 
     private func updateAudioMeter() {

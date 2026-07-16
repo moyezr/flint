@@ -61,13 +61,67 @@ final class OverlayWindowTests: XCTestCase {
 
     func testOverlayUsesCompactCenteredPillWithoutHardwareNotch() {
         XCTAssertEqual(OverlayLayout.size(for: .ready).width, 142)
-        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 146)
+        XCTAssertEqual(OverlayLayout.size(for: .listening).width, 100)
         XCTAssertEqual(OverlayLayout.size(for: .listening).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .preparingModel), OverlayLayout.activitySize)
         XCTAssertEqual(OverlayLayout.size(for: .inserted).width, 178)
         XCTAssertEqual(OverlayLayout.size(for: .error("Failed")).height, 42)
         XCTAssertEqual(OverlayLayout.size(for: .error("No speech detected.")).width, 168)
         XCTAssertEqual(OverlayLayout.meterBarCount, 9)
+    }
+
+    func testWindowMotionSlidesIntoTopEdgeWithoutChangingSize() {
+        let visibleFrame = CGRect(x: 400, y: 900, width: 178, height: 42)
+        let hiddenFrame = OverlayMotion.hiddenFrame(from: visibleFrame)
+
+        XCTAssertEqual(hiddenFrame.origin.x, visibleFrame.origin.x)
+        XCTAssertEqual(hiddenFrame.origin.y, visibleFrame.origin.y + OverlayMotion.verticalOffset)
+        XCTAssertEqual(hiddenFrame.size, visibleFrame.size)
+        XCTAssertGreaterThan(OverlayMotion.appearanceDuration, 0)
+        XCTAssertGreaterThan(OverlayMotion.disappearanceDuration, 0)
+    }
+
+    func testAudioWaveformBoostsQuietSpeechAndKeepsSevenSamples() {
+        var smoother = AudioWaveformSmoother()
+
+        smoother.update(rawLevel: 0.1)
+
+        XCTAssertEqual(smoother.samples.count, AudioWaveformSmoother.sampleCount)
+        XCTAssertGreaterThan(smoother.level, 0.1)
+        XCTAssertEqual(smoother.samples.last, smoother.level)
+        XCTAssertTrue(smoother.samples.dropLast().allSatisfy { $0 == 0 })
+    }
+
+    func testAudioWaveformRetainsRecentSamplesAndReleasesSmoothly() {
+        var smoother = AudioWaveformSmoother()
+        smoother.update(rawLevel: 1)
+        let peak = smoother.level
+        smoother.update(rawLevel: 0.1)
+
+        XCTAssertEqual(smoother.samples[smoother.samples.count - 2], peak)
+        XCTAssertLessThan(smoother.level, peak)
+        XCTAssertGreaterThan(smoother.level, 0.1)
+    }
+
+    func testAudioWaveformReleasesSmoothlyIntoSilence() {
+        var smoother = AudioWaveformSmoother()
+        smoother.update(rawLevel: 0.8)
+        let activeLevel = smoother.level
+
+        smoother.update(rawLevel: 0)
+
+        XCTAssertLessThan(smoother.level, activeLevel)
+        XCTAssertGreaterThan(smoother.level, 0)
+    }
+
+    func testAudioWaveformCanBeResetBetweenRecordings() {
+        var smoother = AudioWaveformSmoother()
+        smoother.update(rawLevel: 0.8)
+
+        smoother.reset()
+
+        XCTAssertEqual(smoother.level, 0)
+        XCTAssertTrue(smoother.samples.allSatisfy { $0 == 0 })
     }
 
     func testOverlayFrameCentersCompactPillWhenScreenHasNoNotch() {
@@ -98,8 +152,8 @@ final class OverlayWindowTests: XCTestCase {
 
         let frame = OverlayLayout.frame(on: screen, for: .listening, geometry: geometry)
         XCTAssertEqual(frame.minX, geometry.notchMinX - OverlayLayout.statusWingWidth)
-        XCTAssertEqual(frame.maxX, geometry.notchMaxX + OverlayLayout.activityWingWidth)
-        XCTAssertEqual(frame.width, 180 + OverlayLayout.statusWingWidth + OverlayLayout.activityWingWidth)
+        XCTAssertEqual(frame.maxX, geometry.notchMaxX + OverlayLayout.waveformWingWidth)
+        XCTAssertEqual(frame.width, 180 + OverlayLayout.statusWingWidth + OverlayLayout.waveformWingWidth)
         XCTAssertEqual(frame.maxY, screen.maxY)
     }
 

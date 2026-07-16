@@ -125,7 +125,6 @@ final class OverlayWindow {
         let visibilityPlan = autoHideCoordinator.show(state)
         window.ignoresMouseEvents = !state.showsActions
         animateWindow(to: state, on: screen, geometry: screenGeometry)
-        window.orderFrontRegardless()
 
         if let delay = state.autoHideDelay {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -133,15 +132,19 @@ final class OverlayWindow {
                       self.autoHideCoordinator.acceptsAutoHide(generation: visibilityPlan.generation) else {
                     return
                 }
-                self.window.orderOut(nil)
+                self.animateWindowOut(generation: visibilityPlan.generation)
             }
         }
     }
 
     func updateAudioLevel(_ level: Float) {
-        withAnimation(.linear(duration: 0.05)) {
-            model.audioLevel = min(max(level, 0), 1)
+        withAnimation(.easeOut(duration: 0.09)) {
+            model.updateAudioLevel(level)
         }
+    }
+
+    func resetAudioLevel() {
+        model.resetAudioLevel()
     }
 
     private func animateWindow(
@@ -156,14 +159,47 @@ final class OverlayWindow {
             geometry: geometry
         )
         if !window.isVisible {
-            window.setFrame(targetFrame, display: true)
+            window.alphaValue = 0
+            window.setFrame(OverlayMotion.hiddenFrame(from: targetFrame), display: true)
+            window.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = OverlayMotion.appearanceDuration
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = 1
+                window.animator().setFrame(targetFrame, display: true)
+            }
             return
         }
 
+        window.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.28
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().alphaValue = 1
             window.animator().setFrame(targetFrame, display: true)
+        }
+    }
+
+    private func animateWindowOut(generation: Int) {
+        guard window.isVisible,
+              autoHideCoordinator.acceptsAutoHide(generation: generation) else {
+            return
+        }
+
+        let hiddenFrame = OverlayMotion.hiddenFrame(from: window.frame)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = OverlayMotion.disappearanceDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+            window.animator().setFrame(hiddenFrame, display: true)
+        } completionHandler: { [weak self] in
+            DispatchQueue.main.async {
+                guard let self,
+                      self.autoHideCoordinator.acceptsAutoHide(generation: generation) else {
+                    return
+                }
+                self.window.orderOut(nil)
+            }
         }
     }
 
@@ -187,11 +223,22 @@ struct OverlayWingWidths: Equatable {
     let right: CGFloat
 }
 
+enum OverlayMotion {
+    static let appearanceDuration: TimeInterval = 0.24
+    static let disappearanceDuration: TimeInterval = 0.2
+    static let verticalOffset: CGFloat = 5
+
+    static func hiddenFrame(from visibleFrame: CGRect) -> CGRect {
+        visibleFrame.offsetBy(dx: 0, dy: verticalOffset)
+    }
+}
+
 enum OverlayLayout {
     static let defaultNotchWidth: CGFloat = 142
     static let islandHeight: CGFloat = 42
     static let compactSize = CGSize(width: defaultNotchWidth, height: islandHeight)
     static let statusWingWidth: CGFloat = 42
+    static let waveformWingWidth: CGFloat = 58
     static let activityWingWidth: CGFloat = 104
     static let completedActionsWingWidth: CGFloat = 136
     static let errorStatusWingWidth: CGFloat = 36
@@ -211,7 +258,7 @@ enum OverlayLayout {
             }
             return OverlayWingWidths(left: 0, right: 0)
         case .listening:
-            return OverlayWingWidths(left: statusWingWidth, right: activityWingWidth)
+            return OverlayWingWidths(left: statusWingWidth, right: waveformWingWidth)
         case .preparingModel, .processingLocally, .inserting:
             return OverlayWingWidths(left: statusWingWidth, right: activityWingWidth)
         case .inserted, .copiedToClipboard:
@@ -322,18 +369,58 @@ enum OverlayLayout {
     }
 }
 
+struct AudioWaveformSmoother: Equatable {
+    static let sampleCount = 7
+
+    private(set) var level: Float = 0
+    private(set) var samples = Array(repeating: Float.zero, count: sampleCount)
+
+    mutating func update(rawLevel: Float) {
+        let clamped = min(max(rawLevel.isFinite ? rawLevel : 0, 0), 1)
+        let noiseGated = max((clamped - 0.025) / 0.975, 0)
+        let sensitiveLevel = pow(noiseGated, 0.6)
+        let response: Float = sensitiveLevel > level ? 0.72 : 0.28
+        level += (sensitiveLevel - level) * response
+        if level < 0.002 {
+            level = 0
+        }
+
+        samples.removeFirst()
+        samples.append(level)
+    }
+
+    mutating func reset() {
+        level = 0
+        samples = Array(repeating: 0, count: Self.sampleCount)
+    }
+}
+
 @MainActor
 final class OverlayModel: ObservableObject {
     @Published var state: OverlayState = .ready
     @Published var audioLevel: Float = 0
+    @Published private(set) var waveformSamples = AudioWaveformSmoother().samples
     @Published var notchWidth: CGFloat = 0
     @Published var reservesHardwareNotch = false
+    private var waveformSmoother = AudioWaveformSmoother()
 
     var onFix: @MainActor () -> Void = {}
     var onTeach: @MainActor () -> Void = {}
 
     var presentation: OverlayPresentation {
         OverlayPresentation(state: state, audioLevel: audioLevel)
+    }
+
+    func updateAudioLevel(_ level: Float) {
+        waveformSmoother.update(rawLevel: level)
+        audioLevel = waveformSmoother.level
+        waveformSamples = waveformSmoother.samples
+    }
+
+    func resetAudioLevel() {
+        waveformSmoother.reset()
+        audioLevel = 0
+        waveformSamples = waveformSmoother.samples
     }
 }
 
@@ -567,15 +654,18 @@ struct OverlayView: View {
     }
 
     private var levelMeter: some View {
-        HStack(alignment: .center, spacing: 3) {
-            ForEach(0..<OverlayLayout.meterBarCount, id: \.self) { index in
-                let normalizedIndex = Float(index + 1) / Float(OverlayLayout.meterBarCount)
-                Capsule()
-                    .fill(index < model.presentation.filledBars ? orange : Color.white.opacity(0.14))
-                    .frame(width: 4, height: 5 + CGFloat(normalizedIndex * max(model.audioLevel, 0.12)) * 12)
+        HStack(alignment: .center, spacing: 2.5) {
+            ForEach(Array(model.waveformSamples.enumerated()), id: \.offset) { _, sample in
+                let clampedSample = min(max(sample, 0), 1)
+                Capsule(style: .continuous)
+                    .fill(orange.opacity(0.38 + Double(clampedSample) * 0.62))
+                    .frame(
+                        width: 2,
+                        height: 3 + CGFloat(clampedSample) * 17
+                    )
             }
         }
-        .frame(height: 18)
+        .frame(width: 34, height: 22)
     }
 
     private var activityMeter: some View {
