@@ -1,6 +1,13 @@
 import AVFoundation
 import Foundation
 
+struct AudioPowerLevels: Equatable {
+    let average: Float
+    let peak: Float
+
+    static let zero = AudioPowerLevels(average: 0, peak: 0)
+}
+
 final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     enum RecorderError: LocalizedError {
         case microphonePermissionDenied
@@ -22,11 +29,18 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     private var recorder: AVAudioRecorder?
     private var currentURL: URL?
 
-    var currentLevel: Float {
-        guard let recorder else { return 0 }
+    var currentPowerLevels: AudioPowerLevels {
+        guard let recorder else { return .zero }
 
         recorder.updateMeters()
-        return AudioLevelNormalizer.normalizedLevel(fromDecibels: recorder.averagePower(forChannel: 0))
+        return AudioPowerLevels(
+            average: AudioLevelNormalizer.normalizedLevel(
+                fromDecibels: recorder.averagePower(forChannel: 0)
+            ),
+            peak: AudioLevelNormalizer.normalizedLevel(
+                fromDecibels: recorder.peakPower(forChannel: 0)
+            )
+        )
     }
 
     func start() async throws {

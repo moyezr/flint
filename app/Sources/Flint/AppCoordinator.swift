@@ -1159,7 +1159,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             return
         }
 
-        overlay.updateAudioLevel(recorder.currentLevel)
+        let powerLevels = recorder.currentPowerLevels
+        overlay.updateAudioLevels(
+            average: powerLevels.average,
+            peak: powerLevels.peak
+        )
     }
 
     private func openPrivacySettings() {

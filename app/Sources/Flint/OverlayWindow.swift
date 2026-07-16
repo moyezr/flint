@@ -137,9 +137,9 @@ final class OverlayWindow {
         }
     }
 
-    func updateAudioLevel(_ level: Float) {
+    func updateAudioLevels(average: Float, peak: Float) {
         withAnimation(.easeOut(duration: 0.09)) {
-            model.updateAudioLevel(level)
+            model.updateAudioLevels(average: average, peak: peak)
         }
     }
 
@@ -373,24 +373,56 @@ struct AudioWaveformSmoother: Equatable {
 
     private(set) var level: Float = 0
     private(set) var samples = Array(repeating: Float.zero, count: sampleCount)
+    private var phase: Float = 0
+    private var previousPeak: Float = 0
 
-    mutating func update(rawLevel: Float) {
-        let clamped = min(max(rawLevel.isFinite ? rawLevel : 0, 0), 1)
-        let noiseGated = max((clamped - 0.025) / 0.975, 0)
-        let sensitiveLevel = pow(noiseGated, 0.6)
-        let response: Float = sensitiveLevel > level ? 0.72 : 0.28
-        level += (sensitiveLevel - level) * response
+    mutating func update(averageLevel: Float, peakLevel: Float) {
+        let average = sensitiveLevel(from: averageLevel)
+        let peak = max(sensitiveLevel(from: peakLevel), average)
+        let crest = max(peak - average, 0)
+        let risingTransient = max(peak - previousPeak, 0)
+        let targetLevel = min(average * 0.68 + peak * 0.32, 1)
+        let levelResponse: Float = targetLevel > level ? 0.76 : 0.3
+        level += (targetLevel - level) * levelResponse
         if level < 0.002 {
             level = 0
         }
 
-        samples.removeFirst()
-        samples.append(level)
+        phase += 0.42 + crest * 1.8 + risingTransient * 1.2
+        phase = phase.truncatingRemainder(dividingBy: 2 * .pi)
+        let middle = Float(Self.sampleCount - 1) / 2
+        for index in samples.indices {
+            let distanceFromMiddle = abs(Float(index) - middle) / middle
+            let envelope = 1 - distanceFromMiddle * 0.28
+            let oscillation = 0.58 + 0.42 * abs(sin(phase + Float(index) * 1.17))
+            let alternatingTransient: Float = index.isMultiple(of: 2) ? 0.2 : 0.08
+            let crestShape = 0.1 + Float(index % 3) * 0.055
+            let target = min(
+                level * envelope * oscillation
+                    + crest * crestShape
+                    + risingTransient * alternatingTransient,
+                1
+            )
+            let response: Float = target > samples[index] ? 0.74 : 0.34
+            samples[index] += (target - samples[index]) * response
+            if samples[index] < 0.002 {
+                samples[index] = 0
+            }
+        }
+        previousPeak = peak
     }
 
     mutating func reset() {
         level = 0
         samples = Array(repeating: 0, count: Self.sampleCount)
+        phase = 0
+        previousPeak = 0
+    }
+
+    private func sensitiveLevel(from rawLevel: Float) -> Float {
+        let clamped = min(max(rawLevel.isFinite ? rawLevel : 0, 0), 1)
+        let noiseGated = max((clamped - 0.025) / 0.975, 0)
+        return pow(noiseGated, 0.6)
     }
 }
 
@@ -410,8 +442,8 @@ final class OverlayModel: ObservableObject {
         OverlayPresentation(state: state)
     }
 
-    func updateAudioLevel(_ level: Float) {
-        waveformSmoother.update(rawLevel: level)
+    func updateAudioLevels(average: Float, peak: Float) {
+        waveformSmoother.update(averageLevel: average, peakLevel: peak)
         audioLevel = waveformSmoother.level
         waveformSamples = waveformSmoother.samples
     }

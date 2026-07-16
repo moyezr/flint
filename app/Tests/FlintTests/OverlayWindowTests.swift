@@ -74,34 +74,43 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertGreaterThan(OverlayMotion.disappearanceDuration, 0)
     }
 
-    func testAudioWaveformBoostsQuietSpeechAndKeepsSevenSamples() {
+    func testAudioWaveformBoostsQuietSpeechAndVariesLineHeights() {
         var smoother = AudioWaveformSmoother()
 
-        smoother.update(rawLevel: 0.1)
+        smoother.update(averageLevel: 0.1, peakLevel: 0.18)
 
         XCTAssertEqual(smoother.samples.count, AudioWaveformSmoother.sampleCount)
         XCTAssertGreaterThan(smoother.level, 0.1)
-        XCTAssertEqual(smoother.samples.last, smoother.level)
-        XCTAssertTrue(smoother.samples.dropLast().allSatisfy { $0 == 0 })
+        XCTAssertGreaterThan(distinctLineHeightCount(smoother.samples), 2)
     }
 
-    func testAudioWaveformRetainsRecentSamplesAndReleasesSmoothly() {
+    func testAudioWaveformKeepsMovingDuringSustainedSpeech() {
         var smoother = AudioWaveformSmoother()
-        smoother.update(rawLevel: 1)
-        let peak = smoother.level
-        smoother.update(rawLevel: 0.1)
+        smoother.update(averageLevel: 0.4, peakLevel: 0.62)
+        let firstFrame = smoother.samples
 
-        XCTAssertEqual(smoother.samples[smoother.samples.count - 2], peak)
-        XCTAssertLessThan(smoother.level, peak)
-        XCTAssertGreaterThan(smoother.level, 0.1)
+        smoother.update(averageLevel: 0.4, peakLevel: 0.62)
+
+        XCTAssertNotEqual(smoother.samples, firstFrame)
+        XCTAssertGreaterThan(distinctLineHeightCount(smoother.samples), 2)
+    }
+
+    func testAudioWaveformHeightTracksLoudness() {
+        var quiet = AudioWaveformSmoother()
+        var loud = AudioWaveformSmoother()
+
+        quiet.update(averageLevel: 0.08, peakLevel: 0.12)
+        loud.update(averageLevel: 0.65, peakLevel: 0.9)
+
+        XCTAssertGreaterThan(loud.samples.reduce(0, +), quiet.samples.reduce(0, +))
     }
 
     func testAudioWaveformReleasesSmoothlyIntoSilence() {
         var smoother = AudioWaveformSmoother()
-        smoother.update(rawLevel: 0.8)
+        smoother.update(averageLevel: 0.7, peakLevel: 0.9)
         let activeLevel = smoother.level
 
-        smoother.update(rawLevel: 0)
+        smoother.update(averageLevel: 0, peakLevel: 0)
 
         XCTAssertLessThan(smoother.level, activeLevel)
         XCTAssertGreaterThan(smoother.level, 0)
@@ -109,7 +118,7 @@ final class OverlayWindowTests: XCTestCase {
 
     func testAudioWaveformCanBeResetBetweenRecordings() {
         var smoother = AudioWaveformSmoother()
-        smoother.update(rawLevel: 0.8)
+        smoother.update(averageLevel: 0.7, peakLevel: 0.9)
 
         smoother.reset()
 
@@ -220,5 +229,9 @@ final class OverlayWindowTests: XCTestCase {
 
     private func presentation(for state: OverlayState) -> OverlayPresentation {
         OverlayPresentation(state: state)
+    }
+
+    private func distinctLineHeightCount(_ samples: [Float]) -> Int {
+        Set(samples.map { Int(($0 * 1_000).rounded()) }).count
     }
 }
