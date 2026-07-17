@@ -4,7 +4,7 @@ import { SectionHeading } from "./section-heading";
 const principles = [
   ["LOCAL", "Offline, by default.", "Your audio and transcription stay on your Mac after the model is ready."],
   ["FOCUSED", "One gesture.", "No workspace, no new editor, no context switch. Just your current cursor."],
-  ["OWNED", "One-time investment.", "Buy the tool, keep the workflow. There is no monthly meter on your words."],
+  ["YOURS", "Free during beta.", "Use the complete local workflow while the beta community helps shape Flint's first paid release."],
 ];
 
 export function Principles() {

@@ -3,7 +3,7 @@ import { Contact } from "@/components/landing/contact";
 import { DemoSection } from "@/components/landing/demo-section";
 import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
-import { Pricing } from "@/components/landing/pricing";
+import { BetaDownload } from "@/components/landing/pricing";
 import { Principles } from "@/components/landing/principles";
 import { TypingSection } from "@/components/landing/typing-section";
 import { ValuePropositions } from "@/components/landing/value-propositions";
@@ -31,7 +31,7 @@ export default function Home() {
       <ValuePropositions />
       <TypingSection />
       <Principles />
-      <Pricing />
+      <BetaDownload />
       <Contact />
       <div className="bg-deep"><div className="relative z-10"><Footer /></div></div>
     </main>

@@ -26,6 +26,8 @@
     <true/>
     <key>FlintLicenseEnforcement</key>
     <false/>
+    <key>FlintUpdateManifestURL</key>
+    <string>https://flint.moyezrabbani.dev/api/releases/latest</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Flint records your voice to transcribe dictation on this Mac.</string>
 </dict>

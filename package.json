@@ -6,6 +6,8 @@
     "landing:build": "npm --prefix landing run build",
     "landing:lint": "npm --prefix landing run lint",
     "landing:db:migrate": "npm --prefix landing run db:migrate",
+    "landing:beta:verify": "npm --prefix landing run beta:verify",
+    "landing:beta:export": "npm --prefix landing run beta:export",
     "landing:licenses:create": "npm --prefix landing run licenses:create",
     "landing:licenses:bootstrap": "npm --prefix landing run licenses:bootstrap",
     "landing:licenses:verify": "npm --prefix landing run licenses:verify"

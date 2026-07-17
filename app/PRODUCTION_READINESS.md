@@ -1,6 +1,6 @@
 # Flint Production Readiness
 
-Flint is sold as a one-time purchase distributed from the Flint website as a signed, notarized `.dmg`. It does not require a subscription, an account to dictate, cloud transcription, or an ongoing network connection after model preparation and license activation.
+Flint is currently distributed as a free, unnotarized public beta from the Flint website. The later paid release is intended to be a one-time purchase distributed as a signed, notarized `.dmg`. Dictation does not require an account, cloud transcription, or an ongoing network connection after model preparation.
 
 ## Compatibility Matrix
 
@@ -54,7 +54,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Produce a stable `.app` bundle with a real bundle identifier, version, Flint icon, and hardened runtime entitlements.
 - Sign with a Developer ID Application certificate, package a `.dmg`, notarize it, staple the ticket, and validate installation on a clean Mac.
 - Host a versioned `.dmg` and release notes on the Flint website with SHA-256 checksums.
-- Integrate Sparkle only after the app is packaged: signed appcast, EdDSA keys, rollback policy, and update tests from an older signed build.
+- The beta performs one lightweight JSON manifest check at most daily and sends users to the download page when a release is available. Integrate an in-place updater such as Sparkle only after builds are Developer ID signed: signed appcast, EdDSA keys, rollback policy, and update tests from an older signed build.
 - Implement the live one-time license backend: purchase-to-key fulfillment, activation/deactivation policy, offline grace/validation policy, and recovery for a replaced Mac. Dictation must remain available offline after activation.
 - Publish privacy policy, EULA/refund terms, third-party notices, and a support path. Keep crash diagnostics opt-in and never send transcript or audio content.
 

@@ -1,34 +1,45 @@
 import { spaceGrotesk } from "@/lib/fonts";
+import Link from "next/link";
+
+import { BetaDownloadForm } from "./beta-download-form";
 import { SectionHeading } from "./section-heading";
 
 const planDetails = [
   "Local transcription on your Mac",
   "Push to talk at any cursor",
   "Fast, balanced, or accurate models",
-  "Private vocabulary and cleanup modes",
-  "One active Mac at a time",
+  "Private vocabulary and correction learning",
+  "Free while Flint is in public beta",
 ];
 
-export function Pricing() {
+export function BetaDownload() {
   return (
-    <section className="bg-paper py-36 max-[840px]:py-24" id="pricing" aria-labelledby="pricing-title">
+    <section className="bg-paper py-36 max-[840px]:py-24" id="download" aria-labelledby="download-title">
       <div className="relative z-10 mx-auto grid w-[min(100%-48px,1180px)] grid-cols-2 items-center gap-[98px] max-[840px]:w-[min(100%-36px,1180px)] max-[840px]:grid-cols-1 max-[840px]:gap-[52px] max-[520px]:w-[min(100%-28px,1180px)]">
         <div className="max-[840px]:text-center">
           <SectionHeading
             align="left"
-            eyebrow="EARLY ACCESS"
-            titleId="pricing-title"
-            title={<>One purchase.<br />No recurring ask.</>}
-            description="Flint is being prepared as a direct Mac download. Early access includes the full local dictation workflow and future product updates."
+            eyebrow="PUBLIC BETA"
+            titleId="download-title"
+            title={<>Use Flint today.<br />Help shape what ships.</>}
+            description="Enter your email to download the current Mac beta. Flint remains local after its speech model is ready, and beta feedback will guide the paid release."
           />
+          <p className="mt-7 text-[13px] leading-[1.6] text-muted">
+            Requires macOS 14 or newer. This early beta is not yet Apple-notarized, so first launch requires a one-time Gatekeeper approval. Read the{" "}
+            <Link className="border-b border-current text-ink hover:text-signal" href="/beta">installation guide</Link>.
+          </p>
         </div>
-        <div className="min-h-[390px] border border-signal bg-paper p-7 max-[520px]:min-h-0">
-          <p className="mb-[72px] font-mono text-[11px] font-semibold tabular-nums">FLINT FOR MAC</p>
-          <p className={`${spaceGrotesk.className} mb-9 text-[52px] font-bold text-signal max-[520px]:text-[42px]`}>ONE-TIME</p>
+        <div className="min-h-[520px] border border-signal bg-paper p-7 max-[520px]:min-h-0">
+          <p className="mb-8 font-mono text-[11px] font-semibold tabular-nums">FLINT FOR MAC / 0.1 BETA</p>
+          <p className={`${spaceGrotesk.className} mb-8 text-[52px] font-bold text-signal max-[520px]:text-[42px]`}>FREE BETA</p>
+          <BetaDownloadForm />
           <ul className="m-0 list-none border-t border-[color-mix(in_srgb,var(--color-signal)_50%,var(--color-line))] p-0">
             {planDetails.map((detail) => <li className="border-b border-line py-3 text-[15px]" key={detail}>{detail}</li>)}
           </ul>
-          <p className="mt-6 mb-0 text-[13px] leading-[1.45] text-muted">Personal adaptation is on the roadmap. It is not part of the current release.</p>
+          <p className="mt-6 mb-0 text-[13px] leading-[1.45] text-muted">
+            Your email is used to provide beta access and essential release information. Optional product updates require the checkbox above. See the{" "}
+            <Link className="border-b border-current text-ink hover:text-signal" href="/privacy">privacy policy</Link>.
+          </p>
         </div>
       </div>
     </section>

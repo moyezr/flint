@@ -15,6 +15,18 @@ The production URL is configured with `NEXT_PUBLIC_SITE_URL`. Set it before depl
 
 Run `npm run landing:lint` and `npm run landing:build` before publishing. The production visual asset requirements are in [ASSETS.md](./ASSETS.md).
 
+## Public beta downloads
+
+The home-page download form stores beta emails in PostgreSQL and returns a short-lived one-time handoff to the current versioned DMG. Apply migrations, verify the flow, and export signups with:
+
+```sh
+npm run landing:db:migrate
+FLINT_BETA_TEST_URL=http://127.0.0.1:3000 npm run landing:beta:verify
+npm run landing:beta:export > flint-beta-signups.csv
+```
+
+Current release metadata lives in `app/lib/beta/latest-release.ts` and is exposed to packaged Flint builds at `/api/releases/latest`.
+
 ### Landing palette
 
 The landing page uses Tailwind CSS v4 and semantic color tokens. Set

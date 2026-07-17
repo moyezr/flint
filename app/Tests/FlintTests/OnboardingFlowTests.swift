@@ -57,6 +57,24 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(flow.currentStep, .welcome)
     }
 
+    func testFreshFlowRestartsAtWelcomeWithoutDiscardingExistingChoices() {
+        let store = AppSettingsStore(defaults: defaults)
+        store.saveHasCompletedOnboarding(true)
+        store.saveSelectedModelTier(.accurate)
+        store.saveShortcutSettings(ShortcutSettings(option: .commandShiftSpace, behavior: .toggle))
+
+        store.saveHasCompletedOnboarding(false)
+        let flow = makeFlow()
+
+        XCTAssertEqual(flow.currentStep, .welcome)
+        XCTAssertFalse(flow.settings.hasCompletedOnboarding)
+        XCTAssertEqual(flow.settings.selectedModelTier, .accurate)
+        XCTAssertEqual(
+            flow.settings.shortcutSettings,
+            ShortcutSettings(option: .commandShiftSpace, behavior: .toggle)
+        )
+    }
+
     func testFinishDoesNotCompleteWhenPermissionsAreMissing() {
         var completionCount = 0
         let flow = makeFlow(

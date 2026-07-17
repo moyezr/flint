@@ -3,12 +3,15 @@ import XCTest
 
 final class LicenseActivationTests: XCTestCase {
     private var licenseManager: LicenseManager!
+    private var keychain: TestLicenseKeychainStore!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
+        keychain = TestLicenseKeychainStore()
         licenseManager = LicenseManager(
             service: "com.flint.tests.activation.\(UUID().uuidString)",
-            account: "local-activation"
+            account: "local-activation",
+            keychain: keychain.client
         )
         try licenseManager.clear()
     }
@@ -16,6 +19,7 @@ final class LicenseActivationTests: XCTestCase {
     override func tearDownWithError() throws {
         try? licenseManager?.clear()
         licenseManager = nil
+        keychain = nil
         try super.tearDownWithError()
     }
 

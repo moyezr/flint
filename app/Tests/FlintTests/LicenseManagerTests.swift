@@ -6,18 +6,21 @@ final class LicenseManagerTests: XCTestCase {
     private var service: String!
     private var account: String!
     private var manager: LicenseManager!
+    private var keychain: TestLicenseKeychainStore!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         service = "com.flint.tests.license.\(UUID().uuidString)"
         account = "activation-\(UUID().uuidString)"
-        manager = LicenseManager(service: service, account: account)
+        keychain = TestLicenseKeychainStore()
+        manager = LicenseManager(service: service, account: account, keychain: keychain.client)
         try manager.clear()
     }
 
     override func tearDownWithError() throws {
         try? manager?.clear()
         manager = nil
+        keychain = nil
         account = nil
         service = nil
         try super.tearDownWithError()
@@ -78,7 +81,7 @@ final class LicenseManagerTests: XCTestCase {
             lastCheckedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
 
-        let storedData = try XCTUnwrap(readRawKeychainData())
+        let storedData = try XCTUnwrap(keychain.data)
         let storedString = String(decoding: storedData, as: UTF8.self)
         XCTAssertFalse(storedString.contains(licenseKey))
         XCTAssertTrue(storedString.contains(LicenseManager.hashLicenseKey(licenseKey)))
@@ -167,39 +170,7 @@ final class LicenseManagerTests: XCTestCase {
         }
     }
 
-    private func readRawKeychainData() throws -> Data? {
-        var query = keychainQuery()
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound {
-            return nil
-        }
-        guard status == errSecSuccess else {
-            throw LicenseManager.LicenseManagerError.keychainFailure(operation: "test read", status: status)
-        }
-        return result as? Data
-    }
-
     private func writeRawKeychainData(_ data: Data) throws {
-        try? manager.clear()
-        var query = keychainQuery()
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw LicenseManager.LicenseManagerError.keychainFailure(operation: "test add", status: status)
-        }
-    }
-
-    private func keychainQuery() -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service!,
-            kSecAttrAccount as String: account!
-        ]
+        keychain.replaceData(data)
     }
 }

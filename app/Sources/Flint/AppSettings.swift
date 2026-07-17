@@ -90,6 +90,8 @@ struct AppSettingsStore {
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
         static let removeFillerWords = "removeFillerWords"
         static let addTerminalPunctuation = "addTerminalPunctuation"
+        static let updateLastSuccessfulCheck = "updateLastSuccessfulCheck"
+        static let updateLastNotifiedVersion = "updateLastNotifiedVersion"
 
         static let all = [
             shortcutOption,
@@ -107,7 +109,9 @@ struct AppSettingsStore {
             autoInsert,
             hasCompletedOnboarding,
             removeFillerWords,
-            addTerminalPunctuation
+            addTerminalPunctuation,
+            updateLastSuccessfulCheck,
+            updateLastNotifiedVersion
         ]
     }
 

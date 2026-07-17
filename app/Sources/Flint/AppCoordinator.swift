@@ -32,6 +32,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private let shortcutManager = ShortcutManager()
     private let appSettingsStore = AppSettingsStore()
     private let updateManager = UpdateManager()
+    private let updateCheckPolicy = UpdateCheckPolicy()
+    private let updateCheckStore = UpdateCheckStore()
     private let licenseAuthorization = LicenseAuthorizationController()
     private let historyStore = try? HistoryStore()
     private let appModeRuleStore = AppModeRuleStore()
@@ -51,7 +53,9 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private var modelPreparationTask: Task<Void, Never>?
     private var modelPreparationTimeoutTask: Task<Void, Never>?
     private var processingTimeoutTask: Task<Void, Never>?
+    private var backgroundUpdateTask: Task<Void, Never>?
     private var activeProcessingID: UUID?
+    private var availableUpdate: UpdateRelease?
     private var cleanupMode: CleanupMode = .clean {
         didSet {
             appSettingsStore.saveCleanupMode(cleanupMode)
@@ -96,6 +100,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private weak var permissionMenuItem: NSMenuItem?
     private weak var appAwareModesMenuItem: NSMenuItem?
     private weak var fixThisDictationMenuItem: NSMenuItem?
+    private weak var updateMenuItem: NSMenuItem?
     private var privacyWindow: PrivacyWindowController?
     private var licenseWindow: LicenseWindowController?
     private var appModeSettingsWindow: AppModeSettingsWindowController?
@@ -147,6 +152,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         if !settings.hasCompletedOnboarding {
             showOnboarding()
         }
+        scheduleAutomaticUpdateCheck()
     }
 
     func stop() {
@@ -157,6 +163,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         modelPreparationTask = nil
         modelPreparationTimeoutTask?.cancel()
         modelPreparationTimeoutTask = nil
+        backgroundUpdateTask?.cancel()
+        backgroundUpdateTask = nil
         modelPreparation.reset()
         activeProcessingID = nil
         shortcutManager.stop()
@@ -258,10 +266,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         let permissionItem = NSMenuItem(title: "", action: #selector(showPermissions), keyEquivalent: "")
         menu.addItem(permissionItem)
         permissionMenuItem = permissionItem
-        menu.addItem(NSMenuItem(title: "Onboarding", action: #selector(showOnboarding), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Run Onboarding Again…", action: #selector(restartOnboarding), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Privacy", action: #selector(showPrivacy), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Check for Updates", action: #selector(checkForUpdates), keyEquivalent: ""))
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        menu.addItem(updateItem)
+        updateMenuItem = updateItem
         menu.addItem(NSMenuItem(title: "License", action: #selector(showLicense), keyEquivalent: ""))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -687,20 +697,109 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         controller.show()
     }
 
-    @objc private func checkForUpdates() {
+    @objc private func restartOnboarding() {
         let alert = NSAlert()
-        switch updateManager.readiness() {
-        case .ready:
-            alert.messageText = "Update Configuration Detected"
-            alert.informativeText = "This build contains the bundle metadata required by a Sparkle updater. Flint does not include update checking until the production updater is integrated into the packaged release."
-        case .notConfigured(let prerequisites):
-            alert.messageText = "Updates Not Configured"
-            alert.informativeText = """
-            Updates cannot be checked in this build because required production update configuration is missing:
+        alert.messageText = "Run Onboarding Again?"
+        alert.informativeText = "Flint will restart setup from the welcome screen. Your models, vocabulary, settings, and existing macOS permissions will be preserved."
+        alert.addButton(withTitle: "Run Onboarding")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-            \(prerequisites.map { "- \($0)" }.joined(separator: "\n"))
-            """
+        appSettingsStore.saveHasCompletedOnboarding(false)
+        onboardingWindow?.close()
+        onboardingWindow = nil
+        showOnboarding()
+    }
+
+    @objc private func checkForUpdates() {
+        if let availableUpdate {
+            showAvailableUpdate(availableUpdate)
+            return
         }
+
+        updateMenuItem?.title = "Checking for Updates…"
+        updateMenuItem?.isEnabled = false
+        Task { [weak self] in
+            await self?.performUpdateCheck(interactive: true)
+        }
+    }
+
+    private func scheduleAutomaticUpdateCheck() {
+        guard updateCheckPolicy.shouldCheck(lastSuccessfulCheck: updateCheckStore.lastSuccessfulCheck),
+              case .ready = updateManager.readiness() else {
+            return
+        }
+
+        backgroundUpdateTask?.cancel()
+        backgroundUpdateTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.performUpdateCheck(interactive: false)
+        }
+    }
+
+    private func performUpdateCheck(interactive: Bool) async {
+        do {
+            let result = try await updateManager.checkForUpdates()
+            updateCheckStore.markSuccessfulCheck()
+            switch result {
+            case .upToDate:
+                availableUpdate = nil
+                restoreUpdateMenuItem()
+                if interactive {
+                    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+                    showInformation(
+                        title: "Flint Is Up to Date",
+                        message: version.map { "You are running Flint \($0)." } ?? "You are running the latest Flint beta."
+                    )
+                }
+            case .updateAvailable(let release):
+                availableUpdate = release
+                updateCheckStore.markNotified(version: release.version)
+                updateMenuItem?.title = "Download Flint \(release.version)…"
+                updateMenuItem?.isEnabled = true
+                statusItem.button?.title = "F•"
+                statusItem.button?.toolTip = "Flint \(release.version) is available"
+                if interactive {
+                    showAvailableUpdate(release)
+                }
+            }
+        } catch {
+            restoreUpdateMenuItem()
+            if interactive {
+                showError(
+                    title: "Could Not Check for Updates",
+                    message: "Flint could not reach the release service. Dictation remains available offline. Try again when you have an internet connection."
+                )
+            }
+        }
+    }
+
+    private func restoreUpdateMenuItem() {
+        updateMenuItem?.title = "Check for Updates…"
+        updateMenuItem?.isEnabled = true
+        statusItem.button?.title = "F"
+        statusItem.button?.toolTip = "Flint"
+    }
+
+    private func showAvailableUpdate(_ release: UpdateRelease) {
+        let alert = NSAlert()
+        alert.messageText = "Flint \(release.version) Is Available"
+        let notes = release.notes.prefix(4).map { "• \($0)" }.joined(separator: "\n")
+        alert.informativeText = notes.isEmpty
+            ? "A new Flint beta is ready. Dictation continues to work offline if you choose to update later."
+            : "A new Flint beta is ready:\n\n\(notes)"
+        alert.addButton(withTitle: "Download")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(release.downloadURL)
+        }
+    }
+
+    private func showInformation(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }

@@ -33,6 +33,7 @@ mkdir -p "$OUTPUT_DIR" "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 MACOSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" swift build -c release --package-path "$ROOT_DIR"
 cp "$ROOT_DIR/.build/release/Flint" "$APP_PATH/Contents/MacOS/Flint"
 cp "$ICON_PATH" "$APP_PATH/Contents/Resources/Flint.icns"
+ln -s /Applications "$STAGING_DIR/Applications"
 sed \
     -e "s/__FLINT_VERSION__/$VERSION/g" \
     -e "s/__FLINT_BUILD__/$BUILD/g" \

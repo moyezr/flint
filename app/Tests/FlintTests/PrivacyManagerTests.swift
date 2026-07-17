@@ -6,6 +6,7 @@ final class PrivacyManagerTests: XCTestCase {
     private var defaults: UserDefaults!
     private var tempRoot: URL!
     private var licenseManager: LicenseManager!
+    private var keychain: TestLicenseKeychainStore!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -15,9 +16,11 @@ final class PrivacyManagerTests: XCTestCase {
         tempRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("flint-privacy-manager-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        keychain = TestLicenseKeychainStore()
         licenseManager = LicenseManager(
             service: "com.flint.tests.privacy.license.\(UUID().uuidString)",
-            account: "local-activation"
+            account: "local-activation",
+            keychain: keychain.client
         )
         try licenseManager.clear()
     }
@@ -34,6 +37,7 @@ final class PrivacyManagerTests: XCTestCase {
         suiteName = nil
         tempRoot = nil
         licenseManager = nil
+        keychain = nil
         try super.tearDownWithError()
     }
 

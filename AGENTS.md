@@ -19,7 +19,7 @@ Core promises:
 - macOS 14 or newer; menu bar app with no Dock icon.
 - Audio and transcript processing stay on the Mac. Whisper models may require a network download before first use, and paid builds use the network for activation/occasional renewal, but dictation itself is local.
 - No account is required for dictation beyond the one-time license activation planned for paid builds.
-- One-time purchase, direct `.dmg` distribution, no subscription.
+- Free public beta through a direct `.dmg`; the later paid release is planned as a one-time purchase, not a subscription.
 - Preserve the user's clipboard and never insert a dictation twice.
 - Personalization is local, per user, explicit, reviewable, scoped, and deletable.
 - Do not copy VoiceInk or another product's code, assets, copy, name, icon, or layout. This is a clean-room proprietary implementation.
@@ -103,7 +103,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 261 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing lint/build succeed.
+Current verified baseline: 268 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing lint/build succeed.
 
 ## Native App Architecture
 
@@ -133,7 +133,8 @@ Important files:
 - `OverlayWindow.swift`: notch geometry, window motion, state accessories, and audio visualization.
 - `SettingsWindow.swift`, `OnboardingWindow.swift`, `PrivacyWindow.swift`: user-facing configuration and data controls.
 - `HistoryStore.swift` and `AppModeRuleStore.swift`: history and app-mode rules in the same SQLite database.
-- `LicenseRuntime.swift`: production device identity, signed offline certificate, API client, and runtime authorization.
+- `LicenseRuntime.swift`: dormant production device identity, signed offline certificate, API client, and runtime authorization; enforcement is off during the free beta.
+- `UpdateManager.swift`: one small HTTPS release-manifest check at most daily in packaged builds. Offline failures are silent and never affect dictation.
 
 The model preparation timeout is 120 seconds and processing timeout is 90 seconds. Preserve generation/processing IDs so stale async completions cannot alter current UI state.
 
@@ -218,6 +219,10 @@ The native production license flow targets `https://flint.moyezrabbani.dev/api/l
 - One active Mac is allowed. A replacement Mac requires purchaser confirmation by email before the old activation is revoked.
 - `FlintLicenseEnforcement` is deliberately `false` in `Distribution/Info.plist` until the production service is deployed and verified.
 
+The current free beta does not require activation. The website records beta download emails in PostgreSQL, issues short-lived one-time redirect tokens, and sends the browser to the immutable versioned DMG hosted as a GitHub release asset. Optional product-email consent is stored separately from required beta-access consent.
+
+Packaged builds fetch `https://flint.moyezrabbani.dev/api/releases/latest` at most once per 24 hours. A successful newer-version response adds a dot to the menu-bar mark and changes `Check for Updates` into a download action. Checks time out quickly, do not run for `swift run`, and never block dictation. During the unnotarized beta, installation remains user-confirmed through the website; a Sparkle-style in-place updater is deferred until releases can be Developer ID signed.
+
 The Next.js app owns both marketing and licensing routes. Licensing secrets must remain server-only; never expose the database URL, pepper, Resend key, webhook secret, or private signing key through a `NEXT_PUBLIC_` variable. PostgreSQL migrations are append-only. The commerce webhook currently validates a placeholder HMAC and returns HTTP 501 until a payment provider is chosen.
 
 Landing-specific behavior:
@@ -225,8 +230,9 @@ Landing-specific behavior:
 - Next.js 16, React 19, Tailwind CSS 4, App Router.
 - Canvas/GSAP dot grid uses subtle transparent orange at rest and stronger orange near the pointer. Content sections must remain above it (`relative z-10`) so text stays selectable and accessible to crawlers.
 - Smooth scrolling is enabled, with reduced-motion fallback.
-- Navbar `Take the Test` links to `#typing-test`; the target uses `scroll-mt-[calc(50svh-204px)]` to approximately center the component.
+- Navbar and hero download actions link to `#download`; the typing-test target still uses `scroll-mt-[calc(50svh-204px)]` to approximately center the component.
 - Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, per-letter green/red feedback, WPM, and accuracy.
+- `POST /api/beta-signups` stores a normalized email and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export collected emails as CSV.
 
 ## Testing Expectations
 
@@ -275,11 +281,11 @@ These are the material remaining items as of the date at the top of this file:
 
 1. Complete the manual cross-app/macOS/hardware compatibility and reliability matrix, including ChatGPT, browsers, rich editors, code editors, terminals, sleep/wake, target switching, silence, long dictation, permission revocation, and repeated shortcut cycles.
 2. Obtain a Developer ID Application certificate and notarytool profile; produce, notarize, staple, install, and exercise a release DMG on a clean standard account/Mac.
-3. Deploy the landing/licensing service with production PostgreSQL, secrets, HTTPS, verified Resend domain, migrations, backups, monitoring, abuse/rate controls, and retention/cleanup for expired challenge/transfer/audit rows. Run the disposable activation verifier against production.
-4. Select a payment provider, implement and verify its signed commerce webhook/key fulfillment, finalize price/refund policy, and test purchase -> key -> activation -> offline restart -> transfer/deactivation end to end. Manual provisioning is acceptable only for a deliberately limited early beta.
+3. Keep the landing/beta service deployed with production PostgreSQL, HTTPS, migrations, backups, monitoring, and abuse controls. Run the disposable beta download verifier against production after each deployment.
+4. Payment selection, commerce fulfillment, and license activation are deliberately deferred until the free beta has validated retention and a paid release is chosen.
 5. Enable `FlintLicenseEnforcement` only after the deployed API and a real beta key pass activation/renewal/offline tests.
-6. Integrate a real updater (for example Sparkle), add `SUFeedURL`/`SUPublicEDKey`, publish a signed appcast and rollback policy, and test an update from an older signed build. `UpdateManager` currently checks metadata only.
-7. Replace landing placeholders/stale claims with real current product media and copy, add the actual purchase/download CTA and final pricing, and verify responsive/accessibility/SEO behavior on production.
+6. Replace the beta manifest/download prompt with a signed in-place updater only after Developer ID signing is available; the current daily manifest check is the safe unnotarized-beta path.
+7. Replace remaining placeholder product media and verify responsive/accessibility/SEO behavior on production.
 8. Publish privacy policy, EULA/license terms, refund terms, third-party notices, installation/Gatekeeper instructions, release notes/checksum, and a durable support contact.
 9. Decide whether to implement or remove currently persisted-but-unused `launchAtLogin`, `showOverlay`, and `autoInsert` settings. URL-pattern app rules are stored but intentionally cannot match until safe URL detection exists.
 10. Run a release-candidate onboarding pass on clean Intel and Apple Silicon Macs: permissions, model download/interruption/corruption/low-disk recovery, first shortcut during model preparation, offline use after preparation, CPU/memory/thermal behavior, and long/silent recordings.

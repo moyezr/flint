@@ -16,6 +16,8 @@ The script creates these files in `app/dist`:
 - `Flint-<version>.dmg`
 - `Flint-<version>.dmg.sha256`
 
+The DMG includes Flint and an Applications shortcut. Packaged builds contain the stable release-manifest URL used for a lightweight daily update check.
+
 It uses an anonymous ad-hoc code signature solely to seal the local bundle. It
 does not identify Flint to Gatekeeper and does not replace Developer ID signing
 or notarization.
@@ -29,12 +31,19 @@ or notarization.
    current macOS release.
 4. Verify Microphone, Accessibility, and Input Monitoring permission flows.
 5. Publish versioned release notes, the checksum, installation instructions,
-   privacy policy, support contact, and refund terms alongside the download.
+   privacy policy, beta terms, and a support contact alongside the download.
+
+6. Upload both files to an immutable GitHub release tagged `v<version>`.
+7. Update `landing/app/lib/beta/latest-release.ts` (or the corresponding production environment overrides), deploy the landing site, and run:
+
+   ```sh
+   FLINT_BETA_TEST_URL=https://flint.moyezrabbani.dev npm run landing:beta:verify
+   ```
 
 Every new beta build may require a new Gatekeeper approval. Never modify a
 published DMG in place; publish a new version instead.
 
-When the licensing API has been deployed and tested, set
+Do not enable licensing for the free public beta. When a later paid release has a deployed and tested licensing API, set
 `FlintLicenseEnforcement` to `true` in `Distribution/Info.plist` before
 packaging a paid beta. Flint then validates its local license certificate at
 launch and at most once per day, never during the push-to-talk shortcut path.

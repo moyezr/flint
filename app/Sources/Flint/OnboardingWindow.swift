@@ -127,7 +127,7 @@ private struct OnboardingView: View {
         case .privacy:
             VStack(alignment: .leading, spacing: 12) {
                 Text("Your audio is transcribed on this Mac.")
-                Text("This onboarding flow does not enable history, telemetry, license checks, or update behavior.")
+                Text("Onboarding does not enable history, telemetry, or license checks. Packaged betas make one small release check at most daily when internet is available.")
                     .foregroundStyle(.secondary)
                 Text("Permissions are requested only for recording, detecting the shortcut, and inserting text.")
                     .foregroundStyle(.secondary)
