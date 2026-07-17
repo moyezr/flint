@@ -219,7 +219,7 @@ The native production license flow targets `https://flint.moyezrabbani.dev/api/l
 - One active Mac is allowed. A replacement Mac requires purchaser confirmation by email before the old activation is revoked.
 - `FlintLicenseEnforcement` is deliberately `false` in `Distribution/Info.plist` until the production service is deployed and verified.
 
-The current free beta does not require activation. The website records beta download emails in PostgreSQL, issues short-lived one-time redirect tokens, and sends the browser to the immutable versioned DMG hosted as a GitHub release asset. Optional product-email consent is stored separately from required beta-access consent.
+The current free beta does not require activation. The website records beta download emails in PostgreSQL, issues short-lived one-time redirect tokens, and sends the browser to the immutable versioned DMG currently deployed from `landing/public/downloads`. Optional product-email consent is stored separately from required beta-access consent. Move future binary storage to a public object/release host before repeated releases make Git history expensive.
 
 Packaged builds fetch `https://flint.moyezrabbani.dev/api/releases/latest` at most once per 24 hours. A successful newer-version response adds a dot to the menu-bar mark and changes `Check for Updates` into a download action. Checks time out quickly, do not run for `swift run`, and never block dictation. During the unnotarized beta, installation remains user-confirmed through the website; a Sparkle-style in-place updater is deferred until releases can be Developer ID signed.
 

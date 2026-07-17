@@ -29,7 +29,7 @@ source. It is not required by the server at runtime.
    the domain is verified.
 3. Run `npm run landing:db:migrate` against the production database exactly
    once. It is safe to rerun.
-4. Upload the current versioned DMG and checksum to its immutable GitHub release. Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*` environment variables match that artifact.
+4. Upload the current versioned DMG and checksum to a durable public artifact host. Beta 3 is temporarily shipped from `public/downloads`; use public object storage for repeated releases. Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*` environment variables match that artifact.
 5. Run the complete disposable beta signup/download check against the deployed API:
 
    ```sh

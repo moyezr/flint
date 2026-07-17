@@ -33,7 +33,7 @@ or notarization.
 5. Publish versioned release notes, the checksum, installation instructions,
    privacy policy, beta terms, and a support contact alongside the download.
 
-6. Upload both files to an immutable GitHub release tagged `v<version>`.
+6. Publish both files from a durable public artifact host. Beta 3 is temporarily served from `landing/public/downloads`; move later builds to public object storage rather than accumulating binaries in Git history.
 7. Update `landing/app/lib/beta/latest-release.ts` (or the corresponding production environment overrides), deploy the landing site, and run:
 
    ```sh
