@@ -15,11 +15,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+          cache-dependency-path: landing/package-lock.json
 
       - name: Install landing dependencies
-        run: npm ci
+        run: npm ci --prefix landing
 
       - name: Lint landing
         run: npm run landing:lint
@@ -28,7 +29,7 @@ jobs:
         run: npm run landing:build
 
   test-and-build:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4

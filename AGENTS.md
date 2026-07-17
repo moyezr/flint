@@ -251,7 +251,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-CI runs both sets on pushes and pull requests. Do not treat unit tests as proof of system-wide insertion. Before release, run the opt-in probes and the manual compatibility matrix in `app/PRODUCTION_READINESS.md`.
+CI runs landing checks on Ubuntu/Node 24 and Swift checks on the macOS 15 runner while preserving Flint's macOS 14 deployment target. The newer runner SDK is required by the pinned Argmax dependency. Do not treat unit tests as proof of system-wide insertion. Before release, run the opt-in probes and the manual compatibility matrix in `app/PRODUCTION_READINESS.md`.
 
 For insertion QA, verify exact-once output and unchanged clipboard contents on fresh launch and repeated use. Record macOS version, Mac hardware, model tier, target app/version, observed insertion method, and permissions.
 
