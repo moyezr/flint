@@ -2,7 +2,7 @@
 
 This is the first file an agent should read before changing Flint. It records the current product behavior, architectural boundaries, local workflows, and release state that are easy to lose between sessions.
 
-Last reconciled with `main` on 2026-07-16 at commit `2930491`.
+Last reconciled with `main` on 2026-07-17.
 
 ## Product North Star
 
