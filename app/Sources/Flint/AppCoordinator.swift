@@ -274,7 +274,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateMenuItem = updateItem
         menu.addItem(NSMenuItem(title: "License", action: #selector(showLicense), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Flint", action: #selector(quitApplication(_:)), keyEquivalent: "q"))
 
         for item in menu.items where item.action != nil {
             item.target = self
@@ -288,6 +288,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         updatePermissionMenuItem()
         fixThisDictationMenuItem?.isEnabled = !recentDictationBuffer.isEmpty
+    }
+
+    @objc func quitApplication(_ sender: Any?) {
+        NSApp.terminate(sender)
     }
 
     private func updateCleanupModeUI() {

@@ -16,7 +16,7 @@ The dictation loop is the product. Recording must start promptly, the app must r
 
 Core promises:
 
-- The current direct beta is ARM64-only for Apple Silicon Macs running macOS 14 or newer; the app remains a menu bar utility with no Dock icon.
+- The current direct beta is ARM64-only for Apple Silicon Macs running macOS 14 or newer; the app remains a menu bar utility with no Dock icon. Its status menu provides an enabled `Quit Flint` action that terminates through `NSApplication`, allowing normal shutdown cleanup to run.
 - Audio and transcript processing stay on the Mac. Whisper models may require a network download before first use, and paid builds use the network for activation/occasional renewal, but dictation itself is local.
 - No account is required for dictation beyond the one-time license activation planned for paid builds.
 - Free public beta through a direct `.dmg`; the later paid release is planned as a one-time purchase, not a subscription.
@@ -104,7 +104,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 288 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
+Current verified baseline: 289 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
 
 ## Native App Architecture
 
