@@ -3,17 +3,23 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-type SubmissionState = "idle" | "submitting" | "error";
+type SubmissionState = "idle" | "requesting-code" | "verifying" | "error";
 
 export function BetaDownloadForm() {
   const startedAt = useRef<number | null>(null);
+  const websiteRef = useRef<HTMLInputElement>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [verificationID, setVerificationID] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
   const [pendingDownloadURL, setPendingDownloadURL] = useState<string | null>(null);
   const [isInstallNoticeOpen, setIsInstallNoticeOpen] = useState(false);
+  const isBusy = submissionState === "requesting-code" || submissionState === "verifying";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,113 +27,266 @@ export function BetaDownloadForm() {
       setIsInstallNoticeOpen(true);
       return;
     }
-    if (submissionState === "submitting") {
+    if (isBusy) {
       return;
     }
 
-    setSubmissionState("submitting");
-    setMessage("Preparing your download…");
+    if (verificationID) {
+      await verifyEmail();
+    } else {
+      await requestVerificationCode();
+    }
+  }
 
-    const form = new FormData(event.currentTarget);
+  async function requestVerificationCode() {
+    if (isBusy) {
+      return;
+    }
+
+    setSubmissionState("requesting-code");
+    setMessage("Sending a verification code…");
+
     try {
       const response = await fetch("/api/beta-signups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
+          firstName,
+          lastName,
           marketingConsent,
           source: "landing-download",
-          website: form.get("website")?.toString() ?? "",
+          website: websiteRef.current?.value ?? "",
           startedAt: startedAt.current ?? Date.now() - 1_000,
           acceptedTerms,
         }),
       });
+      const body = (await response.json()) as {
+        verificationID?: string;
+        expiresInSeconds?: number;
+        error?: string;
+      };
+      if (!response.ok || !body.verificationID) {
+        throw new Error(body.error || "The verification code could not be sent.");
+      }
+
+      setVerificationID(body.verificationID);
+      setVerificationCode("");
+      setSubmissionState("idle");
+      const expiryMinutes = Math.max(1, Math.round((body.expiresInSeconds ?? 600) / 60));
+      setMessage(`Code sent. It expires in ${expiryMinutes} minutes.`);
+    } catch (error) {
+      startedAt.current = Date.now() - 1_000;
+      setSubmissionState("error");
+      setMessage(error instanceof Error ? error.message : "The verification code could not be sent.");
+    }
+  }
+
+  async function verifyEmail() {
+    if (!verificationID || isBusy) {
+      return;
+    }
+
+    setSubmissionState("verifying");
+    setMessage("Verifying your email…");
+
+    try {
+      const response = await fetch("/api/beta-signups/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationID, code: verificationCode }),
+      });
       const body = (await response.json()) as { downloadURL?: string; error?: string };
       if (!response.ok || !body.downloadURL) {
-        throw new Error(body.error || "The download could not be prepared.");
+        throw new Error(body.error || "Your email could not be verified.");
       }
 
       window.localStorage.setItem("flint-beta-email", email.trim());
       setPendingDownloadURL(body.downloadURL);
       setSubmissionState("idle");
-      setMessage("Your download is ready. Review the required macOS first-launch steps.");
+      setMessage("Email verified. Review the required macOS first-launch steps.");
       setIsInstallNoticeOpen(true);
     } catch (error) {
-      startedAt.current = Date.now() - 1_000;
       setSubmissionState("error");
-      setMessage(error instanceof Error ? error.message : "The download could not be prepared.");
+      setMessage(error instanceof Error ? error.message : "Your email could not be verified.");
     }
   }
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <div>
-        <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-email">
-          YOUR EMAIL
-        </label>
-        <input
-          autoComplete="email"
-          className="min-h-12 w-full border border-line bg-paper px-4 text-base text-ink outline-none transition-colors placeholder:text-muted focus:border-signal"
-          disabled={submissionState === "submitting"}
-          id="beta-email"
-          maxLength={320}
-          name="email"
-          onChange={(event) => {
-            startedAt.current ??= Date.now();
-            setEmail(event.target.value);
-          }}
-          onFocus={() => {
-            startedAt.current ??= Date.now();
-          }}
-          placeholder="you@example.com"
-          required
-          type="email"
-          value={email}
-        />
-      </div>
+      {verificationID ? (
+        <div className="grid gap-4">
+          <div className="border border-line bg-paper p-4">
+            <p className="font-mono text-[11px] font-semibold text-signal">CODE SENT TO</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="break-all text-[15px] text-ink">{email.trim()}</p>
+              <button
+                className="font-mono text-[11px] font-semibold text-muted underline decoration-line underline-offset-4 hover:text-ink"
+                disabled={isBusy}
+                onClick={() => {
+                  setVerificationID(null);
+                  setVerificationCode("");
+                  setSubmissionState("idle");
+                  setMessage("Update your details, then request another code.");
+                }}
+                type="button"
+              >
+                CHANGE DETAILS
+              </button>
+            </div>
+          </div>
 
-      <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
-        <label htmlFor="beta-website">Website</label>
-        <input autoComplete="off" id="beta-website" name="website" tabIndex={-1} type="text" />
-      </div>
+          <div>
+            <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-verification-code">
+              SIX-DIGIT VERIFICATION CODE
+            </label>
+            <input
+              aria-describedby="beta-code-help"
+              autoComplete="one-time-code"
+              autoFocus
+              className="min-h-14 w-full border border-line bg-paper px-4 font-mono text-2xl tracking-[0.35em] text-ink outline-none transition-colors placeholder:text-muted focus:border-signal"
+              disabled={isBusy}
+              id="beta-verification-code"
+              inputMode="numeric"
+              maxLength={6}
+              minLength={6}
+              onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              pattern="[0-9]{6}"
+              placeholder="000000"
+              required
+              type="text"
+              value={verificationCode}
+            />
+            <p className="mt-2 text-[12px] leading-[1.45] text-muted" id="beta-code-help">
+              Check spam if it does not arrive. Only the newest code will work.
+            </p>
+          </div>
 
-      <label className="flex cursor-pointer items-start gap-3 text-[13px] leading-[1.45] text-muted">
-        <input
-          checked={marketingConsent}
-          className="mt-1 size-4 accent-signal"
-          disabled={submissionState === "submitting"}
-          onChange={(event) => setMarketingConsent(event.target.checked)}
-          type="checkbox"
-        />
-        <span>Email me occasional Flint product updates. This is optional.</span>
-      </label>
+          <button
+            className="justify-self-start font-mono text-[11px] font-semibold text-muted underline decoration-line underline-offset-4 hover:text-ink disabled:cursor-wait disabled:opacity-60"
+            disabled={isBusy}
+            onClick={requestVerificationCode}
+            type="button"
+          >
+            SEND A NEW CODE
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-first-name">
+                FIRST NAME <span className="text-muted">(OPTIONAL)</span>
+              </label>
+              <input
+                autoComplete="given-name"
+                className="min-h-12 w-full border border-line bg-paper px-4 text-base text-ink outline-none transition-colors placeholder:text-muted focus:border-signal"
+                disabled={isBusy}
+                id="beta-first-name"
+                maxLength={80}
+                onChange={(event) => {
+                  startedAt.current ??= Date.now();
+                  setFirstName(event.target.value);
+                }}
+                placeholder="Ada"
+                type="text"
+                value={firstName}
+              />
+            </div>
+            <div>
+              <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-last-name">
+                LAST NAME <span className="text-muted">(OPTIONAL)</span>
+              </label>
+              <input
+                autoComplete="family-name"
+                className="min-h-12 w-full border border-line bg-paper px-4 text-base text-ink outline-none transition-colors placeholder:text-muted focus:border-signal"
+                disabled={isBusy}
+                id="beta-last-name"
+                maxLength={80}
+                onChange={(event) => {
+                  startedAt.current ??= Date.now();
+                  setLastName(event.target.value);
+                }}
+                placeholder="Lovelace"
+                type="text"
+                value={lastName}
+              />
+            </div>
+          </div>
 
-      <div className="flex items-start gap-3 text-[13px] leading-[1.45] text-muted">
-        <input
-          checked={acceptedTerms}
-          className="mt-1 size-4 accent-signal"
-          disabled={submissionState === "submitting"}
-          id="beta-terms"
-          onChange={(event) => setAcceptedTerms(event.target.checked)}
-          required
-          type="checkbox"
-        />
-        <span>
-          <label className="cursor-pointer" htmlFor="beta-terms">I agree to the free public beta</label>{" "}
-          <Link className="border-b border-current text-ink" href="/terms">terms</Link>.
-        </span>
-      </div>
+          <div>
+            <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-email">
+              YOUR EMAIL
+            </label>
+            <input
+              autoComplete="email"
+              className="min-h-12 w-full border border-line bg-paper px-4 text-base text-ink outline-none transition-colors placeholder:text-muted focus:border-signal"
+              disabled={isBusy}
+              id="beta-email"
+              maxLength={320}
+              name="email"
+              onChange={(event) => {
+                startedAt.current ??= Date.now();
+                setEmail(event.target.value);
+              }}
+              onFocus={() => {
+                startedAt.current ??= Date.now();
+              }}
+              placeholder="you@example.com"
+              required
+              type="email"
+              value={email}
+            />
+          </div>
+
+          <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+            <label htmlFor="beta-website">Website</label>
+            <input autoComplete="off" id="beta-website" name="website" ref={websiteRef} tabIndex={-1} type="text" />
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-3 text-[13px] leading-[1.45] text-muted">
+            <input
+              checked={marketingConsent}
+              className="mt-1 size-4 accent-signal"
+              disabled={isBusy}
+              onChange={(event) => setMarketingConsent(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Email me occasional Flint product updates. This is optional.</span>
+          </label>
+
+          <div className="flex items-start gap-3 text-[13px] leading-[1.45] text-muted">
+            <input
+              checked={acceptedTerms}
+              className="mt-1 size-4 accent-signal"
+              disabled={isBusy}
+              id="beta-terms"
+              onChange={(event) => setAcceptedTerms(event.target.checked)}
+              required
+              type="checkbox"
+            />
+            <span>
+              <label className="cursor-pointer" htmlFor="beta-terms">I agree to the free public beta</label>{" "}
+              <Link className="border-b border-current text-ink" href="/terms">terms</Link>.
+            </span>
+          </div>
+        </>
+      )}
 
       <button
         className="inline-flex min-h-12 items-center justify-center bg-signal px-5 font-mono text-[12px] font-semibold text-paper tabular-nums transition-colors hover:bg-ink disabled:cursor-wait disabled:opacity-70"
-        disabled={submissionState === "submitting"}
+        disabled={isBusy}
         type="submit"
       >
-        {submissionState === "submitting"
-          ? "PREPARING DOWNLOAD…"
-          : pendingDownloadURL
-            ? "REVIEW FIRST-LAUNCH STEPS →"
-            : "GET THE FREE BETA DMG ↓"}
+        {submissionState === "requesting-code"
+          ? "SENDING CODE…"
+          : submissionState === "verifying"
+            ? "VERIFYING…"
+            : pendingDownloadURL
+              ? "REVIEW FIRST-LAUNCH STEPS →"
+              : verificationID
+                ? "VERIFY & GET THE FREE BETA ↓"
+                : "EMAIL ME A VERIFICATION CODE →"}
       </button>
 
       <p
@@ -148,6 +307,8 @@ export function BetaDownloadForm() {
           onDownload={() => {
             setIsInstallNoticeOpen(false);
             setPendingDownloadURL(null);
+            setVerificationID(null);
+            setVerificationCode("");
             setMessage("Download started. Keep the first-launch instructions handy.");
           }}
         />

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createBetaDownload } from "@/app/lib/beta/service";
+import { sendBetaVerificationCode } from "@/app/lib/beta/email";
+import {
+  cancelBetaEmailVerification,
+  createBetaEmailVerification,
+} from "@/app/lib/beta/service";
+import { betaVerificationLifetimeMinutes } from "@/lib/beta-verification";
 import { readJSONBody, RequestBodyError } from "@/app/lib/security/request";
 import {
   enforceRateLimits,
@@ -11,8 +16,14 @@ import {
 
 export const runtime = "nodejs";
 
+const optionalNameSchema = z.string().trim().max(80).refine(
+  (value) => !/[\u0000-\u001f\u007f]/u.test(value),
+);
+
 const signupSchema = z.object({
   email: z.string().trim().email().max(320),
+  firstName: optionalNameSchema.default(""),
+  lastName: optionalNameSchema.default(""),
   marketingConsent: z.boolean().default(false),
   source: z.string().trim().min(1).max(80).default("landing"),
   website: z.string().max(0).default(""),
@@ -34,7 +45,7 @@ export async function POST(request: Request) {
 
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    return NextResponse.json({ error: "Check your email and optional name fields." }, { status: 400 });
   }
 
   if (Date.now() - parsed.data.startedAt < 400) {
@@ -55,18 +66,29 @@ export async function POST(request: Request) {
         windowSeconds: 15 * 60,
       },
     ]);
-    const token = await createBetaDownload(parsed.data);
-    const downloadURL = new URL("/api/beta-download", request.url);
-    downloadURL.searchParams.set("token", token);
+    const verification = await createBetaEmailVerification(parsed.data);
+    try {
+      await sendBetaVerificationCode({
+        email: parsed.data.email.trim(),
+        firstName: verification.firstName,
+        code: verification.code,
+      });
+    } catch (error) {
+      await cancelBetaEmailVerification(verification.verificationID).catch(() => {});
+      throw error;
+    }
 
     return NextResponse.json(
-      { downloadURL: downloadURL.toString() },
-      { headers: { "Cache-Control": "no-store" } },
+      {
+        verificationID: verification.verificationID,
+        expiresInSeconds: betaVerificationLifetimeMinutes * 60,
+      },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     if (error instanceof RateLimitExceededError) {
       return NextResponse.json(
-        { error: "Too many download requests. Please wait a few minutes and try again." },
+        { error: "Too many verification-code requests. Please wait a few minutes and try again." },
         {
           status: 429,
           headers: {
@@ -81,7 +103,7 @@ export async function POST(request: Request) {
     }
     console.error("Flint beta signup failed", error);
     return NextResponse.json(
-      { error: "Beta downloads are temporarily unavailable. Please try again shortly." },
+      { error: "The verification email could not be sent. Please try again shortly." },
       { status: 503 },
     );
   }

@@ -19,8 +19,9 @@ client, and Next.js licensing API are implemented.
 ### Production Operations
 
 - Current state: the landing app has append-only migrations, beta terms
-  acceptance, database-backed abuse limits, security headers, backup tooling,
-  and production smoke verifiers.
+  acceptance, optional signup names, email OTP verification, database-backed
+  abuse limits, security headers, backup tooling, and production smoke
+  verifiers.
 - External blocker: the deployment provider must be configured with PostgreSQL,
   encrypted secrets, HTTPS/DNS, automatic backups, alerting, and an uptime
   monitor. A restore drill and post-deployment beta download verification must
@@ -41,8 +42,9 @@ client, and Next.js licensing API are implemented.
 
 ### Launch Media
 
-- External owner: final real-product screenshots, workflow capture, social
-  share card, and browser icon exports remain with the developer.
+- External owner: final real-product screenshots, workflow capture, and social
+  share card remain with the developer. Browser and application icons are
+  configured from the approved `F/` mark.
 
 ## Later Paid Release
 

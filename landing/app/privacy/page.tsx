@@ -36,14 +36,14 @@ export default function PrivacyPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Beta download emails</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            The website stores the email address you submit, the time you requested access, whether you separately opted into occasional product updates, and aggregate download timestamps and counts. It does not store your dictation content. Email records are used for beta access, essential release communication, support, and—only when selected—occasional product updates.
+            The website stores the email address you submit, your optional first and last name, when the email was verified, the time you requested access, whether you separately opted into occasional product updates, and aggregate download timestamps and counts. It does not store your dictation content. These records are used for beta access, essential release communication, support, and—only when selected—occasional product updates.
           </p>
         </section>
 
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Terms and abuse prevention</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            The website stores the version and time of your beta-terms acceptance. To protect the download service, it also keeps short-lived counters keyed by pseudonymous hashes derived from request addresses and email addresses. Raw addresses are not stored in the rate-limit table, and expired counters are deleted automatically.
+            The website stores the version and time of your beta-terms acceptance. Before creating a signup, it temporarily stores the submitted details and a cryptographic hash of a six-digit email verification code; the code itself is not stored and the pending record expires after 10 minutes. To protect the download service, it also keeps short-lived counters keyed by pseudonymous hashes derived from request addresses, email addresses, and verification challenges. Raw request addresses are not stored in the rate-limit table, and expired counters are deleted automatically.
           </p>
         </section>
 

@@ -37,7 +37,7 @@ export default function BetaGuidePage() {
         <section className="mt-16 border-t border-line pt-9" aria-labelledby="download-heading">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="download-heading">1. Download the beta</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            Use the email gate on the home page. Your download link is short-lived, and the DMG itself is versioned so published builds are never silently replaced.
+            Use the download form on the home page and enter the six-digit code sent to your email. The verified download link is short-lived, and the DMG itself is versioned so published builds are never silently replaced.
           </p>
           <Link className="mt-6 inline-flex min-h-12 items-center bg-signal px-5 font-mono text-[12px] font-semibold text-paper" href="/#download">
             GO TO DOWNLOAD ↓

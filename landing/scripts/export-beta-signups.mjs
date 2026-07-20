@@ -10,7 +10,10 @@ const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
 try {
   const rows = await sql`
     SELECT
+      first_name,
+      last_name,
       email,
+      email_verified_at,
       beta_access_consented_at,
       marketing_consented_at,
       download_count,
@@ -21,7 +24,10 @@ try {
   `;
 
   console.log([
+    "first_name",
+    "last_name",
     "email",
+    "email_verified_at",
     "beta_access_consented_at",
     "marketing_consented_at",
     "download_count",
@@ -31,7 +37,10 @@ try {
 
   for (const row of rows) {
     console.log([
+      row.first_name,
+      row.last_name,
       row.email,
+      toISO(row.email_verified_at),
       toISO(row.beta_access_consented_at),
       toISO(row.marketing_consented_at),
       row.download_count,

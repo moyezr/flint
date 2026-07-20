@@ -23,7 +23,7 @@ export function BetaDownload() {
             eyebrow="PUBLIC BETA"
             titleId="download-title"
             title={<>Use Flint today.<br />Help shape what ships.</>}
-            description="Enter your email to download the current Mac beta. Flint remains local after its speech model is ready, and beta feedback will guide the paid release."
+            description="Enter your details and verify your email to download the current Mac beta. Flint remains local after its speech model is ready, and beta feedback will guide the paid release."
           />
           <p className="mt-7 text-[13px] leading-[1.6] text-muted">
             Requires an Apple Silicon Mac with macOS 14 or newer. This early beta is not yet Apple-notarized, so first launch requires a one-time Gatekeeper approval. Read the{" "}

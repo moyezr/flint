@@ -12,8 +12,10 @@ values from the ignored `landing/.env`; do not generate a second signing key.
 - `DATABASE_URL`
 - `RESEND_API_KEY`
 - `LICENSE_EMAIL_FROM`
+- `BETA_EMAIL_FROM`
 - `LICENSE_KEY_PEPPER`
 - `BETA_ABUSE_PEPPER`
+- `BETA_OTP_PEPPER`
 - `LICENSE_SIGNING_PRIVATE_KEY`
 - `COMMERCE_WEBHOOK_SECRET`
 - `LICENSE_APP_BUNDLE_ID`
@@ -25,14 +27,17 @@ source. It is not required by the server at runtime.
 ## Before Production Traffic
 
 1. Point `flint.moyezrabbani.dev` at the deployment host and verify HTTPS.
-2. Add and verify the Resend sending domain. The configured sender is
-   `licenses@flint.moyezrabbani.dev`; Resend will reject production email until
-   the domain is verified.
+2. Add and verify the Resend sending domain. Configure `BETA_EMAIL_FROM` for
+   six-digit download verification emails and `LICENSE_EMAIL_FROM` for future
+   device-transfer emails. Resend will reject production email until the domain
+   is verified.
 3. Run `npm run landing:db:migrate` against the production database. It is safe
-   to rerun. Migration `0003_beta_terms_and_abuse_controls.sql` must be present
-   before deploying the matching application build.
+   to rerun. Migration `0004_beta_email_verification.sql` must be present before
+   deploying the matching application build.
 4. Upload the current versioned DMG and checksum to a durable public artifact host. Beta 3 is temporarily shipped from `public/downloads`; use public object storage for repeated releases. Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*` environment variables match that artifact.
-5. Run the complete disposable beta signup/download check against the deployed API:
+5. Set `FLINT_BETA_TEST_EMAIL` to an inbox you control that supports plus
+   addressing, then run the complete disposable OTP/signup/download check
+   against the deployed API:
 
    ```sh
    FLINT_BETA_TEST_URL=https://flint.moyezrabbani.dev \
@@ -90,9 +95,12 @@ pg_restore --clean --if-exists --no-owner --no-privileges \
 - Alert on sustained HTTP 5xx responses, migration failures, database storage
   pressure, and failed backups. Review 429 counts for abuse or an overly strict
   limit; never log request bodies, submitted license keys, or download tokens.
-- Beta signup limits are stored in PostgreSQL as short-lived HMAC hashes. The
-  current limits are 20 attempts per request address and 5 per normalized email
-  per 15 minutes. `BETA_ABUSE_PEPPER` must be high entropy and server-only.
+- Beta request and verification limits are stored in PostgreSQL as short-lived
+  HMAC hashes. Code requests allow 20 attempts per request address and 5 per
+  normalized email per 15 minutes. Verification allows at most 5 incorrect
+  codes per challenge in addition to request-address and challenge rate limits.
+  `BETA_ABUSE_PEPPER` and `BETA_OTP_PEPPER` must be distinct, high entropy, and
+  server-only.
 - Security headers are set by Next.js. Re-run the production verifier after
   every deployment so a hosting override cannot silently remove them.
 
@@ -116,7 +124,7 @@ Payment work is not part of the free public beta. The placeholder commerce route
 
 ## Beta Email Export
 
-The download gate stores beta-access consent separately from optional product-update consent. Export the current list locally without exposing database credentials:
+The download gate stores optional first and last names, verified email status, and beta-access consent separately from optional product-update consent. Export the current list locally without exposing database credentials:
 
 ```sh
 npm run landing:beta:export > flint-beta-signups.csv
