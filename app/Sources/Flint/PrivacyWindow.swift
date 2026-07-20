@@ -9,12 +9,16 @@ final class PrivacyWindowController {
 
     init(
         privacyManager: PrivacyManager,
+        appUninstaller: AppUninstaller = .live,
         onDeleteAllLocalData: @escaping () -> Void,
+        onUninstallComplete: @escaping @MainActor () -> Void = { NSApp.terminate(nil) },
         onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in }
     ) {
         model = PrivacyDashboardModel(
             privacyManager: privacyManager,
+            appUninstaller: appUninstaller,
             onDeleteAllLocalData: onDeleteAllLocalData,
+            onUninstallComplete: onUninstallComplete,
             onLearningChanged: onLearningChanged
         )
         window = NSWindow(
@@ -41,6 +45,7 @@ private final class PrivacyDashboardModel: ObservableObject {
     @Published var snapshot: PrivacyDashboardSnapshot
     @Published var deletionMessage = ""
     @Published var deletionError = ""
+    @Published var isUninstalling = false
     @Published var historyEnabled: Bool
     @Published var historyCount = 0
     @Published var historyEntries: [HistoryEntry] = []
@@ -53,16 +58,22 @@ private final class PrivacyDashboardModel: ObservableObject {
     @Published var learningMetricsSummary = ""
 
     private let privacyManager: PrivacyManager
+    private let appUninstaller: AppUninstaller
     private let onDeleteAllLocalData: () -> Void
+    private let onUninstallComplete: @MainActor () -> Void
     private let onLearningChanged: (MemorySnapshot) -> Void
 
     init(
         privacyManager: PrivacyManager,
+        appUninstaller: AppUninstaller,
         onDeleteAllLocalData: @escaping () -> Void,
+        onUninstallComplete: @escaping @MainActor () -> Void,
         onLearningChanged: @escaping (MemorySnapshot) -> Void
     ) {
         self.privacyManager = privacyManager
+        self.appUninstaller = appUninstaller
         self.onDeleteAllLocalData = onDeleteAllLocalData
+        self.onUninstallComplete = onUninstallComplete
         self.onLearningChanged = onLearningChanged
         snapshot = .empty
         historyEnabled = false
@@ -146,12 +157,50 @@ private final class PrivacyDashboardModel: ObservableObject {
                 onDeleteAllLocalData()
                 await refresh()
                 deletionError = ""
-                deletionMessage = "Deleted \(result.learningMemoryCount) vocabulary entries, \(result.correctionEvidenceCount) explicit corrections, \(result.installedModelCount) installed model references, \(result.historyEntryCount) history entries, \(result.appModeRuleCount) app mode rules, and license activation. Settings are back to defaults."
+                deletionMessage = deletionSummary(result)
             } catch {
                 deletionMessage = ""
                 deletionError = error.localizedDescription
             }
         }
+    }
+
+    func uninstallFlint() {
+        guard !isUninstalling else { return }
+
+        let applicationURL: URL
+        do {
+            applicationURL = try appUninstaller.validatedApplicationURL()
+        } catch {
+            deletionMessage = ""
+            deletionError = error.localizedDescription
+            return
+        }
+
+        isUninstalling = true
+        deletionMessage = ""
+        deletionError = ""
+        Task {
+            defer { isUninstalling = false }
+            do {
+                let result = try await privacyManager.deleteAllLocalData()
+                onDeleteAllLocalData()
+                do {
+                    try await appUninstaller.moveApplicationToTrash(applicationURL)
+                    onUninstallComplete()
+                } catch {
+                    deletionMessage = deletionSummary(result)
+                    deletionError = "Local data, including downloaded models, was deleted, but Flint.app could not be moved to Trash. Move the app to Trash manually. \(error.localizedDescription)"
+                }
+            } catch {
+                deletionMessage = ""
+                deletionError = "Flint was not uninstalled because its local data could not be completely deleted. \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func deletionSummary(_ result: PrivacyDeletionResult) -> String {
+        "Deleted \(result.learningMemoryCount) vocabulary entries, \(result.correctionEvidenceCount) explicit corrections, \(result.installedModelCount) installed model references and cached model contents, \(result.historyEntryCount) history entries, \(result.appModeRuleCount) app mode rules, and license activation. Settings are back to defaults."
     }
 
     func deleteLearningMemory(_ memory: LearningMemory) {
@@ -219,6 +268,7 @@ private final class PrivacyDashboardModel: ObservableObject {
 private struct PrivacyDashboardView: View {
     @ObservedObject var model: PrivacyDashboardModel
     @State private var isConfirmingDelete = false
+    @State private var isConfirmingUninstall = false
     @State private var isConfirmingHistoryDelete = false
     @State private var isConfirmingEvidenceDelete = false
     @State private var isConfirmingLearningDelete = false
@@ -371,6 +421,19 @@ private struct PrivacyDashboardView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.red)
+                        .disabled(model.isUninstalling)
+
+                        Divider()
+
+                        Text("For a complete uninstall, Flint can delete all local data—including downloaded speech models—disable Launch at Login, move the installed app to Trash, and quit. Moving Flint to Trash directly cannot remove files from your Library folder.")
+                            .foregroundStyle(.secondary)
+
+                        Button(model.isUninstalling ? "Uninstalling…" : "Uninstall Flint…") {
+                            isConfirmingUninstall = true
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                        .disabled(model.isUninstalling)
 
                         if !model.deletionMessage.isEmpty {
                             Text(model.deletionMessage)
@@ -394,6 +457,14 @@ private struct PrivacyDashboardView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This resets settings to defaults, removes custom vocabulary, deletes cached model contents, clears installed model references, deletes history and app mode rules, and clears license activation.")
+        }
+        .alert("Uninstall Flint?", isPresented: $isConfirmingUninstall) {
+            Button("Delete Data & Move to Trash", role: .destructive) {
+                model.uninstallFlint()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes Flint settings, downloaded speech models, vocabulary, corrections, history, app mode rules, and license activation. Launch at Login is disabled, Flint.app is moved to Trash, and Flint quits.")
         }
         .alert("Delete all history?", isPresented: $isConfirmingHistoryDelete) {
             Button("Delete All History", role: .destructive) {

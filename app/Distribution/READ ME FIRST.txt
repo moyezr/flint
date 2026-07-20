@@ -23,6 +23,13 @@ Apple makes Open Anyway available for a limited time after the blocked launch
 attempt. If it is missing, try opening Flint once more and return to Privacy &
 Security.
 
+HOW TO REMOVE FLINT
+
+Before deleting the app, open Flint from the menu bar and choose Privacy, then
+Uninstall Flint. This deletes downloaded speech models and Flint's other local
+data, disables Launch at Login, moves Flint.app to Trash, and quits. Dragging
+Flint.app directly to Trash cannot remove model files stored in your Library.
+
 Flint processes dictation on your Mac. For the complete install guide, privacy
 policy, release checksum, and support contact, visit:
 

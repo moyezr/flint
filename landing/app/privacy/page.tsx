@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Control and contact</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            You can ask to access or delete your beta email record, or unsubscribe from optional updates, by emailing <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20privacy">moyezrabbani.work@gmail.com</a>. Local application data can be removed from Flint&apos;s Privacy screen.
+            You can ask to access or delete your beta email record, or unsubscribe from optional updates, by emailing <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20privacy">moyezrabbani.work@gmail.com</a>. Local application data can be removed from Flint&apos;s Privacy screen. Its Uninstall Flint action deletes downloaded models and other local data before moving the app to Trash.
           </p>
         </section>
       </article>

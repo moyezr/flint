@@ -48,6 +48,13 @@ export default function SupportPage() {
             See the <Link className="border-b border-current text-ink" href="/beta">installation guide</Link> for Gatekeeper and setup steps. See the <Link className="border-b border-current text-ink" href="/privacy">Privacy Policy</Link> for local data controls and email deletion requests.
           </p>
         </section>
+
+        <section className="mt-14 border-t border-line pt-9">
+          <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Uninstall and reclaim model space</h2>
+          <p className="mt-4 leading-[1.7] text-muted">
+            Use Flint → Privacy → Uninstall Flint before removing the app. This deletes downloaded speech models and all other Flint data, disables Launch at Login, moves Flint.app to Trash, and quits. If Flint was already removed manually, follow the cleanup instructions in the <Link className="border-b border-current text-ink" href="/beta#uninstall-heading">installation guide</Link>.
+          </p>
+        </section>
       </article>
     </main>
   );

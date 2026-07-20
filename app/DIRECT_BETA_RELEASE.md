@@ -36,7 +36,10 @@ or notarization.
 3. Confirm the first-launch Gatekeeper instructions are accurate for the
    current macOS release and that `READ ME FIRST.txt` is visible in the DMG.
 4. Verify Microphone, Accessibility, and Input Monitoring permission flows.
-5. Publish versioned release notes, the checksum, installation instructions,
+5. Install the packaged app, download a model, run Privacy → Uninstall Flint,
+   and verify the model cache is cleared, Launch at Login is disabled, the app
+   moves to Trash, and Flint quits. Reinstall before continuing release QA.
+6. Publish versioned release notes, the checksum, installation instructions,
    privacy policy, beta terms, third-party notices, and a support contact
    alongside the download.
 

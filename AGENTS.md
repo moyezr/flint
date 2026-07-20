@@ -104,7 +104,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 274 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing lint/build succeed.
+Current verified baseline: 280 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
 
 ## Native App Architecture
 
@@ -132,6 +132,7 @@ Important files:
 - `CleanupEngine.swift`: Verbatim, Clean, Polished, Prompt, Message, and Email modes.
 - `TextInsertion.swift`: AX insertion, rich-composer protections, paste fallback, and clipboard restoration.
 - `LaunchAtLogin.swift`: installed-app-only `SMAppService.mainApp` registration and approval state. `swift run` cannot register a login item.
+- `AppUninstaller.swift`: validates the packaged Flint bundle, then asks Finder to move only that bundle to Trash after the full local-data purge succeeds.
 - `OverlayWindow.swift`: notch geometry, window motion, state accessories, and audio visualization.
 - `SettingsWindow.swift`, `OnboardingWindow.swift`, `PrivacyWindow.swift`: user-facing configuration and data controls.
 - `HistoryStore.swift` and `AppModeRuleStore.swift`: history and app-mode rules in the same SQLite database.
@@ -208,7 +209,7 @@ Default data locations:
 
 History is off by default and never stores audio. Explicit learning remains separate from history and stores only user-invoked corrections/mappings. Local metrics are content-free UserDefaults counters and are never uploaded. Telemetry is not implemented.
 
-`Delete All Local Data` clears settings, models, history/rules, learning database, local metrics, legacy vocabulary, and license/device Keychain state. Preserve test coverage whenever a new persistence surface is introduced.
+`Delete All Local Data` clears settings, models, history/rules, learning database, local metrics, legacy vocabulary, and license/device Keychain state. `Uninstall Flint` validates that the process is the packaged `com.moyezrabbani.Flint` app before deleting data, reuses that full purge, disables Launch at Login, asks Finder to move the validated app bundle to Trash, and quits only after Finder confirms the move. A direct Finder deletion cannot trigger application cleanup, so the website and DMG README document manual model-folder cleanup as a fallback. Preserve test coverage whenever a new persistence surface is introduced.
 
 ## Licensing and Website
 

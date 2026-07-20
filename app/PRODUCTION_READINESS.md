@@ -49,11 +49,12 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Permission denial/revocation for Microphone, Accessibility, and Input Monitoring.
 - Clipboard preservation for text, rich text, files, and multiple clipboard items.
 - Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space. Flint records a payload fingerprint after download, invalidates changed or empty caches, and enables a clean retry when model preparation fails.
+- Packaged uninstall from a writable installed copy: verify downloaded models and other local data are deleted, Launch at Login is disabled, Flint.app moves to Trash, and Flint quits. Verify `swift run` and the read-only DMG copy refuse self-removal before deleting data.
 
 ## Free Public Beta Gates
 
 - Package an ad-hoc-signed, ARM64-only, immutable versioned DMG and describe it accurately as not Apple-notarized.
-- Test Gatekeeper approval, permissions, model preparation, dictation, and local-data deletion from a clean standard macOS user account.
+- Test Gatekeeper approval, permissions, model preparation, dictation, local-data deletion, and the packaged uninstall flow from a clean standard macOS user account.
 - Complete at least one 10–15 minute dictation test on the supported Apple Silicon QA Mac; do not advertise unlimited recording length.
 - Deploy migrations, production security headers, beta rate limits, legal/support pages, backup policy, monitoring, and both production smoke verifiers.
 - Publish release notes, checksum, installation instructions, Privacy Policy, Public Beta Terms, Third-Party Notices, and the support email. These pages and routes are implemented in the landing application; deployment verification remains external.

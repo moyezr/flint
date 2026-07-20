@@ -67,6 +67,16 @@ export default function BetaGuidePage() {
           </p>
         </section>
 
+        <section className="mt-14 border-t border-line pt-9" aria-labelledby="uninstall-heading">
+          <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="uninstall-heading">Remove Flint and its models</h2>
+          <p className="mt-4 leading-[1.7] text-muted">
+            Before removing the app, open Flint from the menu bar, choose Privacy, then select Uninstall Flint. Flint deletes downloaded speech models and its other local data, disables Launch at Login, moves Flint.app to Trash, and quits.
+          </p>
+          <p className="mt-4 leading-[1.7] text-muted">
+            Dragging Flint.app directly to Trash cannot notify the running app or remove its files from your Library folder. If you already removed Flint manually, open Finder → Go → Go to Folder and enter <code className="font-mono text-sm text-ink">~/Library/Application Support/Flint</code>, then move that Flint folder to Trash to reclaim the model space.
+          </p>
+        </section>
+
         <section className="mt-14 border-t border-line pt-9" aria-labelledby="release-heading">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="release-heading">What is in {release.version}</h2>
           <ul className="mt-5 grid gap-3 pl-5 leading-[1.7] text-muted">
