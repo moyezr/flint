@@ -16,7 +16,7 @@ describe("calculateTypingEconomics", () => {
     assert.equal(result.gapPercent, 0);
   });
 
-  it("calculates every savings step for a slower 15-second run", () => {
+  it("calculates the time and value estimates for a slower 15-second run", () => {
     const result = calculateTypingEconomics({
       charactersTyped: 30,
       completedEarly: false,
@@ -29,7 +29,6 @@ describe("calculateTypingEconomics", () => {
     assert.ok(Math.abs(result.weeklyHours - 4.0769230769) < 0.000001);
     assert.ok(Math.abs(result.weeklyValue - 81.5384615385) < 0.000001);
     assert.ok(Math.abs(result.monthlyValue - 353.3333333333) < 0.000001);
-    assert.ok(Math.abs(result.paybackMinutes - 91.9811320755) < 0.000001);
   });
 
   it("does not estimate a run with fewer than 15 characters", () => {

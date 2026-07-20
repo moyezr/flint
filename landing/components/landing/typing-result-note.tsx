@@ -2,7 +2,7 @@
 
 import { useTypingEconomics } from "./typing-economics-provider";
 
-export function TypingPaybackNote() {
+export function TypingResultNote() {
   const { result } = useTypingEconomics();
 
   if (!result || result.kind === "insufficient") {
@@ -19,7 +19,7 @@ export function TypingPaybackNote() {
 
   return (
     <p className="-mt-5 mb-8 border-l-2 border-signal pl-3 text-[13px] leading-[1.55] text-muted">
-      Based on your test: pays for itself in about <span className="font-mono tabular-nums text-ink">{Math.round(result.paybackMinutes)} minutes</span> of typing.
+      Based on your test: about <span className="font-mono tabular-nums text-ink">${Math.round(result.monthlyValue).toLocaleString("en-US")}/month</span> in typing time, assuming one hour a day, five days a week, at a conservative <span className="font-mono tabular-nums text-ink">$20/hour</span>.
     </p>
   );
 }

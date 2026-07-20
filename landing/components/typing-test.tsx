@@ -7,7 +7,6 @@ import {
   ASSUMED_TYPING_DAYS_PER_WEEK,
   ASSUMED_TYPING_HOURS_PER_DAY,
   CONSERVATIVE_HOURLY_RATE,
-  ONE_TIME_PRICE,
   SPEAKING_PACE_WPM,
   TYPING_TEST_SECONDS,
   calculateTypingEconomics,
@@ -215,86 +214,85 @@ function TypingResultReveal({
 
   return (
     <div className="mx-auto mt-9 max-w-[920px] border-t border-typing-line pt-7" role="status">
-      <div className="flex items-start justify-between gap-6 max-[620px]:flex-col max-[620px]:gap-2">
+      <div>
+        <p className="font-mono text-[11px] font-semibold text-signal">YOUR RESULT</p>
+        <p className="mt-2 mb-0 text-[14px] leading-[1.55] text-typing-muted">
+          <span className="font-mono tabular-nums text-paper">{accuracy}% accuracy</span> over <span className="font-mono tabular-nums text-paper">{formatNumber(elapsed, 1)} seconds</span>{completedEarly ? ", with the passage completed before the timer" : ""}.
+        </p>
+      </div>
+
+      <div className="mt-8 grid max-w-[650px] grid-cols-2 gap-8 max-[520px]:gap-5">
         <div>
-          <p className="font-mono text-[11px] font-semibold text-signal">YOUR RESULT</p>
-          <p className="mt-2 mb-0 text-[14px] leading-[1.55] text-typing-muted">
-            <span className="font-mono tabular-nums text-paper">{accuracy}% accuracy</span> over <span className="font-mono tabular-nums text-paper">{formatNumber(elapsed, 1)} seconds</span>{completedEarly ? ", with the passage completed before the timer" : ""}.
+          <p className="font-mono text-[10px] font-semibold text-demo-muted">YOUR PACE</p>
+          <p className="mt-2 mb-0 font-mono text-[42px] leading-none text-paper tabular-nums max-[520px]:text-[34px]">
+            {formatWpm(result.wpm)} <span className="text-[13px] text-typing-muted">WPM</span>
           </p>
         </div>
+        <div className="border-l border-typing-line pl-8 max-[520px]:pl-5">
+          <p className="font-mono text-[10px] font-semibold text-demo-muted">FLINT&apos;S PACE</p>
+          <p className="mt-2 mb-0 font-mono text-[42px] leading-none text-signal tabular-nums max-[520px]:text-[34px]">
+            ~{SPEAKING_PACE_WPM} <span className="text-[13px] text-typing-muted">WPM</span>
+          </p>
+          <p className="mt-2 mb-0 text-[12px] leading-[1.45] text-demo-muted">Roughly natural speaking pace.</p>
+        </div>
+      </div>
+
+      <ResultSummary result={result} />
+      <CalculationDetails result={result} />
+
+      <div className="mt-8 flex items-center justify-between gap-6 border-t border-typing-line pt-6 max-[620px]:flex-col max-[620px]:items-start">
+        <p className="m-0 max-w-[620px] text-[15px] leading-[1.65] text-typing-muted">
+          Flint is free to try during early access. You can compare it with your current pace without making a purchase.
+        </p>
         <a
-          className="inline-flex min-h-11 shrink-0 items-center border border-signal px-4 font-mono text-[11px] font-semibold text-signal transition-colors hover:bg-signal hover:text-paper"
-          href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20early%20access"
+          className="inline-flex min-h-11 shrink-0 items-center bg-signal px-5 font-mono text-[11px] font-semibold text-paper transition-colors hover:bg-paper hover:text-ink"
+          href="#download"
         >
-          EMAIL ABOUT FLINT ↗
+          TRY FLINT FREE ↓
         </a>
       </div>
-
-      <div className="mt-7 grid grid-cols-3 border-t border-l border-typing-line max-[760px]:grid-cols-1">
-        <CalculationStep label="1 / YOUR PACE" equation={wpmEquation(result)}>
-          You type about <Metric>{formatWpm(result.wpm)} WPM</Metric>.
-        </CalculationStep>
-        <CalculationStep label="2 / SPEECH COMPARISON" equation={`comparison pace = ~${SPEAKING_PACE_WPM} WPM`}>
-          Flint is compared with <Metric>~{SPEAKING_PACE_WPM} WPM</Metric>, roughly a natural speaking pace.
-        </CalculationStep>
-        <CalculationStep label="3 / THE GAP" equation={gapEquation(result)}>
-          The calculated pace gap is <Metric>{formatNumber(result.gapPercent, 1)}%</Metric>.
-        </CalculationStep>
-      </div>
-
-      {result.kind === "no-gap" ? <NoGapSummary result={result} /> : <SavingsSummary result={result} />}
     </div>
   );
 }
 
-function CalculationStep({ children, equation, label }: { children: React.ReactNode; equation: string; label: string }) {
-  return (
-    <div className="border-r border-b border-typing-line p-5">
-      <p className="font-mono text-[10px] font-semibold text-demo-muted">{label}</p>
-      <p className="mt-3 mb-0 text-[14px] leading-[1.55] text-typing-muted">{children}</p>
-      <p className="mt-4 mb-0 font-mono text-[11px] leading-[1.55] text-paper tabular-nums">{equation}</p>
-    </div>
-  );
-}
-
-function SavingsSummary({ result }: { result: SavingsTypingResult }) {
-  return (
-    <div className="mt-7 grid grid-cols-[1fr_1fr_1.1fr] border-t border-l border-typing-line max-[760px]:grid-cols-1">
-      <CalculationStep
-        label="4 / TIME IN A WEEK"
-        equation={`${ASSUMED_TYPING_HOURS_PER_DAY} hour/day × ${ASSUMED_TYPING_DAYS_PER_WEEK} days × ${formatNumber(result.gapPercent, 1)}% = ${formatNumber(result.weeklyHours, 2)} hours/week`}
-      >
-        Assuming an hour of typing a day, five days a week.
-      </CalculationStep>
-      <CalculationStep
-        label="5 / VALUE AT A CONSERVATIVE RATE"
-        equation={`${formatNumber(result.weeklyHours, 2)} hours × $${CONSERVATIVE_HOURLY_RATE} = $${formatMoney(result.weeklyValue)}/week; × 52 ÷ 12 = $${formatMoney(result.monthlyValue)}/month`}
-      >
-        About <Metric>${formatMoney(result.monthlyValue)} a month</Metric>, or <Metric>${formatMoney(result.weeklyValue)} a week</Metric>, using a conservative <Metric>${CONSERVATIVE_HOURLY_RATE}/hour</Metric> rather than your actual rate.
-      </CalculationStep>
-      <CalculationStep
-        label="6 / ONE-TIME PRICE"
-        equation={`($${ONE_TIME_PRICE} ÷ (${formatNumber(result.gap, 3)} × $${CONSERVATIVE_HOURLY_RATE}/hour)) × 60 = ${Math.round(result.paybackMinutes)} minutes`}
-      >
-        The one-time <Metric>${ONE_TIME_PRICE}</Metric> pays for itself in about <Metric>{Math.round(result.paybackMinutes)} minutes</Metric> of typing at your pace.
-      </CalculationStep>
-    </div>
-  );
-}
-
-function NoGapSummary({ result }: { result: NoGapTypingResult }) {
-  return (
-    <div className="mt-7 border border-typing-line p-5">
-      <p className="font-mono text-[10px] font-semibold text-demo-muted">WHAT THAT MEANS</p>
-      <p className="mt-3 mb-0 max-w-[720px] text-[15px] leading-[1.65] text-typing-muted">
-        At <Metric>{formatWpm(result.wpm)} WPM</Metric>, dictation is unlikely to save you much typing time against this comparison. It can still offer a hands-free way to write.
+function ResultSummary({ result }: { result: NoGapTypingResult | SavingsTypingResult }) {
+  if (result.kind === "no-gap") {
+    return (
+      <p className="mt-8 mb-0 max-w-[780px] text-[17px] leading-[1.7] text-typing-muted">
+        That leaves no measured pace gap against the <Metric>~{SPEAKING_PACE_WPM} WPM</Metric> comparison. Dictation is unlikely to save much typing time at this pace, though it can still provide a hands-free way to write.
       </p>
-    </div>
+    );
+  }
+
+  return (
+    <p className="mt-8 mb-0 max-w-[820px] text-[17px] leading-[1.7] text-typing-muted">
+      That is a <Metric>{formatNumber(result.gapPercent, 1)}% gap</Metric>. Assuming one hour of typing a day, five days a week, it adds up to about <Metric>${formatMoney(result.monthlyValue)} a month</Metric> in time—using a conservative <Metric>${CONSERVATIVE_HOURLY_RATE}/hour</Metric>, not your actual rate.
+    </p>
   );
 }
 
 function Metric({ children }: { children: React.ReactNode }) {
   return <span className="font-mono text-paper tabular-nums">{children}</span>;
+}
+
+function CalculationDetails({ result }: { result: NoGapTypingResult | SavingsTypingResult }) {
+  return (
+    <details className="mt-6 max-w-[820px] border-t border-typing-line pt-4 text-typing-muted">
+      <summary className="cursor-pointer font-mono text-[11px] font-semibold text-demo-muted hover:text-paper">
+        SEE HOW THIS IS CALCULATED
+      </summary>
+      <div className="mt-4 grid gap-3 font-mono text-[11px] leading-[1.6] text-typing-muted tabular-nums">
+        <p className="m-0"><span className="text-demo-muted">Typing pace:</span> {wpmEquation(result)}</p>
+        <p className="m-0"><span className="text-demo-muted">Pace gap:</span> {gapEquation(result)}</p>
+        {result.kind === "savings" ? (
+          <>
+            <p className="m-0"><span className="text-demo-muted">Weekly time:</span> {ASSUMED_TYPING_HOURS_PER_DAY} hour/day × {ASSUMED_TYPING_DAYS_PER_WEEK} days × {formatNumber(result.gapPercent, 1)}% = {formatNumber(result.weeklyHours, 2)} hours/week</p>
+            <p className="m-0"><span className="text-demo-muted">Time value:</span> {formatNumber(result.weeklyHours, 2)} hours × ${CONSERVATIVE_HOURLY_RATE} = ${formatMoney(result.weeklyValue)}/week; × 52 ÷ 12 = ${formatMoney(result.monthlyValue)}/month</p>
+          </>
+        ) : null}
+      </div>
+    </details>
+  );
 }
 
 function wpmEquation(result: NoGapTypingResult | SavingsTypingResult) {

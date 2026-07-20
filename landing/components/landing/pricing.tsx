@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BetaDownloadForm } from "./beta-download-form";
 import { SectionHeading } from "./section-heading";
-import { TypingPaybackNote } from "./typing-payback-note";
+import { TypingResultNote } from "./typing-result-note";
 
 const planDetails = [
   "Local transcription on your Mac",
@@ -32,8 +32,8 @@ export function BetaDownload() {
         </div>
         <div className="min-h-[520px] border border-signal bg-paper p-7 max-[520px]:min-h-0">
           <p className="mb-8 font-mono text-[11px] font-semibold tabular-nums">FLINT FOR MAC / 0.1 BETA</p>
-          <p className={`${spaceGrotesk.className} mb-8 text-[52px] font-bold text-signal max-[520px]:text-[42px]`}>FREE BETA</p>
-          <TypingPaybackNote />
+          <p className={`${spaceGrotesk.className} mb-8 text-[48px] leading-[0.98] font-bold text-signal max-[520px]:text-[39px]`}>FREE DURING EARLY ACCESS</p>
+          <TypingResultNote />
           <BetaDownloadForm />
           <ul className="m-0 list-none border-t border-[color-mix(in_srgb,var(--color-signal)_50%,var(--color-line))] p-0">
             {planDetails.map((detail) => <li className="border-b border-line py-3 text-[15px]" key={detail}>{detail}</li>)}

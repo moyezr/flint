@@ -4,7 +4,6 @@ export const SPEAKING_PACE_WPM = 130;
 export const ASSUMED_TYPING_HOURS_PER_DAY = 1;
 export const ASSUMED_TYPING_DAYS_PER_WEEK = 5;
 export const CONSERVATIVE_HOURLY_RATE = 20;
-export const ONE_TIME_PRICE = 25;
 
 interface TypingEconomicsInput {
   charactersTyped: number;
@@ -35,7 +34,6 @@ export interface SavingsTypingResult extends MeasuredTypingResult {
   gap: number;
   gapPercent: number;
   monthlyValue: number;
-  paybackMinutes: number;
   weeklyHours: number;
   weeklyValue: number;
 }
@@ -79,7 +77,6 @@ export function calculateTypingEconomics({
   const weeklyHours = ASSUMED_TYPING_HOURS_PER_DAY * ASSUMED_TYPING_DAYS_PER_WEEK * gap;
   const weeklyValue = weeklyHours * CONSERVATIVE_HOURLY_RATE;
   const monthlyValue = weeklyValue * 52 / 12;
-  const paybackMinutes = (ONE_TIME_PRICE / (gap * CONSERVATIVE_HOURLY_RATE)) * 60;
 
   return {
     kind: "savings",
@@ -89,7 +86,6 @@ export function calculateTypingEconomics({
     gap,
     gapPercent: gap * 100,
     monthlyValue,
-    paybackMinutes,
     weeklyHours,
     weeklyValue,
   };
