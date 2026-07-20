@@ -60,6 +60,7 @@ struct PrivacyManager {
     private let licenseDeviceIdentityStore: LicenseDeviceIdentityStore
     private let permissionSnapshotProvider: () -> PermissionSnapshot
     private let settingsLocation: String
+    private let launchAtLoginController: LaunchAtLoginController
 
     init(
         settingsStore: AppSettingsStore = AppSettingsStore(),
@@ -73,6 +74,7 @@ struct PrivacyManager {
         licenseLeaseStore: LicenseLeaseStore = LicenseLeaseStore(),
         licenseDeviceIdentityStore: LicenseDeviceIdentityStore = LicenseDeviceIdentityStore(),
         permissionSnapshotProvider: @escaping () -> PermissionSnapshot = { PermissionManager().snapshot() },
+        launchAtLoginController: LaunchAtLoginController = .live,
         settingsLocation: String = PrivacyManager.defaultSettingsLocation()
     ) {
         self.settingsStore = settingsStore
@@ -86,6 +88,7 @@ struct PrivacyManager {
         self.licenseLeaseStore = licenseLeaseStore
         self.licenseDeviceIdentityStore = licenseDeviceIdentityStore
         self.permissionSnapshotProvider = permissionSnapshotProvider
+        self.launchAtLoginController = launchAtLoginController
         self.settingsLocation = settingsLocation
     }
 
@@ -270,6 +273,7 @@ struct PrivacyManager {
         }
         try await learningStore?.deleteDatabaseFiles()
         await learningMetrics?.reset()
+        _ = try launchAtLoginController.setEnabled(false)
         settingsStore.removePersistedSettings()
         dictionaryEngine.removeAllCustomReplacements()
 

@@ -2,7 +2,7 @@
 
 This is the first file an agent should read before changing Flint. It records the current product behavior, architectural boundaries, local workflows, and release state that are easy to lose between sessions.
 
-Last reconciled with `main` on 2026-07-17.
+Last reconciled with the working tree on 2026-07-20.
 
 ## Product North Star
 
@@ -16,7 +16,7 @@ The dictation loop is the product. Recording must start promptly, the app must r
 
 Core promises:
 
-- macOS 14 or newer; menu bar app with no Dock icon.
+- The current direct beta is ARM64-only for Apple Silicon Macs running macOS 14 or newer; the app remains a menu bar utility with no Dock icon.
 - Audio and transcript processing stay on the Mac. Whisper models may require a network download before first use, and paid builds use the network for activation/occasional renewal, but dictation itself is local.
 - No account is required for dictation beyond the one-time license activation planned for paid builds.
 - Free public beta through a direct `.dmg`; the later paid release is planned as a one-time purchase, not a subscription.
@@ -103,7 +103,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 268 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing lint/build succeed.
+Current verified baseline: 274 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing lint/build succeed.
 
 ## Native App Architecture
 
@@ -116,7 +116,7 @@ Current verified baseline: 268 Swift tests pass, two desktop Accessibility probe
 5. `DictionaryEngine` applies the immutable `MemorySnapshot` plus built-in developer vocabulary.
 6. `CleanupEngine` applies the selected mode and explicit formatting preferences.
 7. `DictationOutputPolicy` rejects empty output.
-8. `TextInsertionEngine` inserts once through the safe fallback chain.
+8. With Auto Insert enabled, `TextInsertionEngine` inserts once through the safe fallback chain. With it disabled, Flint copies once and makes no AX or paste mutation attempt.
 9. The result is placed in the memory-only recent buffer; optional metrics, history, and usage-count writes happen afterward.
 10. The temporary recording is deleted.
 
@@ -130,6 +130,7 @@ Important files:
 - `ModelPreparationLifecycle.swift`: generation-based preparation/retry state. A preparation failure must be recoverable by the next shortcut press; never require a process restart.
 - `CleanupEngine.swift`: Verbatim, Clean, Polished, Prompt, Message, and Email modes.
 - `TextInsertion.swift`: AX insertion, rich-composer protections, paste fallback, and clipboard restoration.
+- `LaunchAtLogin.swift`: installed-app-only `SMAppService.mainApp` registration and approval state. `swift run` cannot register a login item.
 - `OverlayWindow.swift`: notch geometry, window motion, state accessories, and audio visualization.
 - `SettingsWindow.swift`, `OnboardingWindow.swift`, `PrivacyWindow.swift`: user-facing configuration and data controls.
 - `HistoryStore.swift` and `AppModeRuleStore.swift`: history and app-mode rules in the same SQLite database.
@@ -219,7 +220,7 @@ The native production license flow targets `https://flint.moyezrabbani.dev/api/l
 - One active Mac is allowed. A replacement Mac requires purchaser confirmation by email before the old activation is revoked.
 - `FlintLicenseEnforcement` is deliberately `false` in `Distribution/Info.plist` until the production service is deployed and verified.
 
-The current free beta does not require activation. The website records beta download emails in PostgreSQL, issues short-lived one-time redirect tokens, and sends the browser to the immutable versioned DMG currently deployed from `landing/public/downloads`. Optional product-email consent is stored separately from required beta-access consent. Move future binary storage to a public object/release host before repeated releases make Git history expensive.
+The current free beta does not require activation. The website records beta download emails and versioned beta-terms acceptance in PostgreSQL, applies short-lived HMAC-pseudonymized rate limits, issues short-lived one-time redirect tokens, and sends the browser to the immutable ARM64 DMG currently deployed from `landing/public/downloads`. Optional product-email consent is stored separately from required beta-access/terms consent. Move future binary storage to a public object/release host before repeated releases make Git history expensive.
 
 Packaged builds fetch `https://flint.moyezrabbani.dev/api/releases/latest` at most once per 24 hours. A successful newer-version response adds a dot to the menu-bar mark and changes `Check for Updates` into a download action. Checks time out quickly, do not run for `swift run`, and never block dictation. During the unnotarized beta, installation remains user-confirmed through the website; a Sparkle-style in-place updater is deferred until releases can be Developer ID signed.
 
@@ -232,7 +233,9 @@ Landing-specific behavior:
 - Smooth scrolling is enabled, with reduced-motion fallback.
 - Navbar and hero download actions link to `#download`; the typing-test target still uses `scroll-mt-[calc(50svh-204px)]` to approximately center the component.
 - Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, per-letter green/red feedback, WPM, and accuracy.
-- `POST /api/beta-signups` stores a normalized email and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export collected emails as CSV.
+- `POST /api/beta-signups` requires current beta-terms acceptance, stores a normalized email, enforces short-lived database-backed abuse limits, and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export collected emails as CSV.
+- `/privacy`, `/terms`, `/third-party-notices`, `/support`, and `/beta` are the public legal/support/install surfaces. `moyezrabbani.work@gmail.com` is the intentionally simple support contact.
+- Global response security headers are configured in `next.config.ts`. Run `npm run landing:production:verify` after deployment; run `npm run landing:db:backup` only with an explicit private backup directory.
 
 ## Testing Expectations
 
@@ -279,16 +282,16 @@ Never describe the ad-hoc beta as signed/notarized or Apple-verified. Never modi
 
 These are the material remaining items as of the date at the top of this file:
 
-1. Complete the manual cross-app/macOS/hardware compatibility and reliability matrix, including ChatGPT, browsers, rich editors, code editors, terminals, sleep/wake, target switching, silence, long dictation, permission revocation, and repeated shortcut cycles.
-2. Obtain a Developer ID Application certificate and notarytool profile; produce, notarize, staple, install, and exercise a release DMG on a clean standard account/Mac.
-3. Keep the landing/beta service deployed with production PostgreSQL, HTTPS, migrations, backups, monitoring, and abuse controls. Run the disposable beta download verifier against production after each deployment.
+1. Complete the remaining Apple Silicon manual reliability evidence: a clean-standard-user onboarding pass, a 10–15 minute dictation, silence, permission revocation, model interruption/corruption/low-disk recovery, target switching, and recorded exact-once/clipboard checks. Ordinary browser use and sleep/wake have developer smoke coverage but the formal matrix remains incomplete.
+2. The free beta may remain transparently ad-hoc signed and unnotarized because no Apple Developer Program membership is available. Developer ID signing/notarization remains a later paid/lower-friction release gate, not a claim for the current beta.
+3. Deploy migration `0003`, the hardened landing build, and the ARM64 release metadata with production PostgreSQL, HTTPS, backups, monitoring, and abuse controls. Run both production verifiers and one restore drill against real infrastructure.
 4. Payment selection, commerce fulfillment, and license activation are deliberately deferred until the free beta has validated retention and a paid release is chosen.
 5. Enable `FlintLicenseEnforcement` only after the deployed API and a real beta key pass activation/renewal/offline tests.
 6. Replace the beta manifest/download prompt with a signed in-place updater only after Developer ID signing is available; the current daily manifest check is the safe unnotarized-beta path.
-7. Replace remaining placeholder product media and verify responsive/accessibility/SEO behavior on production.
-8. Publish privacy policy, EULA/license terms, refund terms, third-party notices, installation/Gatekeeper instructions, release notes/checksum, and a durable support contact.
-9. Decide whether to implement or remove currently persisted-but-unused `launchAtLogin`, `showOverlay`, and `autoInsert` settings. URL-pattern app rules are stored but intentionally cannot match until safe URL detection exists.
-10. Run a release-candidate onboarding pass on clean Intel and Apple Silicon Macs: permissions, model download/interruption/corruption/low-disk recovery, first shortcut during model preparation, offline use after preparation, CPU/memory/thermal behavior, and long/silent recordings.
+7. Replace remaining placeholder product media when the developer supplies the launch assets, then verify responsive/accessibility/SEO behavior on production.
+8. The Privacy Policy, Public Beta Terms, Third-Party Notices, support page/email, Gatekeeper instructions, release notes, and checksum are implemented. Before accepting payment, obtain jurisdiction-specific review and publish separate purchase/refund terms.
+9. `launchAtLogin` and `autoInsert` are implemented and user-facing. `showOverlay` remains persisted but unused; hiding the overlay would also remove listening/error feedback and Fix/Teach actions, so remove it or define a safe reduced-feedback experience before exposing it. URL-pattern app rules remain unable to match until safe URL detection exists.
+10. Intel is not in the current beta scope because the published DMG is a thin ARM64 executable. Do not advertise Intel support unless a universal build and physical qualification become available.
 
 Classifier/Accessibility research and pronunciation adaptation are post-launch product gates, not blockers for shipping explicit personalization. Do not market accent learning before Gate B has been deliberately funded and implemented.
 

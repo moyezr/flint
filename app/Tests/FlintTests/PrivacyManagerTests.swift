@@ -176,6 +176,22 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertEqual(try licenseManager.load(), .inactive)
     }
 
+    func testDeleteAllLocalDataUnregistersLaunchAtLogin() async throws {
+        var requestedValues: [Bool] = []
+        let controller = LaunchAtLoginController(
+            statusProvider: { .enabled },
+            updateHandler: { enabled in
+                requestedValues.append(enabled)
+                return enabled ? .enabled : .disabled
+            }
+        )
+        let manager = makePrivacyManager(launchAtLoginController: controller)
+
+        try await manager.deleteAllLocalData()
+
+        XCTAssertEqual(requestedValues, [false])
+    }
+
     func testDeleteAllLocalDataFailsBeforeClearingAnythingWhenLicenseClearFails() async throws {
         var settings = AppSettings.default
         settings.cleanupMode = .email
@@ -272,7 +288,11 @@ final class PrivacyManagerTests: XCTestCase {
         modelManager: ModelManager? = nil,
         licenseManager: LicenseManager? = nil,
         learningStore: LearningStore? = nil,
-        permissionSnapshot: PermissionSnapshot = PermissionSnapshot(statuses: [])
+        permissionSnapshot: PermissionSnapshot = PermissionSnapshot(statuses: []),
+        launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController(
+            statusProvider: { .disabled },
+            updateHandler: { $0 ? .enabled : .disabled }
+        )
     ) -> PrivacyManager {
         PrivacyManager(
             settingsStore: AppSettingsStore(defaults: defaults),
@@ -283,6 +303,7 @@ final class PrivacyManagerTests: XCTestCase {
             appModeRuleStore: AppModeRuleStore(databaseURL: historyDatabaseURL),
             licenseManager: licenseManager ?? self.licenseManager,
             permissionSnapshotProvider: { permissionSnapshot },
+            launchAtLoginController: launchAtLoginController,
             settingsLocation: "Test UserDefaults \(suiteName!)"
         )
     }

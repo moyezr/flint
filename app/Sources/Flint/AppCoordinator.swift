@@ -1163,9 +1163,12 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 return
             }
 
-            overlay.show(state: .inserting)
-            let result = await textInsertionEngine.insert(
+            if appliedSettings.autoInsert {
+                overlay.show(state: .inserting)
+            }
+            let result = await textInsertionEngine.deliver(
                 usableTranscript,
+                autoInsert: appliedSettings.autoInsert,
                 preferredTarget: focusedStartInsertionTarget,
                 targetBehavior: insertionTargetBehavior
             )

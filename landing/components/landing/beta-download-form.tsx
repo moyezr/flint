@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useRef, useState } from "react";
+import Link from "next/link";
 
 type SubmissionState = "idle" | "submitting" | "error";
 
@@ -8,6 +9,7 @@ export function BetaDownloadForm() {
   const startedAt = useRef<number | null>(null);
   const [email, setEmail] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
 
@@ -31,6 +33,7 @@ export function BetaDownloadForm() {
           source: "landing-download",
           website: form.get("website")?.toString() ?? "",
           startedAt: startedAt.current ?? Date.now() - 1_000,
+          acceptedTerms,
         }),
       });
       const body = (await response.json()) as { downloadURL?: string; error?: string };
@@ -89,6 +92,22 @@ export function BetaDownloadForm() {
         />
         <span>Email me occasional Flint product updates. This is optional.</span>
       </label>
+
+      <div className="flex items-start gap-3 text-[13px] leading-[1.45] text-muted">
+        <input
+          checked={acceptedTerms}
+          className="mt-1 size-4 accent-signal"
+          disabled={submissionState === "submitting"}
+          id="beta-terms"
+          onChange={(event) => setAcceptedTerms(event.target.checked)}
+          required
+          type="checkbox"
+        />
+        <span>
+          <label className="cursor-pointer" htmlFor="beta-terms">I agree to the free public beta</label>{" "}
+          <Link className="border-b border-current text-ink" href="/terms">terms</Link>.
+        </span>
+      </div>
 
       <button
         className="inline-flex min-h-12 items-center justify-center bg-signal px-5 font-mono text-[12px] font-semibold text-paper tabular-nums transition-colors hover:bg-ink disabled:cursor-wait disabled:opacity-70"

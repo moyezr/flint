@@ -15,7 +15,14 @@ export async function POST(request: Request) {
     if (!signature) {
       throw new LicenseApiError(401, "MISSING_SIGNATURE", "A webhook signature is required.");
     }
+    const declaredLength = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > 64 * 1_024) {
+      throw new LicenseApiError(413, "PAYLOAD_TOO_LARGE", "The webhook payload is too large.");
+    }
     const body = await request.text();
+    if (Buffer.byteLength(body, "utf8") > 64 * 1_024) {
+      throw new LicenseApiError(413, "PAYLOAD_TOO_LARGE", "The webhook payload is too large.");
+    }
     const expected = createHmac("sha256", commerceWebhookSecret()).update(body).digest("hex");
     if (!safeEqualHex(signature, expected)) {
       throw new LicenseApiError(401, "INVALID_SIGNATURE", "The webhook signature is not valid.");

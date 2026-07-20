@@ -2,7 +2,7 @@
 
 Native macOS dictation utility prototype.
 
-Requires macOS 14 or newer for the current WhisperKit-backed prototype.
+Requires an Apple Silicon Mac with macOS 14 or newer for the current direct beta. The current DMG is ARM64-only; Intel support is not advertised or qualified.
 
 For the current direct-download beta release path, see
 [DIRECT_BETA_RELEASE.md](./DIRECT_BETA_RELEASE.md). It produces an ad-hoc-signed

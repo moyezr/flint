@@ -78,6 +78,16 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(store.load().storeHistory)
     }
 
+    func testStartupAndDeliveryPreferencesPersistIndependently() {
+        let store = AppSettingsStore(defaults: defaults)
+
+        store.saveLaunchAtLogin(true)
+        store.saveAutoInsert(false)
+
+        XCTAssertTrue(store.load().launchAtLogin)
+        XCTAssertFalse(store.load().autoInsert)
+    }
+
     func testAppAwareModesCanBeToggledIndependentlyAndDefaultsOff() {
         let store = AppSettingsStore(defaults: defaults)
 

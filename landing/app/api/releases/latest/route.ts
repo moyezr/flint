@@ -12,6 +12,7 @@ export function GET() {
       build: release.build,
       publishedAt: release.publishedAt,
       minimumSystemVersion: release.minimumSystemVersion,
+      supportedArchitectures: release.supportedArchitectures,
       downloadURL: release.downloadPageURL,
       sha256: release.sha256,
       notes: release.notes,

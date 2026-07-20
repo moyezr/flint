@@ -212,6 +212,14 @@ struct AppSettingsStore {
         defaults.set(storeHistory, forKey: Key.storeHistory)
     }
 
+    func saveLaunchAtLogin(_ launchAtLogin: Bool) {
+        defaults.set(launchAtLogin, forKey: Key.launchAtLogin)
+    }
+
+    func saveAutoInsert(_ autoInsert: Bool) {
+        defaults.set(autoInsert, forKey: Key.autoInsert)
+    }
+
     func savePlayStartSound(_ playStartSound: Bool) {
         defaults.set(playStartSound, forKey: Key.playStartSound)
     }

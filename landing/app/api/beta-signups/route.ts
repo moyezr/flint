@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createBetaDownload } from "@/app/lib/beta/service";
+import { readJSONBody, RequestBodyError } from "@/app/lib/security/request";
+import {
+  enforceRateLimits,
+  RateLimitExceededError,
+  requestClientAddress,
+} from "@/app/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,6 +17,7 @@ const signupSchema = z.object({
   source: z.string().trim().min(1).max(80).default("landing"),
   website: z.string().max(0).default(""),
   startedAt: z.number().int().positive(),
+  acceptedTerms: z.literal(true),
 });
 
 export async function POST(request: Request) {
@@ -20,7 +27,7 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = await readJSONBody(request);
   } catch {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
@@ -35,6 +42,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    const normalizedEmail = parsed.data.email.trim().toLocaleLowerCase("en-US");
+    await enforceRateLimits([
+      {
+        identifier: `beta-signup-ip:${requestClientAddress(request)}`,
+        maximumRequests: 20,
+        windowSeconds: 15 * 60,
+      },
+      {
+        identifier: `beta-signup-email:${normalizedEmail}`,
+        maximumRequests: 5,
+        windowSeconds: 15 * 60,
+      },
+    ]);
     const token = await createBetaDownload(parsed.data);
     const downloadURL = new URL("/api/beta-download", request.url);
     downloadURL.searchParams.set("token", token);
@@ -44,6 +64,21 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    if (error instanceof RateLimitExceededError) {
+      return NextResponse.json(
+        { error: "Too many download requests. Please wait a few minutes and try again." },
+        {
+          status: 429,
+          headers: {
+            "Cache-Control": "no-store",
+            "Retry-After": error.retryAfterSeconds.toString(),
+          },
+        },
+      );
+    }
+    if (error instanceof RequestBodyError) {
+      return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+    }
     console.error("Flint beta signup failed", error);
     return NextResponse.json(
       { error: "Beta downloads are temporarily unavailable. Please try again shortly." },

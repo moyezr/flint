@@ -25,7 +25,7 @@ export function BetaDownload() {
             description="Enter your email to download the current Mac beta. Flint remains local after its speech model is ready, and beta feedback will guide the paid release."
           />
           <p className="mt-7 text-[13px] leading-[1.6] text-muted">
-            Requires macOS 14 or newer. This early beta is not yet Apple-notarized, so first launch requires a one-time Gatekeeper approval. Read the{" "}
+            Requires an Apple Silicon Mac with macOS 14 or newer. This early beta is not yet Apple-notarized, so first launch requires a one-time Gatekeeper approval. Read the{" "}
             <Link className="border-b border-current text-ink hover:text-signal" href="/beta">installation guide</Link>.
           </p>
         </div>
@@ -38,7 +38,7 @@ export function BetaDownload() {
           </ul>
           <p className="mt-6 mb-0 text-[13px] leading-[1.45] text-muted">
             Your email is used to provide beta access and essential release information. Optional product updates require the checkbox above. See the{" "}
-            <Link className="border-b border-current text-ink hover:text-signal" href="/privacy">privacy policy</Link>.
+            <Link className="border-b border-current text-ink hover:text-signal" href="/privacy">privacy policy</Link> and <Link className="border-b border-current text-ink hover:text-signal" href="/terms">beta terms</Link>.
           </p>
         </div>
       </div>

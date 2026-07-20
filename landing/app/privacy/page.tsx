@@ -41,6 +41,13 @@ export default function PrivacyPage() {
         </section>
 
         <section className="mt-14 border-t border-line pt-9">
+          <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Terms and abuse prevention</h2>
+          <p className="mt-4 leading-[1.7] text-muted">
+            The website stores the version and time of your beta-terms acceptance. To protect the download service, it also keeps short-lived counters keyed by pseudonymous hashes derived from request addresses and email addresses. Raw addresses are not stored in the rate-limit table, and expired counters are deleted automatically.
+          </p>
+        </section>
+
+        <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Update checks</h2>
           <p className="mt-4 leading-[1.7] text-muted">
             Packaged beta builds may make a small request to Flint&apos;s release endpoint at most once per day while internet access is available. The request contains the installed app version through normal HTTP client behavior but contains no audio, transcripts, vocabulary, or corrections. Failed checks are ignored and never prevent dictation.

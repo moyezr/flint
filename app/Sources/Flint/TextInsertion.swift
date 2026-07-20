@@ -92,6 +92,24 @@ struct TextInsertionEngine {
     }
 
     @MainActor
+    func deliver(
+        _ text: String,
+        autoInsert: Bool,
+        preferredTarget: TextInsertionTarget? = nil,
+        targetBehavior: InsertionTargetBehavior = .recordingStart
+    ) async -> TextInsertionResult {
+        guard autoInsert else {
+            copyToClipboard(text)
+            return .copiedToClipboard
+        }
+        return await insert(
+            text,
+            preferredTarget: preferredTarget,
+            targetBehavior: targetBehavior
+        )
+    }
+
+    @MainActor
     func insert(
         _ text: String,
         preferredTarget: TextInsertionTarget? = nil,

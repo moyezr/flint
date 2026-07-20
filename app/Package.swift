@@ -24,6 +24,7 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("ApplicationServices"),
                 .linkedFramework("Security"),
+                .linkedFramework("ServiceManagement"),
                 .linkedLibrary("sqlite3")
             ]
         ),

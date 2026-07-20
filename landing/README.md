@@ -17,12 +17,18 @@ Run `npm run landing:lint` and `npm run landing:build` before publishing. The pr
 
 ## Public beta downloads
 
-The home-page download form stores beta emails in PostgreSQL and returns a short-lived one-time handoff to the current versioned DMG. Apply migrations, verify the flow, and export signups with:
+The home-page download form stores beta emails and versioned terms acceptance in PostgreSQL, applies short-lived pseudonymous abuse limits, and returns a short-lived one-time handoff to the current versioned DMG. Apply migrations, verify the flow, and export signups with:
 
 ```sh
 npm run landing:db:migrate
 FLINT_BETA_TEST_URL=http://127.0.0.1:3000 npm run landing:beta:verify
 npm run landing:beta:export > flint-beta-signups.csv
+```
+
+After deploying, verify the public pages, security headers, and ARM64 release metadata with:
+
+```sh
+FLINT_PRODUCTION_URL=https://flint.moyezrabbani.dev npm run landing:production:verify
 ```
 
 Current release metadata lives in `app/lib/beta/latest-release.ts` and is exposed to packaged Flint builds at `/api/releases/latest`.

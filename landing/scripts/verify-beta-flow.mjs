@@ -17,6 +17,7 @@ try {
       source: "automated-verifier",
       website: "",
       startedAt: Date.now() - 1_000,
+      acceptedTerms: true,
     }),
   });
   const signupBody = await signupResponse.json();

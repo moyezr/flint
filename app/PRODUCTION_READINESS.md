@@ -1,6 +1,6 @@
 # Flint Production Readiness
 
-Flint is currently distributed as a free, unnotarized public beta from the Flint website. The later paid release is intended to be a one-time purchase distributed as a signed, notarized `.dmg`. Dictation does not require an account, cloud transcription, or an ongoing network connection after model preparation.
+Flint is currently distributed as a free, unnotarized, ARM64-only public beta from the Flint website for Apple Silicon Macs running macOS 14 or newer. The later paid release is intended to be a one-time purchase distributed as a signed, notarized `.dmg`. Dictation does not require an account, cloud transcription, or an ongoing network connection after model preparation.
 
 ## Compatibility Matrix
 
@@ -30,6 +30,8 @@ Run the same push-to-talk scenario in each target before paid beta: focus a text
 
 For each result, capture the macOS version, Mac model, selected Flint model tier, target app/version, insertion method observed, and any permission state. A surface is only complete after fresh-launch and repeated-use checks both pass.
 
+The developer reports successful ordinary browser use and sleep/wake recovery on the current Apple Silicon QA Mac. This is useful smoke evidence but does not replace the recorded per-surface matrix. Intel qualification is deferred because the current DMG contains no Intel executable and does not advertise Intel support.
+
 Run `Scripts/compatibility-inventory.sh > qa-compatibility-inventory.md` at the start of each manual matrix run to capture the macOS, hardware, target-app versions, and local availability in a reviewable format.
 
 ### Local QA Inventory
@@ -48,7 +50,15 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Clipboard preservation for text, rich text, files, and multiple clipboard items.
 - Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space. Flint records a payload fingerprint after download, invalidates changed or empty caches, and enables a clean retry when model preparation fails.
 
-## Direct Download Release Gates
+## Free Public Beta Gates
+
+- Package an ad-hoc-signed, ARM64-only, immutable versioned DMG and describe it accurately as not Apple-notarized.
+- Test Gatekeeper approval, permissions, model preparation, dictation, and local-data deletion from a clean standard macOS user account.
+- Complete at least one 10–15 minute dictation test on the supported Apple Silicon QA Mac; do not advertise unlimited recording length.
+- Deploy migrations, production security headers, beta rate limits, legal/support pages, backup policy, monitoring, and both production smoke verifiers.
+- Publish release notes, checksum, installation instructions, Privacy Policy, Public Beta Terms, Third-Party Notices, and the support email. These pages and routes are implemented in the landing application; deployment verification remains external.
+
+## Later Signed/Paid Release Gates
 
 - Run `Scripts/release-preflight.sh` with a Developer ID Application identity. It verifies the release icon, signing tools, and a macOS 14 deployment target before packaging.
 - Produce a stable `.app` bundle with a real bundle identifier, version, Flint icon, and hardened runtime entitlements.
@@ -56,7 +66,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Host a versioned `.dmg` and release notes on the Flint website with SHA-256 checksums.
 - The beta performs one lightweight JSON manifest check at most daily and sends users to the download page when a release is available. Integrate an in-place updater such as Sparkle only after builds are Developer ID signed: signed appcast, EdDSA keys, rollback policy, and update tests from an older signed build.
 - Implement the live one-time license backend: purchase-to-key fulfillment, activation/deactivation policy, offline grace/validation policy, and recovery for a replaced Mac. Dictation must remain available offline after activation.
-- Publish privacy policy, EULA/refund terms, third-party notices, and a support path. Keep crash diagnostics opt-in and never send transcript or audio content.
+- Review the beta terms and future purchase/refund terms for the seller's chosen jurisdiction before accepting payment. Keep crash diagnostics opt-in and never send transcript or audio content.
 
 ## Evidence Required Before Paid Beta
 

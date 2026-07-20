@@ -243,6 +243,49 @@ final class SettingsModelTests: XCTestCase {
         XCTAssertFalse(receivedSettings.last?.addTerminalPunctuation ?? true)
     }
 
+    func testLaunchAtLoginPersistsActualServiceStateAndOffersApprovalSettings() {
+        var serviceStatus = LaunchAtLoginStatus.disabled
+        var openedSettings = false
+        var receivedSettings: [AppSettings] = []
+        let controller = LaunchAtLoginController(
+            statusProvider: { serviceStatus },
+            updateHandler: { enabled in
+                serviceStatus = enabled ? .requiresApproval : .disabled
+                return serviceStatus
+            },
+            openSettingsHandler: { openedSettings = true }
+        )
+        let model = makeModel(
+            onSettingsChanged: { receivedSettings.append($0) },
+            launchAtLoginController: controller
+        )
+
+        model.setLaunchAtLogin(true)
+        model.openLoginItemsSettings()
+
+        XCTAssertTrue(AppSettingsStore(defaults: defaults).load().launchAtLogin)
+        XCTAssertEqual(model.launchAtLoginStatus, .requiresApproval)
+        XCTAssertTrue(receivedSettings.last?.launchAtLogin ?? false)
+        XCTAssertTrue(model.statusMessage.contains("Login Items"))
+        XCTAssertTrue(openedSettings)
+
+        model.setLaunchAtLogin(false)
+
+        XCTAssertFalse(AppSettingsStore(defaults: defaults).load().launchAtLogin)
+        XCTAssertEqual(model.launchAtLoginStatus, .disabled)
+    }
+
+    func testAutoInsertTogglePersistsAndNotifies() {
+        var receivedSettings: [AppSettings] = []
+        let model = makeModel(onSettingsChanged: { receivedSettings.append($0) })
+
+        model.setAutoInsert(false)
+
+        XCTAssertFalse(AppSettingsStore(defaults: defaults).load().autoInsert)
+        XCTAssertFalse(receivedSettings.last?.autoInsert ?? true)
+        XCTAssertEqual(model.statusMessage, "Completed dictations will copy to the clipboard.")
+    }
+
     private func makeModel(
         learningStore: LearningStore? = nil,
         onSettingsChanged: @escaping (AppSettings) -> Void = { _ in },
@@ -251,6 +294,10 @@ final class SettingsModelTests: XCTestCase {
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {},
         onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
+        launchAtLoginController: LaunchAtLoginController = LaunchAtLoginController(
+            statusProvider: { .disabled },
+            updateHandler: { $0 ? .enabled : .disabled }
+        ),
         downloader: @escaping ModelManager.Downloader = { _, _, _ in
             XCTFail("Unexpected production-style download in unit test.")
             return URL(fileURLWithPath: "/unexpected", isDirectory: true)
@@ -271,6 +318,7 @@ final class SettingsModelTests: XCTestCase {
             onShowAppModes: onShowAppModes,
             onShowPrivacy: onShowPrivacy,
             onLearningChanged: onLearningChanged,
+            launchAtLoginController: launchAtLoginController,
             runningApplicationsProvider: { [] }
         )
     }

@@ -5,6 +5,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { database } from "../licenses/database";
 
 const tokenLifetimeMinutes = 15;
+export const currentBetaTermsVersion = "2026-07-20";
 
 export type BetaSignupInput = {
   email: string;
@@ -27,13 +28,17 @@ export async function createBetaDownload(input: BetaSignupInput): Promise<string
         email,
         normalized_email,
         source,
-        marketing_consented_at
+        marketing_consented_at,
+        terms_version,
+        terms_accepted_at
       ) VALUES (
         ${signupID},
         ${input.email.trim()},
         ${normalizedEmail},
         ${input.source},
-        ${input.marketingConsent ? new Date() : null}
+        ${input.marketingConsent ? new Date() : null},
+        ${currentBetaTermsVersion},
+        ${new Date()}
       )
       ON CONFLICT (normalized_email) DO UPDATE SET
         email = EXCLUDED.email,
@@ -43,6 +48,8 @@ export async function createBetaDownload(input: BetaSignupInput): Promise<string
             THEN COALESCE(flint_beta_signups.marketing_consented_at, EXCLUDED.marketing_consented_at)
           ELSE flint_beta_signups.marketing_consented_at
         END,
+        terms_version = EXCLUDED.terms_version,
+        terms_accepted_at = EXCLUDED.terms_accepted_at,
         updated_at = NOW()
       RETURNING id
     `;

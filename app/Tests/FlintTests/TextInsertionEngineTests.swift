@@ -4,6 +4,49 @@ import XCTest
 
 @MainActor
 final class TextInsertionEngineTests: XCTestCase {
+    func testDeliveryCopiesWithoutAnyInsertionAttemptWhenAutoInsertIsOff() async {
+        var copiedText: String?
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: {
+                XCTFail("Focused target must not be queried when Auto Insert is off.")
+                return nil
+            },
+            accessibilityInserter: { _, _ in
+                XCTFail("Accessibility insertion must not run when Auto Insert is off.")
+                return false
+            },
+            pasteFallback: { _ in
+                XCTFail("Paste fallback must not run when Auto Insert is off.")
+                return false
+            },
+            copyToClipboard: { copiedText = $0 }
+        )
+
+        let result = await engine.deliver("dictated text", autoInsert: false)
+
+        XCTAssertEqual(result, .copiedToClipboard)
+        XCTAssertEqual(copiedText, "dictated text")
+    }
+
+    func testDeliveryUsesExistingInsertionChainWhenAutoInsertIsOn() async {
+        let target = TextInsertionTarget(element: AXUIElementCreateSystemWide())
+        var insertedText: String?
+        let engine = TextInsertionEngine(
+            focusedTargetProvider: { target },
+            accessibilityInserter: { _, text in
+                insertedText = text
+                return true
+            },
+            pasteFallback: { _ in false },
+            copyToClipboard: { _ in XCTFail("Copy fallback should not run after successful insertion.") }
+        )
+
+        let result = await engine.deliver("dictated text", autoInsert: true)
+
+        XCTAssertEqual(result, .inserted)
+        XCTAssertEqual(insertedText, "dictated text")
+    }
+
     func testAccessibilityInsertionRequiresAVisibleValueChange() {
         XCTAssertFalse(TextInsertionEngine.didAccessibilityValueChange(from: "before", to: "before"))
         XCTAssertTrue(TextInsertionEngine.didAccessibilityValueChange(from: "before", to: "after"))

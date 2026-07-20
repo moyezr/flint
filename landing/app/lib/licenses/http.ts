@@ -4,11 +4,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { LicenseApiError } from "./errors";
+import { readJSONBody } from "../security/request";
 
 export async function parseRequest<T extends z.ZodType>(request: Request, schema: T): Promise<z.output<T>> {
   let body: unknown;
   try {
-    body = await request.json();
+    body = await readJSONBody(request);
   } catch {
     throw new LicenseApiError(400, "INVALID_JSON", "The request body must be valid JSON.");
   }

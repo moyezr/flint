@@ -80,6 +80,7 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var statusMessage = ""
     @Published private(set) var errorMessage = ""
     @Published private(set) var activeModelOperationTier: ModelTier?
+    @Published private(set) var launchAtLoginStatus: LaunchAtLoginStatus
 
     private let settingsStore: AppSettingsStore
     private let modelManager: ModelManager
@@ -93,6 +94,7 @@ final class SettingsModel: ObservableObject {
     private let onShowPrivacy: () -> Void
     private let onLearningChanged: (MemorySnapshot) -> Void
     private let runningApplicationsProvider: @MainActor () -> [VocabularyApplicationOption]
+    private let launchAtLoginController: LaunchAtLoginController
 
     init(
         settingsStore: AppSettingsStore = AppSettingsStore(),
@@ -106,6 +108,7 @@ final class SettingsModel: ObservableObject {
         onShowAppModes: @escaping () -> Void = {},
         onShowPrivacy: @escaping () -> Void = {},
         onLearningChanged: @escaping (MemorySnapshot) -> Void = { _ in },
+        launchAtLoginController: LaunchAtLoginController = .live,
         runningApplicationsProvider: @escaping @MainActor () -> [VocabularyApplicationOption] = SettingsModel.runningApplications
     ) {
         self.settingsStore = settingsStore
@@ -119,14 +122,20 @@ final class SettingsModel: ObservableObject {
         self.onShowAppModes = onShowAppModes
         self.onShowPrivacy = onShowPrivacy
         self.onLearningChanged = onLearningChanged
+        self.launchAtLoginController = launchAtLoginController
         self.runningApplicationsProvider = runningApplicationsProvider
         settings = settingsStore.load()
+        launchAtLoginStatus = launchAtLoginController.status
         newVocabularyLanguage = settings.language
         refresh()
     }
 
     func refresh() {
         settings = settingsStore.load()
+        launchAtLoginStatus = launchAtLoginController.status
+        if launchAtLoginStatus != .unavailable {
+            settings.launchAtLogin = launchAtLoginStatus.isSelected
+        }
         modelMetadata = modelManager.metadata()
         vocabularyApplications = runningApplicationsProvider()
         if learningStore == nil {
@@ -328,6 +337,30 @@ final class SettingsModel: ObservableObject {
         publishSettingsChange(enabled ? "History storage enabled." : "History storage disabled.")
     }
 
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            launchAtLoginStatus = try launchAtLoginController.setEnabled(enabled)
+            settingsStore.saveLaunchAtLogin(launchAtLoginStatus.isSelected)
+            let message = launchAtLoginStatus == .requiresApproval
+                ? "Allow Flint in System Settings → General → Login Items."
+                : enabled ? "Flint will launch when you log in." : "Launch at Login disabled."
+            publishSettingsChange(message)
+        } catch {
+            refresh()
+            statusMessage = ""
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func openLoginItemsSettings() {
+        launchAtLoginController.openSystemSettings()
+    }
+
+    func setAutoInsert(_ enabled: Bool) {
+        settingsStore.saveAutoInsert(enabled)
+        publishSettingsChange(enabled ? "Completed dictations will insert automatically." : "Completed dictations will copy to the clipboard.")
+    }
+
     func setPlayStartSound(_ enabled: Bool) {
         settingsStore.savePlayStartSound(enabled)
         publishSettingsChange(enabled ? "Start sound enabled." : "Start sound disabled.")
@@ -474,6 +507,45 @@ struct SettingsView: View {
                             Text(behavior.displayName).tag(behavior)
                         }
                     }
+                }
+
+                SettingsSection("Startup & Delivery") {
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle("Launch Flint when I log in", isOn: Binding(
+                                get: { model.settings.launchAtLogin },
+                                set: { model.setLaunchAtLogin($0) }
+                            ))
+                            .toggleStyle(.checkbox)
+                            .disabled(model.launchAtLoginStatus == .unavailable)
+                            Text(model.launchAtLoginStatus == .unavailable
+                                 ? "Available after Flint.app is installed in Applications."
+                                 : "Uses the macOS Login Items setting for this user.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if model.launchAtLoginStatus == .requiresApproval {
+                            Button("Open Login Items") {
+                                model.openLoginItemsSettings()
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .settingsRowBorder()
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Insert completed dictations automatically", isOn: Binding(
+                            get: { model.settings.autoInsert },
+                            set: { model.setAutoInsert($0) }
+                        ))
+                        .toggleStyle(.checkbox)
+                        Text("When off, Flint copies the finished text to the clipboard and does not type or paste into another app.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .settingsRowBorder()
                 }
 
                 SettingsSection("App Modes") {

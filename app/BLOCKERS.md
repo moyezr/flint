@@ -1,24 +1,55 @@
 # Flint Blockers
 
-Items here are known product gaps that need external decisions or credentials before the related requirement can be completed.
+These are the remaining items that require credentials, external systems,
+physical testing, provider configuration, or a product decision. The native
+dictation loop, explicit personalization, release-manifest updater, licensing
+client, and Next.js licensing API are implemented.
 
-## License Activation Backend
+## Free Public Beta
 
-- Requirement: Phase 4 `License activation flow + Keychain storage`
-- Current state: the app has Keychain-backed license storage, a testable activation service, and a License window. The default live activation client returns a deterministic "not configured" error.
-- Blocker: no production licensing backend endpoint, request schema, response schema, or validation policy is defined in the repo yet.
-- Next unblock: choose the licensing provider/backend contract and wire a real HTTP activation client into `LicenseWindowController`.
+### Developer ID and Notarization
 
-## Production Update Infrastructure
+- Current state: direct beta packaging produces an ad-hoc-signed ARM64 DMG with
+  honest Gatekeeper instructions.
+- External blocker: no Apple Developer Program membership, Developer ID
+  Application certificate, or notarytool profile is available.
+- Beta decision: ship transparently without notarization. Revisit Developer ID
+  before a paid or lower-friction release.
 
-- Requirement: Phase 4 `Update system wired up`
-- Current state: the app can detect whether Sparkle-style update metadata is present, but it does not perform update checks.
-- Blocker: production updates require packaged `.app` builds plus Sparkle appcast hosting, release signing, and public EdDSA key configuration.
-- Next unblock: define the release packaging pipeline and Sparkle appcast/signing infrastructure, then wire the production updater.
+### Production Operations
 
-## Direct Download Signing Credentials
+- Current state: the landing app has append-only migrations, beta terms
+  acceptance, database-backed abuse limits, security headers, backup tooling,
+  and production smoke verifiers.
+- External blocker: the deployment provider must be configured with PostgreSQL,
+  encrypted secrets, HTTPS/DNS, automatic backups, alerting, and an uptime
+  monitor. A restore drill and post-deployment beta download verification must
+  be performed against the real services.
 
-- Requirement: signed and notarized `.dmg` distribution from the Flint website.
-- Current state: `Scripts/package-dmg.sh`, `Scripts/notarize-dmg.sh`, and `Scripts/release-preflight.sh` create and validate the intended release path with a macOS 14 deployment target.
-- Blocker: the current login keychain has Apple Development identities only. A Developer ID Application certificate and an App Store Connect notarytool keychain profile are required to sign and notarize a public build.
-- Next unblock: install the Developer ID Application certificate on the release machine, create a notarytool keychain profile, then run the preflight, package, and notarization scripts against a release candidate.
+### Release Qualification
+
+- Current state: ordinary browser use and sleep/wake have developer smoke
+  coverage. The beta is explicitly Apple-Silicon-only because the current DMG
+  contains an ARM64 executable.
+- Remaining manual work: clean-user onboarding, Gatekeeper and permissions,
+  interrupted/corrupt/low-disk model recovery, a 10–15 minute dictation, silent
+  dictation, repeated shortcuts, and a recorded cross-app insertion matrix.
+- Product decision: `showOverlay` remains persisted but intentionally has no UI
+  because hiding the overlay would also hide listening/error feedback and the
+  post-dictation Fix/Teach actions. Remove it or define a safe reduced-feedback
+  experience before exposing it.
+
+### Launch Media
+
+- External owner: final real-product screenshots, workflow capture, social
+  share card, and browser icon exports remain with the developer.
+
+## Later Paid Release
+
+- Select a payment provider and implement verified commerce fulfillment.
+- Deploy and qualify activation, renewal, offline lease, deactivation, and
+  replacement-device transfer with real keys before enabling
+  `FlintLicenseEnforcement`.
+- Add jurisdiction-reviewed paid terms and refund terms before accepting money.
+- Replace the manifest download prompt with a signed in-place updater only
+  after Developer ID signing is available.

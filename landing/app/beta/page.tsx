@@ -21,7 +21,7 @@ export default function BetaGuidePage() {
           Install Flint on your Mac.
         </h1>
         <p className="mt-7 text-lg leading-[1.65] text-muted">
-          Flint currently requires macOS {release.minimumSystemVersion} or newer. The beta is distributed directly and is not yet Apple-notarized.
+          Flint currently requires an Apple Silicon Mac with macOS {release.minimumSystemVersion} or newer. This beta does not include an Intel executable. It is distributed directly and is not yet Apple-notarized.
         </p>
 
         <section className="mt-16 border-t border-line pt-9" aria-labelledby="download-heading">
@@ -63,7 +63,7 @@ export default function BetaGuidePage() {
         </section>
 
         <p className="mt-16 border-t border-line pt-8 text-sm leading-[1.7] text-muted">
-          Need help? Email <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20beta%20support">moyezrabbani.work@gmail.com</a>.
+          Need help? Visit <Link className="border-b border-current text-ink" href="/support">Support</Link> or email <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20beta%20support">moyezrabbani.work@gmail.com</a>.
         </p>
       </article>
     </main>
