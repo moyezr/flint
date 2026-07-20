@@ -203,7 +203,7 @@ function TypingResultReveal({
 }) {
   if (result.kind === "insufficient") {
     return (
-      <div className="mx-auto mt-9 max-w-[830px] border-t border-typing-line pt-7" role="status">
+      <div className="typing-result-reveal mx-auto mt-9 max-w-[830px] border-t border-typing-line pt-7" role="status">
         <p className="font-mono text-[11px] font-semibold text-signal">NOT ENOUGH TEXT FOR AN ESTIMATE</p>
         <p className="mt-3 mb-0 max-w-[620px] text-[15px] leading-[1.65] text-typing-muted">
           This run had <span className="font-mono tabular-nums text-paper">{result.charactersTyped} characters</span>. A useful comparison needs at least <span className="font-mono tabular-nums text-paper">{result.minimumCharacters}</span>. Try another passage and keep typing until the timer ends.
@@ -213,7 +213,7 @@ function TypingResultReveal({
   }
 
   return (
-    <div className="mx-auto mt-9 max-w-[920px] border-t border-typing-line pt-7" role="status">
+    <div className="typing-result-reveal mx-auto mt-9 max-w-[920px] border-t border-typing-line pt-7" role="status">
       <div>
         <p className="font-mono text-[11px] font-semibold text-signal">YOUR RESULT</p>
         <p className="mt-2 mb-0 text-[14px] leading-[1.55] text-typing-muted">
@@ -221,7 +221,7 @@ function TypingResultReveal({
         </p>
       </div>
 
-      <div className="mt-8 grid max-w-[650px] grid-cols-2 gap-8 max-[520px]:gap-5">
+      <div className="typing-result-pace mt-8 grid max-w-[650px] grid-cols-2 gap-8 max-[520px]:gap-5">
         <div>
           <p className="font-mono text-[10px] font-semibold text-demo-muted">YOUR PACE</p>
           <p className="mt-2 mb-0 font-mono text-[42px] leading-none text-paper tabular-nums max-[520px]:text-[34px]">
