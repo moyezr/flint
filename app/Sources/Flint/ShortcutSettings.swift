@@ -3,6 +3,7 @@ import Foundation
 
 enum ShortcutOption: String, CaseIterable {
     case rightOption
+    case fn
     case controlSpace
     case commandShiftSpace
 
@@ -10,6 +11,8 @@ enum ShortcutOption: String, CaseIterable {
         switch self {
         case .rightOption:
             return "Right Option"
+        case .fn:
+            return "Fn"
         case .controlSpace:
             return "Control+Space"
         case .commandShiftSpace:
@@ -93,6 +96,7 @@ struct ShortcutModifiers: OptionSet, Equatable {
     static let command = ShortcutModifiers(rawValue: 1 << 1)
     static let shift = ShortcutModifiers(rawValue: 1 << 2)
     static let option = ShortcutModifiers(rawValue: 1 << 3)
+    static let function = ShortcutModifiers(rawValue: 1 << 4)
 }
 
 enum ShortcutEventType {
@@ -120,6 +124,7 @@ struct ShortcutInterpreter {
         static let space: Int64 = 49
         static let escape: Int64 = 53
         static let rightOption: Int64 = 61
+        static let function: Int64 = 63
     }
 
     var settings: ShortcutSettings {
@@ -196,6 +201,10 @@ struct ShortcutInterpreter {
             return event.type == .flagsChanged
                 && event.keyCode == KeyCode.rightOption
                 && event.modifiers.contains(.option)
+        case .fn:
+            return event.type == .flagsChanged
+                && event.keyCode == KeyCode.function
+                && event.modifiers.contains(.function)
         case .controlSpace:
             return event.type == .keyDown
                 && event.keyCode == KeyCode.space
@@ -211,6 +220,8 @@ struct ShortcutInterpreter {
         switch settings.option {
         case .rightOption:
             return event.type == .flagsChanged && event.keyCode == KeyCode.rightOption && isShortcutDown
+        case .fn:
+            return event.type == .flagsChanged && event.keyCode == KeyCode.function && isShortcutDown
         case .controlSpace:
             return event.type == .keyUp && event.keyCode == KeyCode.space
         case .commandShiftSpace:
@@ -372,6 +383,9 @@ private extension ShortcutModifiers {
         }
         if flags.contains(.maskAlternate) {
             modifiers.insert(.option)
+        }
+        if flags.contains(.maskSecondaryFn) {
+            modifiers.insert(.function)
         }
         self = modifiers
     }

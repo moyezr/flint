@@ -7,6 +7,7 @@ final class ShortcutSettingsTests: XCTestCase {
         static let escape: Int64 = 53
         static let leftOption: Int64 = 58
         static let rightOption: Int64 = 61
+        static let function: Int64 = 63
     }
 
     func testShortcutMatchingForSupportedOptions() {
@@ -82,6 +83,34 @@ final class ShortcutSettingsTests: XCTestCase {
 
         XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.rightOption, modifiers: [.option])), .start)
         XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.rightOption)), .finish)
+    }
+
+    func testFnPushToTalkStartsAndFinishesOnModifierTransitions() {
+        var interpreter = ShortcutInterpreter(settings: ShortcutSettings(option: .fn, behavior: .pushToTalk))
+
+        XCTAssertEqual(
+            interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function, modifiers: [.function])),
+            .start
+        )
+        XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function)), .finish)
+    }
+
+    func testFnToggleRequiresAReleaseBeforeSecondPress() {
+        var interpreter = ShortcutInterpreter(settings: ShortcutSettings(option: .fn, behavior: .toggle))
+
+        XCTAssertEqual(
+            interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function, modifiers: [.function])),
+            .start
+        )
+        XCTAssertEqual(
+            interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function, modifiers: [.function])),
+            .none
+        )
+        XCTAssertEqual(interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function)), .none)
+        XCTAssertEqual(
+            interpreter.interpret(event(.flagsChanged, keyCode: KeyCode.function, modifiers: [.function])),
+            .finish
+        )
     }
 
     func testLeftOptionDoesNotStartRightOptionShortcut() {

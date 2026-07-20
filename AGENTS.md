@@ -110,7 +110,7 @@ Current verified baseline: 280 Swift tests pass, two desktop Accessibility probe
 
 `AppCoordinator` is the main actor and orchestration root. Avoid moving ordinary workflow logic into a new framework. The current dictation path is:
 
-1. `ShortcutManager` interprets Right Option, Control+Space, or Cmd+Shift+Space in push-to-talk or toggle mode. Escape cancels.
+1. `ShortcutManager` interprets Right Option, Fn, Control+Space, or Cmd+Shift+Space in push-to-talk or toggle mode. Escape cancels.
 2. `AppCoordinator.startDictation()` checks local license authorization, installed/prepared model state, captures the active app and preferred AX insertion target, shows the overlay, and starts `AudioRecorder`.
 3. `AudioRecorder` records a temporary `.m4a`. It exposes average and peak metering values for the visualizer.
 4. `TranscriptionEngine` reuses a cached WhisperKit pipeline selected through `ModelManager`.
