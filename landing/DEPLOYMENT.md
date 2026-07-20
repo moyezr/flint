@@ -32,12 +32,13 @@ source. It is not required by the server at runtime.
    device-transfer emails. Resend will reject production email until the domain
    is verified.
 3. Run `npm run landing:db:migrate` against the production database. It is safe
-   to rerun. Migration `0004_beta_email_verification.sql` must be present before
+   to rerun. Migration `0005_require_beta_first_name.sql` must be present before
    deploying the matching application build.
 4. Upload the current versioned DMG and checksum to a durable public artifact host. Beta 3 is temporarily shipped from `public/downloads`; use public object storage for repeated releases. Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*` environment variables match that artifact.
-5. Set `FLINT_BETA_TEST_EMAIL` to an inbox you control that supports plus
-   addressing, then run the complete disposable OTP/signup/download check
-   against the deployed API:
+5. For the verification command only, set `FLINT_BETA_TEST_EMAIL` to an inbox
+   you control that supports plus-addressing. It is not a production runtime
+   variable. Then run the complete disposable OTP/signup/download check against
+   the deployed API:
 
    ```sh
    FLINT_BETA_TEST_URL=https://flint.moyezrabbani.dev \
@@ -124,7 +125,7 @@ Payment work is not part of the free public beta. The placeholder commerce route
 
 ## Beta Email Export
 
-The download gate stores optional first and last names, verified email status, and beta-access consent separately from optional product-update consent. Export the current list locally without exposing database credentials:
+The download gate stores a required first name, optional last name, verified email status, and beta-access consent separately from optional product-update consent. Export the current list locally without exposing database credentials:
 
 ```sh
 npm run landing:beta:export > flint-beta-signups.csv

@@ -20,9 +20,13 @@ const optionalNameSchema = z.string().trim().max(80).refine(
   (value) => !/[\u0000-\u001f\u007f]/u.test(value),
 );
 
+const requiredFirstNameSchema = z.string().trim().min(1).max(80).refine(
+  (value) => !/[\u0000-\u001f\u007f]/u.test(value),
+);
+
 const signupSchema = z.object({
   email: z.string().trim().email().max(320),
-  firstName: optionalNameSchema.default(""),
+  firstName: requiredFirstNameSchema,
   lastName: optionalNameSchema.default(""),
   marketingConsent: z.boolean().default(false),
   source: z.string().trim().min(1).max(80).default("landing"),
@@ -45,7 +49,10 @@ export async function POST(request: Request) {
 
   const parsed = signupSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Check your email and optional name fields." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Enter your first name and a valid email address. Last name is optional." },
+      { status: 400 },
+    );
   }
 
   if (Date.now() - parsed.data.startedAt < 400) {

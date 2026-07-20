@@ -38,3 +38,11 @@ export function normalizeOptionalName(value: string | undefined): string | null 
   const normalized = value?.trim();
   return normalized ? normalized : null;
 }
+
+export function normalizeRequiredName(value: string): string {
+  const normalized = normalizeOptionalName(value);
+  if (!normalized) {
+    throw new Error("First name is required.");
+  }
+  return normalized;
+}

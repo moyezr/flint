@@ -6,13 +6,13 @@ import { betaVerificationLifetimeMinutes } from "@/lib/beta-verification";
 
 export async function sendBetaVerificationCode(input: {
   email: string;
-  firstName: string | null;
+  firstName: string;
   code: string;
 }): Promise<void> {
   const apiKey = required("RESEND_API_KEY");
   const from = required("BETA_EMAIL_FROM");
 
-  const greeting = input.firstName ? `Hi ${input.firstName},` : "Hi,";
+  const greeting = `Hi ${input.firstName},`;
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from,

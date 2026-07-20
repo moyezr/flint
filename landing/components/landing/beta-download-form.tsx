@@ -176,7 +176,7 @@ export function BetaDownloadForm() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block font-mono text-[11px] font-semibold tabular-nums" htmlFor="beta-first-name">
-                FIRST NAME <span className="text-muted">(OPTIONAL)</span>
+                FIRST NAME
               </label>
               <input
                 autoComplete="given-name"
@@ -189,6 +189,7 @@ export function BetaDownloadForm() {
                   setFirstName(event.target.value);
                 }}
                 placeholder="Ada"
+                required
                 type="text"
                 value={firstName}
               />

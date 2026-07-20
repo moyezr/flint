@@ -19,9 +19,9 @@ client, and Next.js licensing API are implemented.
 ### Production Operations
 
 - Current state: the landing app has append-only migrations, beta terms
-  acceptance, optional signup names, email OTP verification, database-backed
-  abuse limits, security headers, backup tooling, and production smoke
-  verifiers.
+  acceptance, a required first name, an optional last name, email OTP
+  verification, database-backed abuse limits, security headers, backup tooling,
+  and production smoke verifiers.
 - External blocker: the deployment provider must be configured with PostgreSQL,
   encrypted secrets, HTTPS/DNS, automatic backups, alerting, and an uptime
   monitor. A restore drill and post-deployment beta download verification must

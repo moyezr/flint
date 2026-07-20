@@ -6,6 +6,7 @@ import {
   generateBetaVerificationCode,
   hashBetaVerificationCode,
   normalizeOptionalName,
+  normalizeRequiredName,
 } from "./beta-verification.ts";
 
 describe("beta email verification", () => {
@@ -44,5 +45,10 @@ describe("beta email verification", () => {
     assert.equal(normalizeOptionalName(undefined), null);
     assert.equal(normalizeOptionalName("   "), null);
     assert.equal(normalizeOptionalName("  Ada  "), "Ada");
+  });
+
+  it("requires and trims the first name", () => {
+    assert.equal(normalizeRequiredName("  Ada  "), "Ada");
+    assert.throws(() => normalizeRequiredName("   "), /First name is required/);
   });
 });

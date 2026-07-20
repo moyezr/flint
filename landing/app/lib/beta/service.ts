@@ -9,6 +9,7 @@ import {
   generateBetaVerificationCode,
   hashBetaVerificationCode,
   normalizeOptionalName,
+  normalizeRequiredName,
 } from "@/lib/beta-verification";
 
 import { database } from "../licenses/database";
@@ -18,7 +19,7 @@ export const currentBetaTermsVersion = "2026-07-20";
 
 export type BetaSignupInput = {
   email: string;
-  firstName?: string;
+  firstName: string;
   lastName?: string;
   marketingConsent: boolean;
   source: string;
@@ -28,7 +29,7 @@ export type BetaEmailVerification = {
   verificationID: string;
   code: string;
   expiresAt: Date;
-  firstName: string | null;
+  firstName: string;
 };
 
 export type BetaEmailVerificationResult =
@@ -41,7 +42,7 @@ type PendingVerification = {
   id: string;
   email: string;
   normalized_email: string;
-  first_name: string | null;
+  first_name: string;
   last_name: string | null;
   source: string;
   marketing_consent: boolean;
@@ -59,7 +60,7 @@ export async function createBetaEmailVerification(
   const verificationID = randomUUID();
   const code = generateBetaVerificationCode();
   const normalizedEmail = normalizeEmail(input.email);
-  const firstName = normalizeOptionalName(input.firstName);
+  const firstName = normalizeRequiredName(input.firstName);
   const lastName = normalizeOptionalName(input.lastName);
   const expiresAt = new Date(Date.now() + betaVerificationLifetimeMinutes * 60 * 1_000);
   const codeHash = hashBetaVerificationCode({

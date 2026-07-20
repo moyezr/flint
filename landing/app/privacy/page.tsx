@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Beta download emails</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            The website stores the email address you submit, your optional first and last name, when the email was verified, the time you requested access, whether you separately opted into occasional product updates, and aggregate download timestamps and counts. It does not store your dictation content. These records are used for beta access, essential release communication, support, and—only when selected—occasional product updates.
+            The website stores the email address you submit, your required first name and optional last name, when the email was verified, the time you requested access, whether you separately opted into occasional product updates, and aggregate download timestamps and counts. It does not store your dictation content. These records are used for beta access, essential release communication, support, and—only when selected—occasional product updates.
           </p>
         </section>
 
