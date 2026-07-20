@@ -135,6 +135,7 @@ Important files:
 - `AppUninstaller.swift`: validates the packaged Flint bundle, then asks Finder to move only that bundle to Trash after the full local-data purge succeeds.
 - `OverlayWindow.swift`: notch geometry, window motion, state accessories, and audio visualization.
 - `SettingsWindow.swift`, `OnboardingWindow.swift`, `PrivacyWindow.swift`: user-facing configuration and data controls.
+- Onboarding model downloads surface WhisperKit's real determinate progress and keep navigation disabled through first-use model preparation.
 - `HistoryStore.swift` and `AppModeRuleStore.swift`: history and app-mode rules in the same SQLite database.
 - `LicenseRuntime.swift`: dormant production device identity, signed offline certificate, API client, and runtime authorization; enforcement is off during the free beta.
 - `UpdateManager.swift`: one small HTTPS release-manifest check at most daily in packaged builds. Offline failures are silent and never affect dictation.

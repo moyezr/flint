@@ -200,7 +200,11 @@ final class OnboardingFlowTests: XCTestCase {
         var installedTiers: [ModelTier] = [.fast, .accurate]
         let flow = makeFlow(
             modelInstalledProvider: { installedTiers.contains($0) },
-            modelDownloadAction: { tier in installedTiers.append(tier) }
+            modelDownloadAction: { tier, reportProgress in
+                reportProgress(0.35)
+                reportProgress(0.8)
+                installedTiers.append(tier)
+            }
         )
 
         moveToModelStep(flow)
@@ -213,6 +217,7 @@ final class OnboardingFlowTests: XCTestCase {
         await flow.downloadSelectedModel()
 
         XCTAssertTrue(flow.canAdvance)
+        XCTAssertEqual(flow.modelDownloadProgress, 1)
         XCTAssertEqual(flow.modelDownloadStatus, "Balanced model is ready.")
         flow.next()
         XCTAssertEqual(flow.currentStep, .testDictation)
@@ -221,7 +226,7 @@ final class OnboardingFlowTests: XCTestCase {
     private func makeFlow(
         snapshot: PermissionSnapshot = PermissionSnapshot(statuses: []),
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
-        modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        modelDownloadAction: @escaping OnboardingFlow.ModelDownloadAction = { _, _ in },
         onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil
@@ -241,7 +246,7 @@ final class OnboardingFlowTests: XCTestCase {
         snapshotProvider: @escaping () -> PermissionSnapshot,
         permissionPromptAction: @escaping () async -> Void,
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
-        modelDownloadAction: @escaping (ModelTier) async throws -> Void = { _ in },
+        modelDownloadAction: @escaping OnboardingFlow.ModelDownloadAction = { _, _ in },
         onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil

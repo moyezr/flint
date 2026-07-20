@@ -21,8 +21,12 @@ final class OnboardingWindowController {
             permissionSnapshotProvider: { permissionManager.snapshot() },
             permissionPromptAction: { await permissionManager.requestMissingPermissions() },
             modelInstalledProvider: { tier in modelManager.metadata(for: tier).isInstalled },
-            modelDownloadAction: { tier in
-                _ = try await modelManager.downloadModel(for: tier)
+            modelDownloadAction: { tier, reportProgress in
+                _ = try await modelManager.downloadModel(for: tier) { progress in
+                    Task { @MainActor in
+                        reportProgress(progress.fractionCompleted)
+                    }
+                }
                 try await modelPreparationAction(tier)
             },
             onPermissionsPromptCompleted: onPermissionsChanged,
@@ -187,10 +191,29 @@ private struct OnboardingView: View {
                     }
                 }
 
-                Button(flow.isDownloadingModel ? "Downloading..." : downloadButtonTitle) {
+                Button(downloadButtonTitle) {
                     Task { await flow.downloadSelectedModel() }
                 }
                 .disabled(flow.isDownloadingModel || flow.isSelectedModelInstalled)
+
+                if flow.isDownloadingModel {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ProgressView(value: flow.modelDownloadProgress, total: 1)
+                            .progressViewStyle(.linear)
+
+                        HStack {
+                            Text(modelDownloadProgressLabel)
+                            Spacer()
+                            Text("\(Int((flow.modelDownloadProgress * 100).rounded()))%")
+                                .monospacedDigit()
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(modelDownloadProgressLabel)
+                    .accessibilityValue("\(Int((flow.modelDownloadProgress * 100).rounded())) percent")
+                }
 
                 if !flow.modelDownloadStatus.isEmpty {
                     Text(flow.modelDownloadStatus)
@@ -234,9 +257,18 @@ private struct OnboardingView: View {
 
     private var downloadButtonTitle: String {
         let metadata = modelManager.metadata(for: flow.settings.selectedModelTier)
+        if flow.isDownloadingModel {
+            return flow.modelDownloadProgress >= 1 ? "Preparing \(metadata.displayName)..." : "Downloading \(metadata.displayName)..."
+        }
         return metadata.isInstalled
             ? "\(metadata.displayName) Installed"
             : "Download \(metadata.displayName)"
+    }
+
+    private var modelDownloadProgressLabel: String {
+        flow.modelDownloadProgress >= 1
+            ? "Preparing model for first use"
+            : "Downloading model"
     }
 
     private var permissionReadinessMessage: String {

@@ -32,7 +32,8 @@ final class OnboardingFlow: ObservableObject {
     typealias PermissionSnapshotProvider = () -> PermissionSnapshot
     typealias PermissionPromptAction = () async -> Void
     typealias ModelInstalledProvider = (ModelTier) -> Bool
-    typealias ModelDownloadAction = (ModelTier) async throws -> Void
+    typealias ModelDownloadProgressHandler = @MainActor (Double) -> Void
+    typealias ModelDownloadAction = (ModelTier, @escaping ModelDownloadProgressHandler) async throws -> Void
     typealias SettingsChangedAction = (AppSettings) -> Void
 
     @Published private(set) var currentStep: OnboardingStep
@@ -40,6 +41,7 @@ final class OnboardingFlow: ObservableObject {
     @Published private(set) var permissionSnapshot: PermissionSnapshot
     @Published private(set) var isPromptingForPermissions = false
     @Published private(set) var isDownloadingModel = false
+    @Published private(set) var modelDownloadProgress = 0.0
     @Published private(set) var modelDownloadStatus = ""
 
     private let store: AppSettingsStore
@@ -166,10 +168,14 @@ final class OnboardingFlow: ObservableObject {
     func downloadSelectedModel() async {
         guard !isDownloadingModel else { return }
         isDownloadingModel = true
+        modelDownloadProgress = 0
         modelDownloadStatus = ""
 
         do {
-            try await modelDownloadAction(settings.selectedModelTier)
+            try await modelDownloadAction(settings.selectedModelTier) { [weak self] progress in
+                self?.modelDownloadProgress = min(max(progress, 0), 1)
+            }
+            modelDownloadProgress = 1
             modelDownloadStatus = "\(settings.selectedModelTier.displayName) model is ready."
         } catch {
             modelDownloadStatus = "Model download failed: \(error.localizedDescription)"
