@@ -2,7 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const TEST_DURATION = 15;
+import { useTypingEconomics } from "@/components/landing/typing-economics-provider";
+import {
+  ASSUMED_TYPING_DAYS_PER_WEEK,
+  ASSUMED_TYPING_HOURS_PER_DAY,
+  CONSERVATIVE_HOURLY_RATE,
+  ONE_TIME_PRICE,
+  SPEAKING_PACE_WPM,
+  TYPING_TEST_SECONDS,
+  calculateTypingEconomics,
+  type NoGapTypingResult,
+  type SavingsTypingResult,
+  type TypingEconomicsResult,
+} from "@/lib/typing-economics";
+
+const TEST_DURATION = TYPING_TEST_SECONDS;
 const TEST_COPY = [
   "Clear thinking deserves a faster path from the first idea to the finished sentence.",
   "The best tools disappear until the work is all that remains in front of you.",
@@ -20,7 +34,6 @@ interface ResultMetrics {
   accuracy: number;
   completedEarly: boolean;
   elapsed: number;
-  wpm: number;
 }
 
 function getMetrics(input: string, passage: string, startedAt: number, finishedAt: number): ResultMetrics {
@@ -30,17 +43,16 @@ function getMetrics(input: string, passage: string, startedAt: number, finishedA
     0
   );
   const accuracy = input.length ? Math.round((correctCharacters / input.length) * 100) : 0;
-  const wpm = Math.round((correctCharacters / 5) / (elapsed / 60));
 
   return {
     accuracy,
-    completedEarly: input === passage && elapsed < TEST_DURATION,
+    completedEarly: input.length === passage.length && elapsed < TEST_DURATION,
     elapsed,
-    wpm
   };
 }
 
 export function TypingTest() {
+  const { setResult } = useTypingEconomics();
   const [state, setState] = useState<TestState>("ready");
   const [input, setInput] = useState("");
   const [passage, setPassage] = useState<string>(TEST_COPY[0]);
@@ -54,10 +66,16 @@ export function TypingTest() {
     const startedAt = startedAtRef.current;
     if (!startedAt) return;
 
-    setMetrics(getMetrics(finalInput, passage, startedAt, finishedAt));
+    const nextMetrics = getMetrics(finalInput, passage, startedAt, finishedAt);
+    setMetrics(nextMetrics);
+    setResult(calculateTypingEconomics({
+      charactersTyped: finalInput.length,
+      completedEarly: nextMetrics.completedEarly,
+      elapsedSeconds: nextMetrics.elapsed,
+    }));
     setRemaining(Math.max(0, TEST_DURATION - (finishedAt - startedAt) / 1000));
     setState("complete");
-  }, [passage]);
+  }, [passage, setResult]);
 
   useEffect(() => {
     if (state !== "running") return;
@@ -79,19 +97,21 @@ export function TypingTest() {
     setPassage(TEST_COPY[nextIndex]);
     setInput("");
     setMetrics(null);
+    setResult(null);
     setRemaining(TEST_DURATION);
     startedAtRef.current = performance.now();
     setState("running");
     window.requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  }, [setResult]);
 
   const cancel = useCallback(() => {
     startedAtRef.current = null;
     setState("ready");
     setInput("");
     setMetrics(null);
+    setResult(null);
     setRemaining(TEST_DURATION);
-  }, []);
+  }, [setResult]);
 
   const handleInput = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const nextInput = event.target.value.slice(0, passage.length);
@@ -156,11 +176,146 @@ export function TypingTest() {
       </div>
 
       {state === "complete" && metrics && (
-        <div className="mx-auto mt-9 max-w-[830px] border-t border-typing-line pt-6 text-center" role="status">
-          <p className="mb-2 text-base leading-[1.5] text-typing-muted"><strong>{metrics.wpm} WPM.</strong> {metrics.accuracy}% accuracy over {metrics.elapsed.toFixed(1)} seconds{metrics.completedEarly ? ", finished before the timer" : ""}.</p>
-          <p className="m-0 text-base leading-[1.5] text-signal">A one-time Flint purchase turns that repeating typing cost into a voice-first workflow.</p>
-        </div>
+        <TypingResultReveal
+          accuracy={metrics.accuracy}
+          completedEarly={metrics.completedEarly}
+          elapsed={metrics.elapsed}
+          result={calculateTypingEconomics({
+            charactersTyped: input.length,
+            completedEarly: metrics.completedEarly,
+            elapsedSeconds: metrics.elapsed,
+          })}
+        />
       )}
     </div>
   );
+}
+
+function TypingResultReveal({
+  accuracy,
+  completedEarly,
+  elapsed,
+  result,
+}: {
+  accuracy: number;
+  completedEarly: boolean;
+  elapsed: number;
+  result: TypingEconomicsResult;
+}) {
+  if (result.kind === "insufficient") {
+    return (
+      <div className="mx-auto mt-9 max-w-[830px] border-t border-typing-line pt-7" role="status">
+        <p className="font-mono text-[11px] font-semibold text-signal">NOT ENOUGH TEXT FOR AN ESTIMATE</p>
+        <p className="mt-3 mb-0 max-w-[620px] text-[15px] leading-[1.65] text-typing-muted">
+          This run had <span className="font-mono tabular-nums text-paper">{result.charactersTyped} characters</span>. A useful comparison needs at least <span className="font-mono tabular-nums text-paper">{result.minimumCharacters}</span>. Try another passage and keep typing until the timer ends.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto mt-9 max-w-[920px] border-t border-typing-line pt-7" role="status">
+      <div className="flex items-start justify-between gap-6 max-[620px]:flex-col max-[620px]:gap-2">
+        <div>
+          <p className="font-mono text-[11px] font-semibold text-signal">YOUR RESULT</p>
+          <p className="mt-2 mb-0 text-[14px] leading-[1.55] text-typing-muted">
+            <span className="font-mono tabular-nums text-paper">{accuracy}% accuracy</span> over <span className="font-mono tabular-nums text-paper">{formatNumber(elapsed, 1)} seconds</span>{completedEarly ? ", with the passage completed before the timer" : ""}.
+          </p>
+        </div>
+        <a
+          className="inline-flex min-h-11 shrink-0 items-center border border-signal px-4 font-mono text-[11px] font-semibold text-signal transition-colors hover:bg-signal hover:text-paper"
+          href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20early%20access"
+        >
+          EMAIL ABOUT FLINT ↗
+        </a>
+      </div>
+
+      <div className="mt-7 grid grid-cols-3 border-t border-l border-typing-line max-[760px]:grid-cols-1">
+        <CalculationStep label="1 / YOUR PACE" equation={wpmEquation(result)}>
+          You type about <Metric>{formatWpm(result.wpm)} WPM</Metric>.
+        </CalculationStep>
+        <CalculationStep label="2 / SPEECH COMPARISON" equation={`comparison pace = ~${SPEAKING_PACE_WPM} WPM`}>
+          Flint is compared with <Metric>~{SPEAKING_PACE_WPM} WPM</Metric>, roughly a natural speaking pace.
+        </CalculationStep>
+        <CalculationStep label="3 / THE GAP" equation={gapEquation(result)}>
+          The calculated pace gap is <Metric>{formatNumber(result.gapPercent, 1)}%</Metric>.
+        </CalculationStep>
+      </div>
+
+      {result.kind === "no-gap" ? <NoGapSummary result={result} /> : <SavingsSummary result={result} />}
+    </div>
+  );
+}
+
+function CalculationStep({ children, equation, label }: { children: React.ReactNode; equation: string; label: string }) {
+  return (
+    <div className="border-r border-b border-typing-line p-5">
+      <p className="font-mono text-[10px] font-semibold text-demo-muted">{label}</p>
+      <p className="mt-3 mb-0 text-[14px] leading-[1.55] text-typing-muted">{children}</p>
+      <p className="mt-4 mb-0 font-mono text-[11px] leading-[1.55] text-paper tabular-nums">{equation}</p>
+    </div>
+  );
+}
+
+function SavingsSummary({ result }: { result: SavingsTypingResult }) {
+  return (
+    <div className="mt-7 grid grid-cols-[1fr_1fr_1.1fr] border-t border-l border-typing-line max-[760px]:grid-cols-1">
+      <CalculationStep
+        label="4 / TIME IN A WEEK"
+        equation={`${ASSUMED_TYPING_HOURS_PER_DAY} hour/day × ${ASSUMED_TYPING_DAYS_PER_WEEK} days × ${formatNumber(result.gapPercent, 1)}% = ${formatNumber(result.weeklyHours, 2)} hours/week`}
+      >
+        Assuming an hour of typing a day, five days a week.
+      </CalculationStep>
+      <CalculationStep
+        label="5 / VALUE AT A CONSERVATIVE RATE"
+        equation={`${formatNumber(result.weeklyHours, 2)} hours × $${CONSERVATIVE_HOURLY_RATE} = $${formatMoney(result.weeklyValue)}/week; × 52 ÷ 12 = $${formatMoney(result.monthlyValue)}/month`}
+      >
+        About <Metric>${formatMoney(result.monthlyValue)} a month</Metric>, or <Metric>${formatMoney(result.weeklyValue)} a week</Metric>, using a conservative <Metric>${CONSERVATIVE_HOURLY_RATE}/hour</Metric> rather than your actual rate.
+      </CalculationStep>
+      <CalculationStep
+        label="6 / ONE-TIME PRICE"
+        equation={`($${ONE_TIME_PRICE} ÷ (${formatNumber(result.gap, 3)} × $${CONSERVATIVE_HOURLY_RATE}/hour)) × 60 = ${Math.round(result.paybackMinutes)} minutes`}
+      >
+        The one-time <Metric>${ONE_TIME_PRICE}</Metric> pays for itself in about <Metric>{Math.round(result.paybackMinutes)} minutes</Metric> of typing at your pace.
+      </CalculationStep>
+    </div>
+  );
+}
+
+function NoGapSummary({ result }: { result: NoGapTypingResult }) {
+  return (
+    <div className="mt-7 border border-typing-line p-5">
+      <p className="font-mono text-[10px] font-semibold text-demo-muted">WHAT THAT MEANS</p>
+      <p className="mt-3 mb-0 max-w-[720px] text-[15px] leading-[1.65] text-typing-muted">
+        At <Metric>{formatWpm(result.wpm)} WPM</Metric>, dictation is unlikely to save you much typing time against this comparison. It can still offer a hands-free way to write.
+      </p>
+    </div>
+  );
+}
+
+function Metric({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono text-paper tabular-nums">{children}</span>;
+}
+
+function wpmEquation(result: NoGapTypingResult | SavingsTypingResult) {
+  if (result.measurementSeconds === TYPING_TEST_SECONDS) {
+    return `${result.charactersTyped} characters × 0.8 = ${formatWpm(result.wpm)} WPM`;
+  }
+  return `(${result.charactersTyped} ÷ 5) ÷ (${formatNumber(result.measurementSeconds, 1)} seconds ÷ 60) = ${formatWpm(result.wpm)} WPM`;
+}
+
+function gapEquation(result: NoGapTypingResult | SavingsTypingResult) {
+  return `max(0, 1 − (${formatWpm(result.wpm)} ÷ ${SPEAKING_PACE_WPM})) = ${formatNumber(result.gapPercent, 1)}%`;
+}
+
+function formatWpm(value: number) {
+  return formatNumber(value, Number.isInteger(value) ? 0 : 1);
+}
+
+function formatMoney(value: number) {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatNumber(value: number, maximumFractionDigits: number) {
+  return value.toLocaleString("en-US", { maximumFractionDigits });
 }

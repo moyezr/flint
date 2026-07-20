@@ -5,6 +5,7 @@
     "landing:dev": "npm --prefix landing run dev",
     "landing:build": "npm --prefix landing run build",
     "landing:lint": "npm --prefix landing run lint",
+    "landing:test": "npm --prefix landing run test",
     "landing:db:migrate": "npm --prefix landing run db:migrate",
     "landing:db:backup": "npm --prefix landing run db:backup",
     "landing:beta:verify": "npm --prefix landing run beta:verify",

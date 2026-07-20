@@ -14,7 +14,7 @@ export function Hero() {
       <div className="relative z-10 mx-auto max-w-[960px] pt-24 text-center max-[840px]:pt-32 max-[520px]:pt-[132px]">
         <p className="mb-[22px] font-mono text-[11px] font-semibold text-signal tabular-nums max-[520px]:text-[10px]">LOCAL DICTATION FOR MAC</p>
         <h1 className={`${spaceGrotesk.className} mb-[26px] text-[100px] leading-[0.91] font-semibold max-[840px]:text-[66px] max-[520px]:text-[49px] max-[520px]:leading-[0.95]`} id="hero-title">
-          Speak the thought.<br /><span className="text-signal">Keep the flow.</span>
+          Your thoughts move fast.<br /><span className="text-signal">Your fingers don&apos;t.</span>
         </h1>
         <p className="mx-auto mb-[38px] max-w-[510px] text-lg leading-[1.55] text-muted max-[520px]:max-w-[330px] max-[520px]:text-base">
           Flint places your voice exactly where your cursor already is.

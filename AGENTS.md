@@ -99,6 +99,7 @@ Run and validate the website:
 ```sh
 npm install
 npm run landing:dev
+npm run landing:test
 npm run landing:lint
 npm run landing:build
 ```
@@ -232,7 +233,7 @@ Landing-specific behavior:
 - Canvas/GSAP dot grid uses subtle transparent orange at rest and stronger orange near the pointer. Content sections must remain above it (`relative z-10`) so text stays selectable and accessible to crawlers.
 - Smooth scrolling is enabled, with reduced-motion fallback.
 - Navbar and hero download actions link to `#download`; the typing-test target still uses `scroll-mt-[calc(50svh-204px)]` to approximately center the component.
-- Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, per-letter green/red feedback, WPM, and accuracy.
+- Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, and per-letter green/red feedback. Completed runs with at least 15 characters show the WPM formula, a clearly labeled 130 WPM speech comparison, time/value assumptions, and the planned $25 payback; faster-than-baseline and insufficient-input runs use honest non-financial states. A calculated payback is also surfaced in the beta pricing block for that page session.
 - `POST /api/beta-signups` requires current beta-terms acceptance, stores a normalized email, enforces short-lived database-backed abuse limits, and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export collected emails as CSV.
 - `/privacy`, `/terms`, `/third-party-notices`, `/support`, and `/beta` are the public legal/support/install surfaces. `moyezrabbani.work@gmail.com` is the intentionally simple support contact.
 - Global response security headers are configured in `next.config.ts`. Run `npm run landing:production:verify` after deployment; run `npm run landing:db:backup` only with an explicit private backup directory.
@@ -250,6 +251,7 @@ MACOSX_DEPLOYMENT_TARGET=14.0 swift build -c release
 Before checkpointing landing work:
 
 ```sh
+npm run landing:test
 npm run landing:lint
 npm run landing:build
 ```

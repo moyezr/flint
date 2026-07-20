@@ -2,11 +2,13 @@
   "name": "flint-landing",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test lib/typing-economics.test.ts",
     "db:migrate": "node --env-file=.env ./scripts/migrate.mjs",
     "db:backup": "./scripts/backup-database.sh",
     "beta:verify": "node --env-file=.env ./scripts/verify-beta-flow.mjs",
