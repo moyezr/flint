@@ -126,7 +126,7 @@ Important files:
 - `AppCoordinator.swift`: lifecycle, menu, core loop, timeouts, model recovery, recent corrections.
 - `ShortcutSettings.swift`: global event tap and shortcut state machine.
 - `AudioRecorder.swift`: AVAudioRecorder and metering.
-- `ModelManager.swift`: Fast (`tiny`), Balanced (`base`, default), and Accurate (`large-v3-v20240930_626MB`) downloads under Flint's cache root.
+- `ModelManager.swift`: Fast (`tiny`), Balanced (`base`), and Accurate (`large-v3-v20240930_626MB`) downloads under Flint's cache root. Fresh Apple Silicon onboarding selects Accurate without a model picker; Intel onboarding defaults to Balanced and keeps the picker. Existing persisted choices are preserved.
 - `TranscriptionEngine.swift`: cached WhisperKit pipelines and user-facing transcription errors.
 - `ModelPreparationLifecycle.swift`: generation-based preparation/retry state. A preparation failure must be recoverable by the next shortcut press; never require a process restart.
 - `CleanupEngine.swift`: Verbatim, Clean, Polished, Prompt, Message, and Email modes.

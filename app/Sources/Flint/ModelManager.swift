@@ -46,8 +46,28 @@ enum ModelTier: String, CaseIterable, Equatable {
         case .balanced:
             return "Recommended for most Macs"
         case .accurate:
-            return "Recommended for Apple Silicon"
+            return "Recommended for precise outputs on Apple Silicon"
         }
+    }
+}
+
+struct ModelRecommendation: Equatable {
+    let isAppleSilicon: Bool
+
+    var tier: ModelTier {
+        isAppleSilicon ? .accurate : .balanced
+    }
+
+    var allowsOnboardingChoice: Bool {
+        !isAppleSilicon
+    }
+
+    static var current: ModelRecommendation {
+#if arch(arm64)
+        ModelRecommendation(isAppleSilicon: true)
+#else
+        ModelRecommendation(isAppleSilicon: false)
+#endif
     }
 }
 

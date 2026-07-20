@@ -22,6 +22,13 @@ final class ModelManagerTests: XCTestCase {
         try super.tearDownWithError()
     }
 
+    func testHardwareRecommendationUsesAccurateOnAppleSiliconAndBalancedOnIntel() {
+        XCTAssertEqual(ModelRecommendation(isAppleSilicon: true).tier, .accurate)
+        XCTAssertFalse(ModelRecommendation(isAppleSilicon: true).allowsOnboardingChoice)
+        XCTAssertEqual(ModelRecommendation(isAppleSilicon: false).tier, .balanced)
+        XCTAssertTrue(ModelRecommendation(isAppleSilicon: false).allowsOnboardingChoice)
+    }
+
     func testDefaultSelectionFallsBackToBalanced() {
         let manager = makeManager()
 

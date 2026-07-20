@@ -16,6 +16,7 @@ final class OnboardingWindowController {
         onPermissionsChanged: @escaping () -> Void,
         onComplete: @escaping () -> Void
     ) {
+        let modelRecommendation = ModelRecommendation.current
         flow = OnboardingFlow(
             store: settingsStore,
             permissionSnapshotProvider: { permissionManager.snapshot() },
@@ -31,7 +32,9 @@ final class OnboardingWindowController {
             },
             onPermissionsPromptCompleted: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
-            onComplete: onComplete
+            onComplete: onComplete,
+            recommendedModelTier: modelRecommendation.tier,
+            allowsModelSelection: modelRecommendation.allowsOnboardingChoice
         )
 
         let rootView = OnboardingView(
@@ -182,16 +185,34 @@ private struct OnboardingView: View {
             }
         case .model:
             VStack(alignment: .leading, spacing: 14) {
-                Picker("Default Model", selection: Binding(
-                    get: { flow.settings.selectedModelTier },
-                    set: { tier in
-                        flow.selectModelTier(tier)
+                if flow.allowsModelSelection {
+                    Picker("Default Model", selection: Binding(
+                        get: { flow.settings.selectedModelTier },
+                        set: { tier in
+                            flow.selectModelTier(tier)
+                        }
+                    )) {
+                        ForEach(ModelTier.allCases, id: \.rawValue) { tier in
+                            let metadata = modelManager.metadata(for: tier)
+                            Text("\(metadata.displayName) - \(metadata.sizeLabel) - \(metadata.hardwareLabel)").tag(tier)
+                        }
                     }
-                )) {
-                    ForEach(ModelTier.allCases, id: \.rawValue) { tier in
-                        let metadata = modelManager.metadata(for: tier)
-                        Text("\(metadata.displayName) - \(metadata.sizeLabel) - \(metadata.hardwareLabel)").tag(tier)
+                } else {
+                    let metadata = modelManager.metadata(for: flow.settings.selectedModelTier)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(metadata.displayName)
+                                .font(.headline)
+                            Spacer()
+                            Text(metadata.sizeLabel)
+                                .font(.callout.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Text("Recommended for precise outputs on this Apple Silicon Mac.")
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(14)
+                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                 }
 
                 Button(downloadButtonTitle) {

@@ -129,6 +129,46 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(flow.settings.selectedModelTier, .accurate)
     }
 
+    func testRecommendedModelIsSelectedAndPersistedForFreshOnboarding() {
+        let store = AppSettingsStore(defaults: defaults)
+        var changedSettings: [AppSettings] = []
+        let flow = OnboardingFlow(
+            store: store,
+            permissionSnapshotProvider: { self.readyPermissionSnapshot() },
+            permissionPromptAction: {},
+            modelInstalledProvider: { _ in true },
+            modelDownloadAction: { _, _ in },
+            onSettingsChanged: { changedSettings.append($0) },
+            recommendedModelTier: .accurate,
+            allowsModelSelection: false
+        )
+
+        XCTAssertEqual(flow.settings.selectedModelTier, .accurate)
+        XCTAssertEqual(store.load().selectedModelTier, .accurate)
+        XCTAssertFalse(flow.allowsModelSelection)
+        XCTAssertEqual(changedSettings.map(\.selectedModelTier), [.accurate])
+
+        flow.selectModelTier(.fast)
+        XCTAssertEqual(flow.settings.selectedModelTier, .accurate)
+    }
+
+    func testRecommendedModelDoesNotReplaceAnExistingSelection() {
+        let store = AppSettingsStore(defaults: defaults)
+        store.saveSelectedModelTier(.fast)
+
+        let flow = OnboardingFlow(
+            store: store,
+            permissionSnapshotProvider: { self.readyPermissionSnapshot() },
+            permissionPromptAction: {},
+            modelInstalledProvider: { _ in true },
+            modelDownloadAction: { _, _ in },
+            recommendedModelTier: .accurate,
+            allowsModelSelection: false
+        )
+
+        XCTAssertEqual(flow.settings.selectedModelTier, .fast)
+    }
+
     func testPermissionPromptUsesInjectedActionAndRefreshesSnapshot() async {
         var promptCount = 0
         var snapshot = missingPermissionSnapshot()

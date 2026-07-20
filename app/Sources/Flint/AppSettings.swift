@@ -200,6 +200,10 @@ struct AppSettingsStore {
         defaults.set(tier.rawValue, forKey: Key.selectedModelTier)
     }
 
+    var hasPersistedSelectedModelTier: Bool {
+        defaults.object(forKey: Key.selectedModelTier) != nil
+    }
+
     func saveInsertionTargetBehavior(_ behavior: InsertionTargetBehavior) {
         InsertionTargetBehaviorStore(defaults: defaults, key: Key.insertionTargetBehavior).save(behavior)
     }

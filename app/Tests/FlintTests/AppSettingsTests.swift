@@ -22,7 +22,8 @@ final class AppSettingsTests: XCTestCase {
     }
 
     func testDefaultsCoverAllFields() {
-        let settings = AppSettingsStore(defaults: defaults).load()
+        let store = AppSettingsStore(defaults: defaults)
+        let settings = store.load()
 
         XCTAssertEqual(settings.shortcutSettings, .default)
         XCTAssertEqual(settings.cleanupMode, .clean)
@@ -39,6 +40,15 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.hasCompletedOnboarding)
         XCTAssertTrue(settings.removeFillerWords)
         XCTAssertTrue(settings.addTerminalPunctuation)
+        XCTAssertFalse(store.hasPersistedSelectedModelTier)
+    }
+
+    func testSelectedModelTierReportsWhenItHasBeenPersisted() {
+        let store = AppSettingsStore(defaults: defaults)
+
+        store.saveSelectedModelTier(.accurate)
+
+        XCTAssertTrue(store.hasPersistedSelectedModelTier)
     }
 
     func testRoundTripPersistsAllFields() {

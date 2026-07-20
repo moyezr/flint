@@ -43,6 +43,7 @@ final class OnboardingFlow: ObservableObject {
     @Published private(set) var isDownloadingModel = false
     @Published private(set) var modelDownloadProgress = 0.0
     @Published private(set) var modelDownloadStatus = ""
+    let allowsModelSelection: Bool
 
     private let store: AppSettingsStore
     private let permissionSnapshotProvider: PermissionSnapshotProvider
@@ -63,6 +64,8 @@ final class OnboardingFlow: ObservableObject {
         onPermissionsPromptCompleted: (() -> Void)? = nil,
         onSettingsChanged: SettingsChangedAction? = nil,
         onComplete: (() -> Void)? = nil,
+        recommendedModelTier: ModelTier? = nil,
+        allowsModelSelection: Bool = true,
         initialStep: OnboardingStep = .welcome
     ) {
         self.store = store
@@ -73,9 +76,20 @@ final class OnboardingFlow: ObservableObject {
         self.onPermissionsPromptCompleted = onPermissionsPromptCompleted
         self.onSettingsChanged = onSettingsChanged
         self.onComplete = onComplete
+        self.allowsModelSelection = allowsModelSelection
         self.currentStep = initialStep
-        self.settings = store.load()
+        var settings = store.load()
+        var didApplyRecommendedModel = false
+        if !store.hasPersistedSelectedModelTier, let recommendedModelTier {
+            settings.selectedModelTier = recommendedModelTier
+            store.saveSelectedModelTier(recommendedModelTier)
+            didApplyRecommendedModel = true
+        }
+        self.settings = settings
         self.permissionSnapshot = permissionSnapshotProvider()
+        if didApplyRecommendedModel {
+            onSettingsChanged?(settings)
+        }
     }
 
     var canGoBack: Bool {
@@ -147,6 +161,7 @@ final class OnboardingFlow: ObservableObject {
     }
 
     func selectModelTier(_ tier: ModelTier) {
+        guard allowsModelSelection else { return }
         settings.selectedModelTier = tier
         modelDownloadStatus = ""
         store.saveSelectedModelTier(tier)
