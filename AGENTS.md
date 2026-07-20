@@ -104,7 +104,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 280 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
+Current verified baseline: 288 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
 
 ## Native App Architecture
 
@@ -165,7 +165,7 @@ The compact overlay is intentionally integrated with MacBook notch geometry rath
 - Listening: pulsating orange dot on the left, seven small vertical audio bars on the right.
 - Processing/preparing/inserting: pulsating dot on the left and a compact spinner on the right. Do not restore the wide horizontal loader.
 - Success: check/copy icon on the left and `Fix` / `Teach` actions on the right.
-- Errors: compact left icon and a bounded, single-line right message. Silent/no-speech errors must not create a large window.
+- Errors: compact left icon and a bounded, single-line right message. Silent/no-speech errors must not create a large window and auto-hide after 3 seconds; actionable errors remain visible.
 - Opening, resizing, and closing are animated. Auto-hide is generation-guarded so an old timer cannot hide a newer state.
 
 The visualizer updates on the existing 50 ms timer. It reads `AVAudioRecorder` average and peak power once and derives seven independently smoothed bars from loudness, crest, and transients. It is intentionally not an FFT or true pitch analyzer; do not add a second capture pipeline merely for decoration without measuring the cost.

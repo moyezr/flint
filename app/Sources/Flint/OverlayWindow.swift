@@ -72,6 +72,8 @@ enum OverlayState: Equatable {
             return 1.5
         case .inserted, .copiedToClipboard:
             return 6
+        case .error(let message) where message == TranscriptionEngine.noSpeechDetectedMessage:
+            return 3
         default:
             return nil
         }

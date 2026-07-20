@@ -219,6 +219,8 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertTrue(OverlayState.cancelled.shouldAutoHide)
         XCTAssertTrue(OverlayState.inserted.shouldAutoHide)
         XCTAssertTrue(OverlayState.copiedToClipboard.shouldAutoHide)
+        XCTAssertTrue(OverlayState.error(TranscriptionEngine.noSpeechDetectedMessage).shouldAutoHide)
+        XCTAssertEqual(OverlayState.error(TranscriptionEngine.noSpeechDetectedMessage).autoHideDelay, 3)
 
         XCTAssertFalse(OverlayState.listening.shouldAutoHide)
         XCTAssertFalse(OverlayState.preparingModel.shouldAutoHide)
