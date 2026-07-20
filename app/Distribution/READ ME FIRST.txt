@@ -1,0 +1,31 @@
+FLINT PUBLIC BETA — READ BEFORE OPENING
+=======================================
+
+Flint is currently an independent, unnotarized public beta.
+
+The first time you open Flint, macOS will display a “Flint Not Opened” warning
+because Apple cannot verify the developer. This warning does not mean macOS
+found malware. It means this beta has not been signed and notarized through
+Apple's paid developer program.
+
+HOW TO OPEN FLINT
+
+1. Drag Flint into the Applications folder.
+2. Open Flint once. When “Flint Not Opened” appears, click Done. Do not move
+   Flint to Trash.
+3. Open System Settings, then Privacy & Security.
+4. Scroll to the Security section and click Open Anyway for Flint.
+5. Enter your Mac password and confirm Open.
+6. Flint will then request Microphone, Accessibility, and Input Monitoring
+   permissions for dictation, text insertion, and the global shortcut.
+
+Apple makes Open Anyway available for a limited time after the blocked launch
+attempt. If it is missing, try opening Flint once more and return to Privacy &
+Security.
+
+Flint processes dictation on your Mac. For the complete install guide, privacy
+policy, release checksum, and support contact, visit:
+
+https://flint.moyezrabbani.dev/beta
+
+Support: moyezrabbani.work@gmail.com

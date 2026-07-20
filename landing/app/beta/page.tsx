@@ -24,6 +24,16 @@ export default function BetaGuidePage() {
           Flint currently requires an Apple Silicon Mac with macOS {release.minimumSystemVersion} or newer. This beta does not include an Intel executable. It is distributed directly and is not yet Apple-notarized.
         </p>
 
+        <aside className="mt-10 border border-signal bg-[color-mix(in_srgb,var(--color-signal)_8%,var(--color-paper))] p-6" aria-labelledby="gatekeeper-warning-heading">
+          <p className="font-mono text-[11px] font-semibold text-signal">EXPECTED FIRST-LAUNCH WARNING</p>
+          <h2 className={`${spaceGrotesk.className} mt-3 text-2xl font-semibold`} id="gatekeeper-warning-heading">
+            macOS will initially block this beta.
+          </h2>
+          <p className="mt-3 leading-[1.7] text-muted">
+            You will see “Flint Not Opened” because this independent beta has not been verified through Apple&apos;s paid developer and notarization process. This warning does not mean macOS found malware. Follow the Open Anyway steps below before Flint can launch and request its normal permissions.
+          </p>
+        </aside>
+
         <section className="mt-16 border-t border-line pt-9" aria-labelledby="download-heading">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="download-heading">1. Download the beta</h2>
           <p className="mt-4 leading-[1.7] text-muted">
@@ -38,10 +48,13 @@ export default function BetaGuidePage() {
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="install-heading">2. Approve the first launch</h2>
           <ol className="mt-5 grid gap-4 pl-5 leading-[1.7] text-muted">
             <li>Open the DMG and drag Flint into your Applications folder.</li>
-            <li>Control-click Flint in Applications and choose Open.</li>
-            <li>If macOS still blocks it, open System Settings → Privacy &amp; Security and choose Open Anyway for Flint.</li>
-            <li>Confirm that you want to open Flint. Future launches of that build should open normally.</li>
+            <li>Open Flint once. When “Flint Not Opened” appears, click Done—do not move Flint to Trash.</li>
+            <li>Open System Settings → Privacy &amp; Security, scroll to Security, and click Open Anyway for Flint.</li>
+            <li>Enter your Mac password and confirm Open. Flint can then launch and request its normal permissions.</li>
           </ol>
+          <p className="mt-5 text-sm leading-[1.7] text-muted">
+            Open Anyway is available for a limited time after the blocked launch attempt. If it is missing, try opening Flint once more and return to Privacy &amp; Security.
+          </p>
         </section>
 
         <section className="mt-14 border-t border-line pt-9" aria-labelledby="setup-heading">

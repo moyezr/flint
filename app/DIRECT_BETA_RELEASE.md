@@ -19,9 +19,10 @@ The script creates these files in `app/dist`:
 - `Flint-<version>.dmg`
 - `Flint-<version>.dmg.sha256`
 
-The DMG includes Flint, an Applications shortcut, and readable third-party
-license/notices files. Packaged builds contain the stable release-manifest URL
-used for a lightweight daily update check.
+The DMG includes Flint, an Applications shortcut, a prominent `READ ME FIRST`
+Gatekeeper guide, and readable third-party license/notices files. Packaged
+builds contain the stable release-manifest URL used for a lightweight daily
+update check.
 
 It uses an anonymous ad-hoc code signature solely to seal the local bundle. It
 does not identify Flint to Gatekeeper and does not replace Developer ID signing
@@ -33,7 +34,7 @@ or notarization.
    macOS user account.
 2. Verify the published SHA-256 checksum.
 3. Confirm the first-launch Gatekeeper instructions are accurate for the
-   current macOS release.
+   current macOS release and that `READ ME FIRST.txt` is visible in the DMG.
 4. Verify Microphone, Accessibility, and Input Monitoring permission flows.
 5. Publish versioned release notes, the checksum, installation instructions,
    privacy policy, beta terms, third-party notices, and a support contact
