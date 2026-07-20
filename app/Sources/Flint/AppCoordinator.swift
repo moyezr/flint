@@ -172,8 +172,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func configureMenu() {
-        statusItem.button?.title = "F"
-        statusItem.button?.font = .monospacedSystemFont(ofSize: 14, weight: .semibold)
+        statusItem.button?.image = FlintMenuBarIcon.make()
+        statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.toolTip = "Flint"
 
         let menu = NSMenu()
@@ -762,7 +762,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 updateCheckStore.markNotified(version: release.version)
                 updateMenuItem?.title = "Download Flint \(release.version)…"
                 updateMenuItem?.isEnabled = true
-                statusItem.button?.title = "F•"
+                statusItem.button?.image = FlintMenuBarIcon.make(hasUpdate: true)
                 statusItem.button?.toolTip = "Flint \(release.version) is available"
                 if interactive {
                     showAvailableUpdate(release)
@@ -782,7 +782,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     private func restoreUpdateMenuItem() {
         updateMenuItem?.title = "Check for Updates…"
         updateMenuItem?.isEnabled = true
-        statusItem.button?.title = "F"
+        statusItem.button?.image = FlintMenuBarIcon.make()
         statusItem.button?.toolTip = "Flint"
     }
 

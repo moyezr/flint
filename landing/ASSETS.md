@@ -30,7 +30,7 @@ The prototype uses code-native visual placeholders. Replace them with production
 
 ## 4. Favicon and Browser Icons
 
-- Placement: browser tabs, pinned tabs, installable web metadata.
-- Format: SVG source plus 512 x 512 PNG and 180 x 180 PNG exports.
-- Subject: the Flint microphone/spark mark only, centered with generous padding.
-- Treatment: legible at 16 px and monochrome-safe.
+- Status: configured from the approved orange-background `F/` brand mark.
+- Placement: browser tabs, Apple touch surfaces, and installable web metadata.
+- Exports: multi-resolution ICO, 512 x 512 PNG, 192 x 192 PNG, and 180 x 180 Apple touch PNG.
+- Canonical sources: `assets/brand/Flint Logo Orange Bg.png` and `assets/brand/Flint Logo White Bg.png`.

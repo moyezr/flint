@@ -16,7 +16,7 @@ The dictation loop is the product. Recording must start promptly, the app must r
 
 Core promises:
 
-- The current direct beta is ARM64-only for Apple Silicon Macs running macOS 14 or newer; the app remains a menu bar utility with no Dock icon. Its status menu provides an enabled `Quit Flint` action that terminates through `NSApplication`, allowing normal shutdown cleanup to run.
+- The current direct beta is ARM64-only for Apple Silicon Macs running macOS 14 or newer; the app remains a menu bar utility with no Dock icon. The menu-bar item uses a monochrome template version of the `F/` mark, with a small badge when an update is available. Its status menu provides an enabled `Quit Flint` action that terminates through `NSApplication`, allowing normal shutdown cleanup to run.
 - Audio and transcript processing stay on the Mac. Whisper models may require a network download before first use, and paid builds use the network for activation/occasional renewal, but dictation itself is local.
 - No account is required for dictation beyond the one-time license activation planned for paid builds.
 - Free public beta through a direct `.dmg`; the later paid release is planned as a one-time purchase, not a subscription.
@@ -53,7 +53,7 @@ app/                         Swift Package for the native macOS app
   Sources/Flint/             AppKit/SwiftUI implementation
   Sources/Flint/Learning/    Explicit local personalization
   Tests/FlintTests/          Unit and opt-in desktop integration tests
-  Distribution/             Info.plist, entitlements, production icon
+  Distribution/             Info.plist, entitlements, and generated production `.icns`
   Scripts/                  Packaging, notarization, and QA inventory
   REQUIREMENTS.md            Original requirements; partially stale
   PRODUCTION_READINESS.md    Compatibility/release evidence checklist
@@ -63,6 +63,7 @@ landing/                     Next.js 16 App Router marketing/licensing app
   app/lib/licenses/          Server-only licensing implementation
   db/migrations/             Append-only PostgreSQL migrations
   components/                Landing page, dot grid, and typing test
+assets/brand/                Canonical orange- and white-background Flint logo masters
 .github/workflows/           macOS app and Linux landing CI
 ```
 
@@ -104,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 289 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
+Current verified baseline: 291 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
 
 ## Native App Architecture
 
@@ -236,6 +237,7 @@ Landing-specific behavior:
 - Next.js 16, React 19, Tailwind CSS 4, App Router.
 - Canvas/GSAP dot grid uses subtle transparent orange at rest and stronger orange near the pointer. Content sections must remain above it (`relative z-10`) so text stays selectable and accessible to crawlers.
 - Smooth scrolling is enabled, with reduced-motion fallback.
+- Browser, Apple touch, and installable-web icons use the orange-background `F/` mark from `assets/brand`; the macOS `.icns` is generated from the same master.
 - Navbar and hero download actions link to `#download`; the typing-test target still uses `scroll-mt-[calc(50svh-204px)]` to approximately center the component.
 - Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, and per-letter green/red feedback. Completed runs with at least 15 characters show a concise WPM comparison against a clearly labeled roughly-130-WPM speech pace and a monthly time-value estimate with visible assumptions; formulas are collapsed by default. Results enter with a short upward fade and a lightly staggered pace comparison, disabled under reduced-motion preferences. Faster-than-baseline and insufficient-input runs use honest non-financial states. A calculated monthly time value is also surfaced in the free early-access pricing block for that page session.
 - `POST /api/beta-signups` requires current beta-terms acceptance, stores a normalized email, enforces short-lived database-backed abuse limits, and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export collected emails as CSV.
