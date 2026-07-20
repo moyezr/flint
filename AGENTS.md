@@ -208,6 +208,8 @@ Default data locations:
 - License record, offline lease, and per-device Ed25519 private key: separate `ThisDeviceOnly` Keychain items.
 - Recordings: temporary `.m4a` files deleted after transcription/cancellation.
 
+During onboarding, Flint proactively requests any missing microphone, Accessibility, and Input Monitoring permissions when the permissions step first appears. The manual prompt button remains available for retries after a denial or System Settings change.
+
 History is off by default and never stores audio. Explicit learning remains separate from history and stores only user-invoked corrections/mappings. Local metrics are content-free UserDefaults counters and are never uploaded. Telemetry is not implemented.
 
 `Delete All Local Data` clears settings, models, history/rules, learning database, local metrics, legacy vocabulary, and license/device Keychain state. `Uninstall Flint` validates that the process is the packaged `com.moyezrabbani.Flint` app before deleting data, reuses that full purge, disables Launch at Login, asks Finder to move the validated app bundle to Trash, and quits only after Finder confirms the move. A direct Finder deletion cannot trigger application cleanup, so the website and DMG README document manual model-folder cleanup as a fallback. Preserve test coverage whenever a new persistence surface is introduced.

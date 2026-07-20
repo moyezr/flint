@@ -172,6 +172,42 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(didNotifyRecovery)
     }
 
+    func testPermissionsArePromptedAutomaticallyOnceWhenStepAppears() async {
+        var promptCount = 0
+        let flow = makeFlow(
+            snapshotProvider: { self.missingPermissionSnapshot() },
+            permissionPromptAction: { promptCount += 1 }
+        )
+
+        await flow.promptForPermissionsIfNeeded()
+        XCTAssertEqual(promptCount, 0)
+
+        flow.next()
+        flow.next()
+        flow.next()
+        XCTAssertEqual(flow.currentStep, .permissions)
+
+        await flow.promptForPermissionsIfNeeded()
+        await flow.promptForPermissionsIfNeeded()
+
+        XCTAssertEqual(promptCount, 1)
+    }
+
+    func testAutomaticPermissionPromptSkipsReadyPermissions() async {
+        var promptCount = 0
+        let flow = makeFlow(
+            snapshotProvider: { self.readyPermissionSnapshot() },
+            permissionPromptAction: { promptCount += 1 }
+        )
+
+        flow.next()
+        flow.next()
+        flow.next()
+        await flow.promptForPermissionsIfNeeded()
+
+        XCTAssertEqual(promptCount, 0)
+    }
+
     func testCannotAdvancePastPermissionsUntilAllPermissionsAreReady() {
         var snapshot = missingPermissionSnapshot()
         let flow = makeFlow(

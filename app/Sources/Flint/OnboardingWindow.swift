@@ -117,6 +117,9 @@ private struct OnboardingView: View {
             .padding(20)
         }
         .frame(minWidth: 720, minHeight: 520)
+        .task(id: flow.currentStep) {
+            await flow.promptForPermissionsIfNeeded()
+        }
     }
 
     @ViewBuilder

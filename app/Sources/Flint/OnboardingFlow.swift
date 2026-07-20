@@ -52,6 +52,7 @@ final class OnboardingFlow: ObservableObject {
     private let onPermissionsPromptCompleted: (() -> Void)?
     private let onSettingsChanged: SettingsChangedAction?
     private let onComplete: (() -> Void)?
+    private var hasAutomaticallyPromptedForPermissions = false
 
     init(
         store: AppSettingsStore,
@@ -163,6 +164,17 @@ final class OnboardingFlow: ObservableObject {
         onPermissionsPromptCompleted?()
         isPromptingForPermissions = false
         refreshPermissionSnapshot()
+    }
+
+    func promptForPermissionsIfNeeded() async {
+        guard currentStep == .permissions,
+              !hasAutomaticallyPromptedForPermissions,
+              permissionSnapshot.missingCount > 0 else {
+            return
+        }
+
+        hasAutomaticallyPromptedForPermissions = true
+        await promptForPermissions()
     }
 
     func downloadSelectedModel() async {
