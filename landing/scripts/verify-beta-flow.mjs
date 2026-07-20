@@ -2,11 +2,13 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import postgres from "postgres";
 
+import { disposableBetaTestEmail } from "../lib/beta-test-email.mjs";
+
 const databaseUrl = required("DATABASE_URL");
 const baseURL = new URL(process.env.FLINT_BETA_TEST_URL ?? "http://127.0.0.1:3000");
 const verificationCode = "123456";
 const testEmail = required("FLINT_BETA_TEST_EMAIL");
-const normalizedEmail = disposableAddress(testEmail, randomUUID()).toLocaleLowerCase("en-US");
+const normalizedEmail = disposableBetaTestEmail(testEmail, randomUUID()).toLocaleLowerCase("en-US");
 const verificationPepper = required("BETA_OTP_PEPPER");
 const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
 
@@ -26,7 +28,10 @@ try {
     }),
   });
   const signupBody = await signupResponse.json();
-  assert(signupResponse.status === 202, `Expected signup 202, received ${signupResponse.status}.`);
+  assert(
+    signupResponse.status === 202,
+    `Expected signup 202, received ${signupResponse.status}.${responseError(signupBody)}`,
+  );
   assert(typeof signupBody.verificationID === "string", "Signup response did not include a verification ID.");
 
   const codeHash = createHmac("sha256", verificationPepper)
@@ -76,22 +81,16 @@ try {
   await sql.end();
 }
 
-function disposableAddress(email, suffix) {
-  const separator = email.lastIndexOf("@");
-  if (separator <= 0) {
-    throw new Error("FLINT_BETA_TEST_EMAIL must be a valid email address.");
-  }
-  const local = email.slice(0, separator).split("+")[0];
-  const domain = email.slice(separator + 1);
-  return `${local}+flint-beta-test-${suffix}@${domain}`;
-}
-
 function required(name) {
   const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(`${name} must be configured.`);
   }
   return value;
+}
+
+function responseError(body) {
+  return typeof body?.error === "string" ? ` ${body.error}` : "";
 }
 
 function assert(condition, message) {
