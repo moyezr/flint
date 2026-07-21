@@ -19,6 +19,9 @@ let package = Package(
             dependencies: [
                 .product(name: "WhisperKit", package: "argmax-oss-swift")
             ],
+            resources: [
+                .copy("Resources")
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("AVFoundation"),

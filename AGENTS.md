@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 301 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 306 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 
@@ -244,7 +244,7 @@ Landing-specific behavior:
 - Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, and per-letter green/red feedback. Completed runs with at least 15 characters show a concise WPM comparison against a clearly labeled roughly-130-WPM speech pace and a monthly time-value estimate with visible assumptions; formulas are collapsed by default. Results enter with a short upward fade and a lightly staggered pace comparison, disabled under reduced-motion preferences. Faster-than-baseline and insufficient-input runs use honest non-financial states. A calculated monthly time value is also surfaced in the free early-access pricing block for that page session.
 - `POST /api/beta-signups` requires current beta-terms acceptance and sends a 10-minute email OTP; `POST /api/beta-signups/verify` allows at most five incorrect codes, stores the verified signup, and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export verified emails and optional names as CSV.
 
-Native onboarding uses the landing warm-theme tokens exactly: signal `#ff4f1f`, paper `#f8f7f3`, mist `#e9e8e1`, ink `#121412`, deep `#151914`, muted `#62675e`, and line `#c9cdc2`. Its header uses the packaged `F/` application icon; cards and controls remain in a fixed light warm presentation so system dark mode cannot shift the palette toward brown or another orange. Keep this visual language when adding setup steps.
+Native onboarding uses the landing design system directly: Space Grotesk headings, Inter body copy, IBM Plex Mono labels/status text, signal `#ff4f1f`, paper `#f8f7f3`, mist `#e9e8e1`, ink `#121412`, deep `#151914`, muted `#62675e`, and line `#c9cdc2`. The font files and their OFL licenses live under `Sources/Flint/Resources`, register at process scope for `swift run`, and are copied into packaged app resources. The header uses the landing `FLINT/` wordmark, content sits on square editorial panels and controls, and a quiet orange dot field carries the website motif into the fixed light presentation. Keep this visual language when adding setup steps; do not reintroduce the old rounded material-card treatment or a different orange.
 - `/privacy`, `/terms`, `/third-party-notices`, `/support`, and `/beta` are the public legal/support/install surfaces. `moyezrabbani.work@gmail.com` is the intentionally simple support contact.
 - Global response security headers are configured in `next.config.ts`. Run `npm run landing:production:verify` after deployment; run `npm run landing:db:backup` only with an explicit private backup directory.
 

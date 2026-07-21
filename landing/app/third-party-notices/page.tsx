@@ -9,6 +9,12 @@ const appComponents = [
   { name: "Swift Argument Parser", license: "Apache License 2.0 with Runtime Library Exception", href: "https://github.com/apple/swift-argument-parser" },
 ];
 
+const typefaceComponents = [
+  { name: "Space Grotesk", license: "SIL Open Font License 1.1", href: "https://github.com/floriankarsten/space-grotesk" },
+  { name: "Inter", license: "SIL Open Font License 1.1", href: "https://github.com/rsms/inter" },
+  { name: "IBM Plex Mono", license: "SIL Open Font License 1.1", href: "https://github.com/IBM/plex" },
+];
+
 const websiteComponents = [
   ["Base UI", "MIT"],
   ["Class Variance Authority", "Apache License 2.0"],
@@ -39,7 +45,7 @@ export default function ThirdPartyNoticesPage() {
         <h1 className={`${spaceGrotesk.className} text-[64px] leading-[0.95] font-semibold max-[520px]:text-[44px]`}>
           Third-party notices.
         </h1>
-        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 20, 2026.</p>
+        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 21, 2026.</p>
 
         <section className="mt-16 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Flint macOS application</h2>
@@ -48,6 +54,20 @@ export default function ThirdPartyNoticesPage() {
           </p>
           <ul className="mt-5 grid gap-3 pl-5 leading-[1.7] text-muted">
             {appComponents.map((component) => (
+              <li key={component.name}>
+                <a className="border-b border-current text-ink" href={component.href}>{component.name}</a> — {component.license}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mt-14 border-t border-line pt-9">
+          <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Flint typefaces</h2>
+          <p className="mt-4 leading-[1.7] text-muted">
+            Flint&apos;s website and macOS onboarding use these open-source typefaces. The packaged app includes their complete license texts under Contents/Resources/FontLicenses.
+          </p>
+          <ul className="mt-5 grid gap-3 pl-5 leading-[1.7] text-muted">
+            {typefaceComponents.map((component) => (
               <li key={component.name}>
                 <a className="border-b border-current text-ink" href={component.href}>{component.name}</a> — {component.license}
               </li>

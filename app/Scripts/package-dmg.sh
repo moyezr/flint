@@ -8,6 +8,8 @@ SIGNING_IDENTITY="${FLINT_SIGNING_IDENTITY:?Set FLINT_SIGNING_IDENTITY to a Deve
 DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.0}"
 OUTPUT_DIR="${FLINT_OUTPUT_DIR:-$ROOT_DIR/dist}"
 ICON_PATH="$ROOT_DIR/Distribution/Flint.icns"
+FONT_SOURCE_DIR="$ROOT_DIR/Sources/Flint/Resources/Fonts"
+FONT_LICENSE_SOURCE_DIR="$ROOT_DIR/Sources/Flint/Resources/FontLicenses"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/flint-release.XXXXXX")"
 APP_PATH="$STAGING_DIR/Flint.app"
 DMG_PATH="$OUTPUT_DIR/Flint-$VERSION.dmg"
@@ -22,11 +24,19 @@ if [[ ! -f "$ICON_PATH" ]]; then
     exit 1
 fi
 
+if [[ ! -d "$FONT_SOURCE_DIR" || ! -d "$FONT_LICENSE_SOURCE_DIR" ]]; then
+    echo "Missing bundled Flint font resources." >&2
+    exit 1
+fi
+
 mkdir -p "$OUTPUT_DIR" "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
+mkdir -p "$APP_PATH/Contents/Resources/Fonts" "$APP_PATH/Contents/Resources/FontLicenses"
 
 MACOSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" swift build -c release --package-path "$ROOT_DIR"
 cp "$ROOT_DIR/.build/release/Flint" "$APP_PATH/Contents/MacOS/Flint"
 cp "$ICON_PATH" "$APP_PATH/Contents/Resources/Flint.icns"
+cp "$FONT_SOURCE_DIR"/*.ttf "$APP_PATH/Contents/Resources/Fonts/"
+cp "$FONT_LICENSE_SOURCE_DIR"/*.txt "$APP_PATH/Contents/Resources/FontLicenses/"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/LICENSE" "$APP_PATH/Contents/Resources/ArgmaxOSS-LICENSE.txt"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/NOTICES" "$APP_PATH/Contents/Resources/ArgmaxOSS-NOTICES.txt"
 cp "$ROOT_DIR/.build/checkouts/swift-argument-parser/LICENSE.txt" "$APP_PATH/Contents/Resources/SwiftArgumentParser-LICENSE.txt"

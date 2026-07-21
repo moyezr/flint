@@ -31,6 +31,8 @@ Use the Permissions menu item to check Microphone and Accessibility readiness. M
 
 Flint requests macOS permissions one at a time so simultaneous system prompts cannot suppress one another. Accessibility already grants the event-listening access used by Flint's shortcut, so onboarding does not require the separate Input Monitoring permission. Each missing permission has its own Settings action, onboarding refreshes its permission state automatically while that step is visible, and it provides a Quit button for changes that require a relaunch. The direct beta is ad-hoc signed, so macOS may retain an Accessibility entry for an older Flint build after the app is replaced. If Accessibility is visibly enabled but Flint still reports it as missing, remove the old Flint row in System Settings, add the current `/Applications/Flint.app` again, and reopen Flint.
 
+Onboarding shares the landing page's design system: bundled Space Grotesk headings, Inter body copy, IBM Plex Mono labels, the warm Flint palette, square bordered surfaces, the `FLINT/` wordmark, and the subtle orange dot field. The matching SIL Open Font License texts are included with packaged builds under `Contents/Resources/FontLicenses`.
+
 For a clean first-run test, choose **Privacy → Delete All Local Data** in Flint, quit the app, and reset Flint's macOS permission decisions with `tccutil reset All com.moyezrabbani.Flint`. The next launch starts onboarding from the beginning and macOS asks for permissions again. This removes Flint's settings, models, local databases, learning data, and license state; it does not remove unrelated applications' data.
 
 ## Local Transcription
