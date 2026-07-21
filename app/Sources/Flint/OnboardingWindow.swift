@@ -31,7 +31,7 @@ final class OnboardingWindowController {
                 }
                 try await modelPreparationAction(tier)
             },
-            onPermissionsPromptCompleted: onPermissionsChanged,
+            onPermissionsChanged: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete,
             recommendedModelTier: modelRecommendation.tier,
@@ -168,6 +168,7 @@ private struct OnboardingView: View {
         .frame(minWidth: 780, minHeight: 580)
         .task(id: flow.currentStep) {
             await flow.promptForPermissionsIfNeeded()
+            await flow.monitorPermissionChanges()
         }
     }
 
@@ -267,13 +268,19 @@ private struct OnboardingView: View {
                     }
                     .disabled(flow.isPromptingForPermissions)
 
-                    Button("Refresh") {
-                        flow.refreshPermissionSnapshot()
+                    Button("Open Privacy & Security") {
+                        openMissingPermissionSettings()
                     }
                 }
                 Text(permissionReadinessMessage)
                     .foregroundStyle(FlintBrand.muted)
                     .font(.callout)
+                if flow.permissionSnapshot.missingCount > 0 {
+                    Text("Flint checks this screen automatically. If a permission is already enabled but still says Needed after replacing an earlier direct beta, remove the old Flint entry in System Settings, add /Applications/Flint.app again, then reopen Flint.")
+                        .foregroundStyle(FlintBrand.muted.opacity(0.82))
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         case .model:
             VStack(alignment: .leading, spacing: 14) {
@@ -420,6 +427,21 @@ private struct OnboardingView: View {
         flow.permissionSnapshot.missingCount == 0
             ? "Permissions are ready."
             : "Grant the missing permissions before continuing."
+    }
+
+    private func openMissingPermissionSettings() {
+        let anchor: String
+        if !flow.permissionSnapshot.status(for: .accessibility).isReady {
+            anchor = "Privacy_Accessibility"
+        } else if !flow.permissionSnapshot.status(for: .inputMonitoring).isReady {
+            anchor = "Privacy_ListenEvent"
+        } else {
+            anchor = "Privacy_Microphone"
+        }
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     private var modelReadinessMessage: String {

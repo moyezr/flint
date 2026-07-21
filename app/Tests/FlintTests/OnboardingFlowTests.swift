@@ -227,7 +227,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionPromptAction: {
                 didRequestPermissions = true
             },
-            onPermissionsPromptCompleted: {
+            onPermissionsChanged: {
                 XCTAssertTrue(didRequestPermissions)
                 didNotifyRecovery = true
             }
@@ -298,6 +298,28 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(flow.currentStep, .model)
     }
 
+    func testPermissionMonitorDetectsGrantMadeAfterPromptReturns() async {
+        var snapshot = missingPermissionSnapshot()
+        var delayCount = 0
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {},
+            permissionRefreshDelay: {
+                delayCount += 1
+                snapshot = self.readyPermissionSnapshot()
+            }
+        )
+        flow.next()
+        flow.next()
+        flow.next()
+
+        await flow.monitorPermissionChanges()
+
+        XCTAssertEqual(delayCount, 1)
+        XCTAssertEqual(flow.permissionSnapshot, readyPermissionSnapshot())
+        XCTAssertTrue(flow.canAdvance)
+    }
+
     func testCannotAdvancePastModelUntilSelectedModelIsInstalled() async {
         var installedTiers: [ModelTier] = [.fast, .accurate]
         let flow = makeFlow(
@@ -329,7 +351,7 @@ final class OnboardingFlowTests: XCTestCase {
         snapshot: PermissionSnapshot = PermissionSnapshot(statuses: []),
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
         modelDownloadAction: @escaping OnboardingFlow.ModelDownloadAction = { _, _ in },
-        onPermissionsPromptCompleted: (() -> Void)? = nil,
+        onPermissionsChanged: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil
     ) -> OnboardingFlow {
@@ -338,7 +360,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionPromptAction: {},
             modelInstalledProvider: modelInstalledProvider,
             modelDownloadAction: modelDownloadAction,
-            onPermissionsPromptCompleted: onPermissionsPromptCompleted,
+            onPermissionsChanged: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete
         )
@@ -347,9 +369,12 @@ final class OnboardingFlowTests: XCTestCase {
     private func makeFlow(
         snapshotProvider: @escaping () -> PermissionSnapshot,
         permissionPromptAction: @escaping () async -> Void,
+        permissionRefreshDelay: @escaping OnboardingFlow.PermissionRefreshDelay = {
+            try? await Task.sleep(for: .seconds(1))
+        },
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
         modelDownloadAction: @escaping OnboardingFlow.ModelDownloadAction = { _, _ in },
-        onPermissionsPromptCompleted: (() -> Void)? = nil,
+        onPermissionsChanged: (() -> Void)? = nil,
         onSettingsChanged: ((AppSettings) -> Void)? = nil,
         onComplete: (() -> Void)? = nil
     ) -> OnboardingFlow {
@@ -357,9 +382,10 @@ final class OnboardingFlowTests: XCTestCase {
             store: AppSettingsStore(defaults: defaults),
             permissionSnapshotProvider: snapshotProvider,
             permissionPromptAction: permissionPromptAction,
+            permissionRefreshDelay: permissionRefreshDelay,
             modelInstalledProvider: modelInstalledProvider,
             modelDownloadAction: modelDownloadAction,
-            onPermissionsPromptCompleted: onPermissionsPromptCompleted,
+            onPermissionsChanged: onPermissionsChanged,
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete
         )

@@ -29,6 +29,10 @@ Flint captures the focused text target when recording starts and tries that targ
 
 Use the Permissions menu item to check Microphone, Accessibility, and Input Monitoring readiness. Microphone lets Flint record your voice for local transcription. Accessibility lets Flint insert text into the field you're typing in. Input Monitoring lets Flint detect your dictation shortcut.
 
+The direct beta is ad-hoc signed, so macOS may retain a permission entry for an older Flint build after the app is replaced. If Accessibility or Input Monitoring is visibly enabled but Flint still reports it as missing, remove the old Flint row in System Settings, add the current `/Applications/Flint.app` again, and reopen Flint. Onboarding refreshes its permission state automatically while that step is visible.
+
+For a clean first-run test, choose **Privacy → Delete All Local Data** in Flint, quit the app, and reset Flint's macOS permission decisions with `tccutil reset All com.moyezrabbani.Flint`. The next launch starts onboarding from the beginning and macOS asks for permissions again. This removes Flint's settings, models, local databases, learning data, and license state; it does not remove unrelated applications' data.
+
 ## Local Transcription
 
 Flint uses the official Argmax OSS Swift package and the `WhisperKit` product for on-device transcription. The transcription pipeline is initialized once and cached behind `TranscriptionEngine`, so repeated dictations reuse the same model/runtime instead of recreating it.

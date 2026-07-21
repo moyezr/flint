@@ -46,6 +46,7 @@ enum OnboardingLaunchPolicy {
 final class OnboardingFlow: ObservableObject {
     typealias PermissionSnapshotProvider = () -> PermissionSnapshot
     typealias PermissionPromptAction = () async -> Void
+    typealias PermissionRefreshDelay = @MainActor () async -> Void
     typealias ModelInstalledProvider = (ModelTier) -> Bool
     typealias ModelDownloadProgressHandler = @MainActor (Double) -> Void
     typealias ModelDownloadAction = (ModelTier, @escaping ModelDownloadProgressHandler) async throws -> Void
@@ -63,9 +64,10 @@ final class OnboardingFlow: ObservableObject {
     private let store: AppSettingsStore
     private let permissionSnapshotProvider: PermissionSnapshotProvider
     private let permissionPromptAction: PermissionPromptAction
+    private let permissionRefreshDelay: PermissionRefreshDelay
     private let modelInstalledProvider: ModelInstalledProvider
     private let modelDownloadAction: ModelDownloadAction
-    private let onPermissionsPromptCompleted: (() -> Void)?
+    private let onPermissionsChanged: (() -> Void)?
     private let onSettingsChanged: SettingsChangedAction?
     private let onComplete: (() -> Void)?
     private var hasAutomaticallyPromptedForPermissions = false
@@ -74,9 +76,12 @@ final class OnboardingFlow: ObservableObject {
         store: AppSettingsStore,
         permissionSnapshotProvider: @escaping PermissionSnapshotProvider,
         permissionPromptAction: @escaping PermissionPromptAction,
+        permissionRefreshDelay: @escaping PermissionRefreshDelay = {
+            try? await Task.sleep(for: .seconds(1))
+        },
         modelInstalledProvider: @escaping ModelInstalledProvider,
         modelDownloadAction: @escaping ModelDownloadAction,
-        onPermissionsPromptCompleted: (() -> Void)? = nil,
+        onPermissionsChanged: (() -> Void)? = nil,
         onSettingsChanged: SettingsChangedAction? = nil,
         onComplete: (() -> Void)? = nil,
         recommendedModelTier: ModelTier? = nil,
@@ -86,9 +91,10 @@ final class OnboardingFlow: ObservableObject {
         self.store = store
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.permissionPromptAction = permissionPromptAction
+        self.permissionRefreshDelay = permissionRefreshDelay
         self.modelInstalledProvider = modelInstalledProvider
         self.modelDownloadAction = modelDownloadAction
-        self.onPermissionsPromptCompleted = onPermissionsPromptCompleted
+        self.onPermissionsChanged = onPermissionsChanged
         self.onSettingsChanged = onSettingsChanged
         self.onComplete = onComplete
         self.allowsModelSelection = allowsModelSelection
@@ -184,16 +190,22 @@ final class OnboardingFlow: ObservableObject {
     }
 
     func refreshPermissionSnapshot() {
-        permissionSnapshot = permissionSnapshotProvider()
+        let refreshedSnapshot = permissionSnapshotProvider()
+        guard refreshedSnapshot != permissionSnapshot else { return }
+        permissionSnapshot = refreshedSnapshot
+        onPermissionsChanged?()
     }
 
     func promptForPermissions() async {
         guard !isPromptingForPermissions else { return }
         isPromptingForPermissions = true
         await permissionPromptAction()
-        onPermissionsPromptCompleted?()
         isPromptingForPermissions = false
+        let snapshotBeforeRefresh = permissionSnapshot
         refreshPermissionSnapshot()
+        if permissionSnapshot == snapshotBeforeRefresh {
+            onPermissionsChanged?()
+        }
     }
 
     func promptForPermissionsIfNeeded() async {
@@ -205,6 +217,16 @@ final class OnboardingFlow: ObservableObject {
 
         hasAutomaticallyPromptedForPermissions = true
         await promptForPermissions()
+    }
+
+    func monitorPermissionChanges() async {
+        while currentStep == .permissions,
+              permissionSnapshot.missingCount > 0,
+              !Task.isCancelled {
+            await permissionRefreshDelay()
+            guard currentStep == .permissions, !Task.isCancelled else { return }
+            refreshPermissionSnapshot()
+        }
     }
 
     func downloadSelectedModel() async {

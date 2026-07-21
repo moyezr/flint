@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 293 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 294 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 
@@ -209,7 +209,7 @@ Default data locations:
 - License record, offline lease, and per-device Ed25519 private key: separate `ThisDeviceOnly` Keychain items.
 - Recordings: temporary `.m4a` files deleted after transcription/cancellation.
 
-During onboarding, Flint proactively requests any missing microphone, Accessibility, and Input Monitoring permissions when the permissions step first appears. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive request. The manual prompt button remains available for retries after a denial or System Settings change.
+During onboarding, Flint proactively requests any missing microphone, Accessibility, and Input Monitoring permissions when the permissions step first appears. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive request. The manual prompt button remains available for retries after a denial or System Settings change. While the permissions step remains visible, Flint refreshes permission readiness once per second so a grant made in System Settings is detected without another button press. Because direct betas are ad-hoc signed, replacing an older build can leave a stale macOS privacy entry; onboarding tells users to remove the old entry, add the current `/Applications/Flint.app`, and reopen Flint when an enabled permission is still not recognized.
 
 History is off by default and never stores audio. Explicit learning remains separate from history and stores only user-invoked corrections/mappings. Local metrics are content-free UserDefaults counters and are never uploaded. Telemetry is not implemented.
 
