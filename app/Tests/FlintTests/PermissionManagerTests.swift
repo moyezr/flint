@@ -82,14 +82,16 @@ final class PermissionManagerTests: XCTestCase {
         XCTAssertEqual(inputMonitoringRequestCount, 1)
     }
 
-    func testRequestMissingPermissionsSkipsReadyAndRequestsMissingRequestablePermissions() async {
+    func testRequestMissingPermissionsRequestsOneSystemPermissionPerPass() async {
         var microphoneRequestCount = 0
         var accessibilityRequestCount = 0
         var inputMonitoringRequestCount = 0
+        var microphoneStatus = AVAuthorizationStatus.notDetermined
         let manager = PermissionManager(
-            microphoneAuthorizationStatus: { .notDetermined },
+            microphoneAuthorizationStatus: { microphoneStatus },
             requestMicrophoneAccess: {
                 microphoneRequestCount += 1
+                microphoneStatus = .authorized
                 return true
             },
             accessibilityTrusted: { true },
@@ -102,25 +104,74 @@ final class PermissionManagerTests: XCTestCase {
 
         XCTAssertEqual(microphoneRequestCount, 1)
         XCTAssertEqual(accessibilityRequestCount, 0)
+        XCTAssertEqual(inputMonitoringRequestCount, 0)
+
+        await manager.requestMissingPermissions()
+
         XCTAssertEqual(inputMonitoringRequestCount, 1)
+    }
+
+    func testAccessibilityRequestIsNotOverlappedByInputMonitoringRequest() async {
+        var accessibilityRequestCount = 0
+        var inputMonitoringRequestCount = 0
+        let manager = PermissionManager(
+            microphoneAuthorizationStatus: { .authorized },
+            accessibilityTrusted: { false },
+            requestAccessibilityAccess: { accessibilityRequestCount += 1 },
+            inputMonitoringTrusted: { false },
+            requestInputMonitoringAccess: { inputMonitoringRequestCount += 1 }
+        )
+
+        await manager.requestMissingPermissions()
+
+        XCTAssertEqual(accessibilityRequestCount, 1)
+        XCTAssertEqual(inputMonitoringRequestCount, 0)
+    }
+
+    func testPermissionSettingsRouteOpensFirstMissingPermission() {
+        let microphoneURL = PermissionSettingsRoute.url(for: PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .denied),
+            PermissionStatus(kind: .accessibility, readiness: .denied),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ]))
+        let accessibilityURL = PermissionSettingsRoute.url(for: PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .denied),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ]))
+        let inputMonitoringURL = PermissionSettingsRoute.url(for: PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .ready),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ]))
+
+        XCTAssertTrue(microphoneURL?.absoluteString.hasSuffix("Privacy_Microphone") == true)
+        XCTAssertTrue(accessibilityURL?.absoluteString.hasSuffix("Privacy_Accessibility") == true)
+        XCTAssertTrue(inputMonitoringURL?.absoluteString.hasSuffix("Privacy_ListenEvent") == true)
     }
 
     func testRequestMissingPermissionsDoesNotReRequestDeniedOrRestrictedMicrophone() async {
         for status in [AVAuthorizationStatus.denied, .restricted] {
             var microphoneRequestCount = 0
+            var accessibilityRequestCount = 0
+            var inputMonitoringRequestCount = 0
             let manager = PermissionManager(
                 microphoneAuthorizationStatus: { status },
                 requestMicrophoneAccess: {
                     microphoneRequestCount += 1
                     return false
                 },
-                accessibilityTrusted: { true },
-                inputMonitoringTrusted: { true }
+                accessibilityTrusted: { false },
+                requestAccessibilityAccess: { accessibilityRequestCount += 1 },
+                inputMonitoringTrusted: { false },
+                requestInputMonitoringAccess: { inputMonitoringRequestCount += 1 }
             )
 
             await manager.requestMissingPermissions()
 
             XCTAssertEqual(microphoneRequestCount, 0, "Unexpected microphone prompt for \(status)")
+            XCTAssertEqual(accessibilityRequestCount, 0, "Later permission request overlapped \(status)")
+            XCTAssertEqual(inputMonitoringRequestCount, 0, "Later permission request overlapped \(status)")
         }
     }
 

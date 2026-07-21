@@ -320,6 +320,55 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(flow.canAdvance)
     }
 
+    func testPermissionMonitorRequestsNextPermissionAfterPartialGrant() async {
+        var snapshot = PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .denied),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ])
+        var promptCount = 0
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {
+                promptCount += 1
+                snapshot = self.readyPermissionSnapshot()
+            },
+            permissionRefreshDelay: {
+                snapshot = PermissionSnapshot(statuses: [
+                    PermissionStatus(kind: .microphone, readiness: .ready),
+                    PermissionStatus(kind: .accessibility, readiness: .ready),
+                    PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+                ])
+            }
+        )
+        flow.next()
+        flow.next()
+        flow.next()
+
+        await flow.monitorPermissionChanges()
+
+        XCTAssertEqual(promptCount, 1)
+        XCTAssertEqual(flow.permissionSnapshot, readyPermissionSnapshot())
+    }
+
+    func testManualPermissionRecoveryFallsBackToSettingsWhenPromptDoesNotGrantAccess() async {
+        let snapshot = PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .ready),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ])
+        var recoveredSnapshot: PermissionSnapshot?
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {},
+            permissionRecoveryAction: { recoveredSnapshot = $0 }
+        )
+
+        await flow.recoverMissingPermissions()
+
+        XCTAssertEqual(recoveredSnapshot, snapshot)
+    }
+
     func testCannotAdvancePastModelUntilSelectedModelIsInstalled() async {
         var installedTiers: [ModelTier] = [.fast, .accurate]
         let flow = makeFlow(
@@ -372,6 +421,7 @@ final class OnboardingFlowTests: XCTestCase {
         permissionRefreshDelay: @escaping OnboardingFlow.PermissionRefreshDelay = {
             try? await Task.sleep(for: .seconds(1))
         },
+        permissionRecoveryAction: @escaping OnboardingFlow.PermissionRecoveryAction = { _ in },
         modelInstalledProvider: @escaping (ModelTier) -> Bool = { _ in true },
         modelDownloadAction: @escaping OnboardingFlow.ModelDownloadAction = { _, _ in },
         onPermissionsChanged: (() -> Void)? = nil,
@@ -383,6 +433,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionSnapshotProvider: snapshotProvider,
             permissionPromptAction: permissionPromptAction,
             permissionRefreshDelay: permissionRefreshDelay,
+            permissionRecoveryAction: permissionRecoveryAction,
             modelInstalledProvider: modelInstalledProvider,
             modelDownloadAction: modelDownloadAction,
             onPermissionsChanged: onPermissionsChanged,

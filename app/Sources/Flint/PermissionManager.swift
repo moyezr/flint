@@ -101,6 +101,22 @@ struct PermissionSnapshot: Equatable {
     }
 }
 
+enum PermissionSettingsRoute {
+    static func url(for snapshot: PermissionSnapshot) -> URL? {
+        let anchor: String
+        if !snapshot.status(for: .microphone).isReady {
+            anchor = "Privacy_Microphone"
+        } else if !snapshot.status(for: .accessibility).isReady {
+            anchor = "Privacy_Accessibility"
+        } else if !snapshot.status(for: .inputMonitoring).isReady {
+            anchor = "Privacy_ListenEvent"
+        } else {
+            return nil
+        }
+        return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")
+    }
+}
+
 struct PermissionManager {
     var microphoneAuthorizationStatus: () -> AVAuthorizationStatus = {
         AVCaptureDevice.authorizationStatus(for: .audio)
@@ -156,11 +172,16 @@ struct PermissionManager {
     func requestMissingPermissions() async {
         let currentSnapshot = snapshot()
 
-        if currentSnapshot.status(for: .microphone).readiness == .notDetermined {
-            _ = await requestMicrophoneAccess()
+        let microphone = currentSnapshot.status(for: .microphone)
+        if !microphone.isReady {
+            if microphone.readiness == .notDetermined {
+                _ = await requestMicrophoneAccess()
+            }
+            return
         }
         if !currentSnapshot.status(for: .accessibility).isReady {
             requestAccessibilityAccess()
+            return
         }
         if !currentSnapshot.status(for: .inputMonitoring).isReady {
             requestInputMonitoringAccess()

@@ -47,6 +47,7 @@ final class OnboardingFlow: ObservableObject {
     typealias PermissionSnapshotProvider = () -> PermissionSnapshot
     typealias PermissionPromptAction = () async -> Void
     typealias PermissionRefreshDelay = @MainActor () async -> Void
+    typealias PermissionRecoveryAction = @MainActor (PermissionSnapshot) -> Void
     typealias ModelInstalledProvider = (ModelTier) -> Bool
     typealias ModelDownloadProgressHandler = @MainActor (Double) -> Void
     typealias ModelDownloadAction = (ModelTier, @escaping ModelDownloadProgressHandler) async throws -> Void
@@ -65,6 +66,7 @@ final class OnboardingFlow: ObservableObject {
     private let permissionSnapshotProvider: PermissionSnapshotProvider
     private let permissionPromptAction: PermissionPromptAction
     private let permissionRefreshDelay: PermissionRefreshDelay
+    private let permissionRecoveryAction: PermissionRecoveryAction
     private let modelInstalledProvider: ModelInstalledProvider
     private let modelDownloadAction: ModelDownloadAction
     private let onPermissionsChanged: (() -> Void)?
@@ -79,6 +81,7 @@ final class OnboardingFlow: ObservableObject {
         permissionRefreshDelay: @escaping PermissionRefreshDelay = {
             try? await Task.sleep(for: .seconds(1))
         },
+        permissionRecoveryAction: @escaping PermissionRecoveryAction = { _ in },
         modelInstalledProvider: @escaping ModelInstalledProvider,
         modelDownloadAction: @escaping ModelDownloadAction,
         onPermissionsChanged: (() -> Void)? = nil,
@@ -92,6 +95,7 @@ final class OnboardingFlow: ObservableObject {
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.permissionPromptAction = permissionPromptAction
         self.permissionRefreshDelay = permissionRefreshDelay
+        self.permissionRecoveryAction = permissionRecoveryAction
         self.modelInstalledProvider = modelInstalledProvider
         self.modelDownloadAction = modelDownloadAction
         self.onPermissionsChanged = onPermissionsChanged
@@ -189,11 +193,13 @@ final class OnboardingFlow: ObservableObject {
         onSettingsChanged?(settings)
     }
 
-    func refreshPermissionSnapshot() {
+    @discardableResult
+    func refreshPermissionSnapshot() -> Bool {
         let refreshedSnapshot = permissionSnapshotProvider()
-        guard refreshedSnapshot != permissionSnapshot else { return }
+        guard refreshedSnapshot != permissionSnapshot else { return false }
         permissionSnapshot = refreshedSnapshot
         onPermissionsChanged?()
+        return true
     }
 
     func promptForPermissions() async {
@@ -219,13 +225,22 @@ final class OnboardingFlow: ObservableObject {
         await promptForPermissions()
     }
 
+    func recoverMissingPermissions() async {
+        await promptForPermissions()
+        guard permissionSnapshot.missingCount > 0 else { return }
+        permissionRecoveryAction(permissionSnapshot)
+    }
+
     func monitorPermissionChanges() async {
         while currentStep == .permissions,
               permissionSnapshot.missingCount > 0,
               !Task.isCancelled {
             await permissionRefreshDelay()
             guard currentStep == .permissions, !Task.isCancelled else { return }
-            refreshPermissionSnapshot()
+            let didChange = refreshPermissionSnapshot()
+            if didChange, permissionSnapshot.missingCount > 0 {
+                await promptForPermissions()
+            }
         }
     }
 

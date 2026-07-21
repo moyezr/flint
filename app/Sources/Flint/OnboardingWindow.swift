@@ -22,6 +22,10 @@ final class OnboardingWindowController {
             store: settingsStore,
             permissionSnapshotProvider: { permissionManager.snapshot() },
             permissionPromptAction: { await permissionManager.requestMissingPermissions() },
+            permissionRecoveryAction: { snapshot in
+                guard let url = PermissionSettingsRoute.url(for: snapshot) else { return }
+                NSWorkspace.shared.open(url)
+            },
             modelInstalledProvider: { tier in modelManager.metadata(for: tier).isInstalled },
             modelDownloadAction: { tier, reportProgress in
                 _ = try await modelManager.downloadModel(for: tier) { progress in
@@ -264,19 +268,24 @@ private struct OnboardingView: View {
                 }
                 HStack {
                     Button(flow.isPromptingForPermissions ? "Prompting..." : "Prompt for Missing Permissions") {
-                        Task { await flow.promptForPermissions() }
+                        Task { await flow.recoverMissingPermissions() }
                     }
                     .disabled(flow.isPromptingForPermissions)
 
                     Button("Open Privacy & Security") {
-                        openMissingPermissionSettings()
+                        guard let url = PermissionSettingsRoute.url(for: flow.permissionSnapshot) else { return }
+                        NSWorkspace.shared.open(url)
                     }
                 }
                 Text(permissionReadinessMessage)
                     .foregroundStyle(FlintBrand.muted)
                     .font(.callout)
                 if flow.permissionSnapshot.missingCount > 0 {
-                    Text("Flint checks this screen automatically. If a permission is already enabled but still says Needed after replacing an earlier direct beta, remove the old Flint entry in System Settings, add /Applications/Flint.app again, then reopen Flint.")
+                    Text("macOS may show each permission prompt only once. Flint requests them one at a time and checks this screen automatically. On a retry, the button opens the relevant System Settings pane.")
+                        .foregroundStyle(FlintBrand.muted.opacity(0.82))
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("If a permission is already enabled but still says Needed after replacing an earlier direct beta, remove the old Flint entry, add /Applications/Flint.app again, then reopen Flint.")
                         .foregroundStyle(FlintBrand.muted.opacity(0.82))
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
@@ -427,21 +436,6 @@ private struct OnboardingView: View {
         flow.permissionSnapshot.missingCount == 0
             ? "Permissions are ready."
             : "Grant the missing permissions before continuing."
-    }
-
-    private func openMissingPermissionSettings() {
-        let anchor: String
-        if !flow.permissionSnapshot.status(for: .accessibility).isReady {
-            anchor = "Privacy_Accessibility"
-        } else if !flow.permissionSnapshot.status(for: .inputMonitoring).isReady {
-            anchor = "Privacy_ListenEvent"
-        } else {
-            anchor = "Privacy_Microphone"
-        }
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") else {
-            return
-        }
-        NSWorkspace.shared.open(url)
     }
 
     private var modelReadinessMessage: String {
