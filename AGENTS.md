@@ -2,7 +2,7 @@
 
 This is the first file an agent should read before changing Flint. It records the current product behavior, architectural boundaries, local workflows, and release state that are easy to lose between sessions.
 
-Last reconciled with the working tree on 2026-07-20.
+Last reconciled with the working tree on 2026-07-21.
 
 ## Product North Star
 
@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 291 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and landing tests/lint/build succeed.
+Current verified baseline: 293 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 
@@ -209,7 +209,7 @@ Default data locations:
 - License record, offline lease, and per-device Ed25519 private key: separate `ThisDeviceOnly` Keychain items.
 - Recordings: temporary `.m4a` files deleted after transcription/cancellation.
 
-During onboarding, Flint proactively requests any missing microphone, Accessibility, and Input Monitoring permissions when the permissions step first appears. The manual prompt button remains available for retries after a denial or System Settings change.
+During onboarding, Flint proactively requests any missing microphone, Accessibility, and Input Monitoring permissions when the permissions step first appears. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive request. The manual prompt button remains available for retries after a denial or System Settings change.
 
 History is off by default and never stores audio. Explicit learning remains separate from history and stores only user-invoked corrections/mappings. Local metrics are content-free UserDefaults counters and are never uploaded. Telemetry is not implemented.
 
@@ -226,7 +226,7 @@ The native production license flow targets `https://flint.moyezrabbani.dev/api/l
 - One active Mac is allowed. A replacement Mac requires purchaser confirmation by email before the old activation is revoked.
 - `FlintLicenseEnforcement` is deliberately `false` in `Distribution/Info.plist` until the production service is deployed and verified.
 
-The current free beta does not require activation. The website collects a required first name and optional last name, verifies the submitted email with a six-digit code, records only verified beta signups and versioned beta-terms acceptance in PostgreSQL, applies short-lived HMAC-pseudonymized rate limits, issues short-lived one-time redirect tokens only after verification, and shows a mandatory pre-download Gatekeeper explanation before sending the browser to the immutable ARM64 DMG currently deployed from `landing/public/downloads`. Pending verification rows expire after 10 minutes and store only an HMAC of the code. The direct-beta DMG also contains `READ ME FIRST.txt`. Optional product-email consent is stored separately from required beta-access/terms consent. Move future binary storage to a public object/release host before repeated releases make Git history expensive.
+The current free beta does not require activation. The website collects a required first name and optional last name, verifies the submitted email with a six-digit code, records only verified beta signups and versioned beta-terms acceptance in PostgreSQL, applies short-lived HMAC-pseudonymized rate limits, issues short-lived one-time redirect tokens only after verification, and shows a mandatory pre-download Gatekeeper explanation before sending the browser to the immutable ARM64 DMG currently deployed from `landing/public/downloads`. Pending verification rows expire after 10 minutes and store only an HMAC of the code. The direct-beta DMG also contains `READ ME FIRST.txt`. New signups are not offered optional product marketing consent and are stored with that legacy field off. Move future binary storage to a public object/release host before repeated releases make Git history expensive.
 
 Packaged builds fetch `https://flint.moyezrabbani.dev/api/releases/latest` at most once per 24 hours. A successful newer-version response adds a dot to the menu-bar mark and changes `Check for Updates` into a download action. Checks time out quickly, do not run for `swift run`, and never block dictation. During the unnotarized beta, installation remains user-confirmed through the website; a Sparkle-style in-place updater is deferred until releases can be Developer ID signed.
 
@@ -242,7 +242,7 @@ Landing-specific behavior:
 - Typing test uses one of eight predefined passages, a 15-second timer, early completion, cancel/retry, and per-letter green/red feedback. Completed runs with at least 15 characters show a concise WPM comparison against a clearly labeled roughly-130-WPM speech pace and a monthly time-value estimate with visible assumptions; formulas are collapsed by default. Results enter with a short upward fade and a lightly staggered pace comparison, disabled under reduced-motion preferences. Faster-than-baseline and insufficient-input runs use honest non-financial states. A calculated monthly time value is also surfaced in the free early-access pricing block for that page session.
 - `POST /api/beta-signups` requires current beta-terms acceptance and sends a 10-minute email OTP; `POST /api/beta-signups/verify` allows at most five incorrect codes, stores the verified signup, and returns a 15-minute one-time download handoff. `GET /api/beta-download` consumes it and redirects to the current versioned DMG. Run `npm run landing:beta:export` to export verified emails and optional names as CSV.
 
-Native onboarding uses Flint's orange accent, warm gradients, rounded material cards, SF Symbol illustrations, and short friendly guidance. Keep this visual language when adding setup steps; do not regress it to an unstyled form sheet.
+Native onboarding uses the landing warm-theme tokens exactly: signal `#ff4f1f`, paper `#f8f7f3`, mist `#e9e8e1`, ink `#121412`, deep `#151914`, muted `#62675e`, and line `#c9cdc2`. Its header uses the packaged `F/` application icon; cards and controls remain in a fixed light warm presentation so system dark mode cannot shift the palette toward brown or another orange. Keep this visual language when adding setup steps.
 - `/privacy`, `/terms`, `/third-party-notices`, `/support`, and `/beta` are the public legal/support/install surfaces. `moyezrabbani.work@gmail.com` is the intentionally simple support contact.
 - Global response security headers are configured in `next.config.ts`. Run `npm run landing:production:verify` after deployment; run `npm run landing:db:backup` only with an explicit private backup directory.
 

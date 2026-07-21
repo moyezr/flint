@@ -75,6 +75,32 @@ final class OnboardingFlowTests: XCTestCase {
         )
     }
 
+    func testLaunchPolicyReopensPermissionsForCompletedSetupWithMissingAccess() {
+        XCTAssertEqual(
+            OnboardingLaunchPolicy.initialStep(
+                hasCompletedOnboarding: true,
+                permissionSnapshot: missingPermissionSnapshot()
+            ),
+            .permissions
+        )
+    }
+
+    func testLaunchPolicyUsesWelcomeForFreshSetupAndStaysClosedWhenReady() {
+        XCTAssertEqual(
+            OnboardingLaunchPolicy.initialStep(
+                hasCompletedOnboarding: false,
+                permissionSnapshot: missingPermissionSnapshot()
+            ),
+            .welcome
+        )
+        XCTAssertNil(
+            OnboardingLaunchPolicy.initialStep(
+                hasCompletedOnboarding: true,
+                permissionSnapshot: readyPermissionSnapshot()
+            )
+        )
+    }
+
     func testFinishDoesNotCompleteWhenPermissionsAreMissing() {
         var completionCount = 0
         let flow = makeFlow(

@@ -46,12 +46,7 @@ codesign \
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 rm -f "$DMG_PATH" "$DMG_PATH.sha256"
-hdiutil create \
-    -volname Flint \
-    -srcfolder "$STAGING_DIR" \
-    -ov \
-    -format UDZO \
-    "$DMG_PATH"
+"$ROOT_DIR/Scripts/create-dmg.sh" "$STAGING_DIR" "$DMG_PATH" "Flint"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")
 
 echo "Created $DMG_PATH"

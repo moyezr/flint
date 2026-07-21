@@ -14,7 +14,8 @@ final class OnboardingWindowController {
         onTestDictation: @escaping () -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void,
         onPermissionsChanged: @escaping () -> Void,
-        onComplete: @escaping () -> Void
+        onComplete: @escaping () -> Void,
+        initialStep: OnboardingStep = .welcome
     ) {
         let modelRecommendation = ModelRecommendation.current
         flow = OnboardingFlow(
@@ -34,7 +35,8 @@ final class OnboardingWindowController {
             onSettingsChanged: onSettingsChanged,
             onComplete: onComplete,
             recommendedModelTier: modelRecommendation.tier,
-            allowsModelSelection: modelRecommendation.allowsOnboardingChoice
+            allowsModelSelection: modelRecommendation.allowsOnboardingChoice,
+            initialStep: initialStep
         )
 
         let rootView = OnboardingView(
@@ -76,28 +78,18 @@ private struct OnboardingView: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundStyle(.white)
+                    FlintOnboardingMark()
                         .frame(width: 42, height: 42)
-                        .background(
-                            LinearGradient(
-                                colors: [.orange, Color(red: 1, green: 0.35, blue: 0.12)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        )
-                        .shadow(color: .orange.opacity(0.3), radius: 10, y: 4)
+                        .shadow(color: FlintBrand.signal.opacity(0.22), radius: 10, y: 4)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("FLINT SETUP")
                             .font(.caption.weight(.bold))
                             .tracking(1.4)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(FlintBrand.signal)
                         Text("Step \(currentStepNumber) of \(OnboardingStep.allCases.count)")
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FlintBrand.muted)
                     }
 
                     Spacer()
@@ -116,16 +108,16 @@ private struct OnboardingView: View {
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: stepIcon)
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(FlintBrand.signal)
                             .frame(width: 40, height: 40)
-                            .background(Color.orange.opacity(0.12), in: Circle())
+                            .background(FlintBrand.signal.opacity(0.1), in: Circle())
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(flow.currentStep.title)
                                 .font(.system(size: 29, weight: .bold, design: .rounded))
                             Text(stepSubtitle)
                                 .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(FlintBrand.muted)
                         }
                     }
 
@@ -133,12 +125,12 @@ private struct OnboardingView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
                 .padding(26)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(FlintBrand.mist.opacity(0.58), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                        .stroke(FlintBrand.line, lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.1), radius: 18, y: 8)
+                .shadow(color: FlintBrand.deep.opacity(0.08), radius: 18, y: 8)
 
                 HStack {
                     Button("Back") {
@@ -170,7 +162,9 @@ private struct OnboardingView: View {
             }
             .padding(24)
         }
-        .tint(.orange)
+        .tint(FlintBrand.signal)
+        .foregroundStyle(FlintBrand.ink)
+        .preferredColorScheme(.light)
         .frame(minWidth: 780, minHeight: 580)
         .task(id: flow.currentStep) {
             await flow.promptForPermissionsIfNeeded()
@@ -179,26 +173,20 @@ private struct OnboardingView: View {
 
     private var onboardingBackground: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            FlintBrand.paper
             RadialGradient(
-                colors: [.orange.opacity(0.2), .clear],
+                colors: [FlintBrand.signal.opacity(0.09), .clear],
                 center: .topLeading,
                 startRadius: 10,
                 endRadius: 430
             )
-            RadialGradient(
-                colors: [Color.purple.opacity(0.1), .clear],
-                center: .bottomTrailing,
-                startRadius: 10,
-                endRadius: 360
-            )
             Circle()
-                .fill(Color.orange.opacity(0.08))
+                .fill(FlintBrand.signal.opacity(0.045))
                 .frame(width: 180, height: 180)
                 .blur(radius: 2)
                 .offset(x: 330, y: -250)
             Circle()
-                .stroke(Color.orange.opacity(0.12), lineWidth: 18)
+                .stroke(FlintBrand.signal.opacity(0.07), lineWidth: 18)
                 .frame(width: 130, height: 130)
                 .offset(x: -360, y: 260)
         }
@@ -213,7 +201,7 @@ private struct OnboardingView: View {
                 Text("Talk naturally. Flint keeps up and puts the words right where you need them.")
                     .font(.title3.weight(.medium))
                 Text("This setup picks a shortcut, requests the macOS permissions Flint needs, and chooses a local model.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
                 HStack(spacing: 10) {
                     OnboardingFeaturePill(icon: "lock.shield", label: "Private")
                     OnboardingFeaturePill(icon: "wifi.slash", label: "Works offline")
@@ -239,7 +227,7 @@ private struct OnboardingView: View {
                 )
                 Text("Packaged betas make one small release check at most daily when internet is available.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(FlintBrand.muted.opacity(0.78))
             }
         case .shortcut:
             VStack(alignment: .leading, spacing: 18) {
@@ -262,10 +250,10 @@ private struct OnboardingView: View {
                     }
                 }
                 .padding(16)
-                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14))
+                .background(FlintBrand.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 14))
                 Text(flow.settings.shortcutSettings.readyHint)
                     .font(.headline)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(FlintBrand.signal)
             }
             .frame(maxWidth: 420, alignment: .leading)
         case .permissions:
@@ -284,7 +272,7 @@ private struct OnboardingView: View {
                     }
                 }
                 Text(permissionReadinessMessage)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
                     .font(.callout)
             }
         case .model:
@@ -310,13 +298,13 @@ private struct OnboardingView: View {
                             Spacer()
                             Text(metadata.sizeLabel)
                                 .font(.callout.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(FlintBrand.muted)
                         }
                         Text("Recommended for precise outputs on this Apple Silicon Mac.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(FlintBrand.muted)
                     }
                     .padding(14)
-                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    .background(FlintBrand.signal.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                 }
 
                 Button(downloadButtonTitle) {
@@ -336,7 +324,7 @@ private struct OnboardingView: View {
                                 .monospacedDigit()
                         }
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FlintBrand.muted)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(modelDownloadProgressLabel)
@@ -345,13 +333,13 @@ private struct OnboardingView: View {
 
                 if !flow.modelDownloadStatus.isEmpty {
                     Text(flow.modelDownloadStatus)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FlintBrand.muted)
                 }
 
                 Text(modelReadinessMessage)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
                 Text("The selected model is saved as your default. You can manage models later from the Models menu.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
             }
             .frame(maxWidth: 560, alignment: .leading)
         case .testDictation:
@@ -362,18 +350,18 @@ private struct OnboardingView: View {
                     .frame(height: 120)
                     .scrollContentBackground(.hidden)
                     .padding(8)
-                    .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+                    .background(FlintBrand.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.orange.opacity(0.25), lineWidth: 1)
+                            .stroke(FlintBrand.signal.opacity(0.25), lineWidth: 1)
                     )
                 Button("Start/Stop Test Dictation") {
                     onTestDictation()
                 }
                 Text(testDictationInstruction)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
                 Text("Finish is available after permissions are ready and the selected model is installed.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
             }
         }
     }
@@ -409,7 +397,7 @@ private struct OnboardingView: View {
               let stepIndex = OnboardingStep.allCases.firstIndex(of: step) else {
             return Color(nsColor: .separatorColor)
         }
-        return stepIndex <= currentIndex ? Color.orange : Color(nsColor: .separatorColor)
+        return stepIndex <= currentIndex ? FlintBrand.signal : FlintBrand.line
     }
 
     private var downloadButtonTitle: String {
@@ -450,6 +438,21 @@ private struct OnboardingView: View {
     }
 }
 
+private struct FlintOnboardingMark: View {
+    var body: some View {
+        Image(nsImage: NSApplication.shared.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(FlintBrand.signal.opacity(0.22), lineWidth: 1)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
 private struct PermissionStatusRow: View {
     let status: PermissionStatus
 
@@ -460,16 +463,16 @@ private struct PermissionStatusRow: View {
                     .font(.headline)
                 Spacer()
                 Text(status.isReady ? "Ready" : "Needed")
-                    .foregroundStyle(status.isReady ? .green : .orange)
+                    .foregroundStyle(status.isReady ? Color.green : FlintBrand.signal)
             }
             Text(status.explanation)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(FlintBrand.muted)
         }
         .padding(12)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 13))
+        .background(FlintBrand.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 13))
         .overlay {
             RoundedRectangle(cornerRadius: 13)
-                .stroke(status.isReady ? Color.green.opacity(0.22) : Color.orange.opacity(0.22), lineWidth: 1)
+                .stroke(status.isReady ? Color.green.opacity(0.22) : FlintBrand.signal.opacity(0.22), lineWidth: 1)
         }
     }
 }
@@ -483,8 +486,8 @@ private struct OnboardingFeaturePill: View {
             .font(.callout.weight(.medium))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .foregroundStyle(.primary)
-            .background(Color.orange.opacity(0.1), in: Capsule())
+            .foregroundStyle(FlintBrand.ink)
+            .background(FlintBrand.signal.opacity(0.08), in: Capsule())
     }
 }
 
@@ -497,19 +500,19 @@ private struct OnboardingInfoRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(FlintBrand.signal)
                 .frame(width: 32, height: 32)
-                .background(Color.orange.opacity(0.1), in: Circle())
+                .background(FlintBrand.signal.opacity(0.08), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline)
                 Text(detail)
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(FlintBrand.muted)
             }
         }
         .padding(11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 13))
+        .background(FlintBrand.ink.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))
     }
 }

@@ -149,8 +149,11 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         ensureShortcutMonitoringStarted()
         updatePermissionMenuItem()
         prepareSelectedModelIfInstalled()
-        if !settings.hasCompletedOnboarding {
-            showOnboarding()
+        if let onboardingStep = OnboardingLaunchPolicy.initialStep(
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
+            permissionSnapshot: permissionManager.snapshot()
+        ) {
+            showOnboarding(initialStep: onboardingStep)
         }
         scheduleAutomaticUpdateCheck()
     }
@@ -176,7 +179,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.toolTip = "Flint"
 
-        let menu = NSMenu()
+        let menu = Self.makeStatusMenu()
         menu.addItem(NSMenuItem(title: "Start/Pause Dictation", action: #selector(toggleDictation), keyEquivalent: ""))
         let fixItem = NSMenuItem(
             title: "Fix This Dictation…",
@@ -274,7 +277,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateMenuItem = updateItem
         menu.addItem(NSMenuItem(title: "License", action: #selector(showLicense), keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Flint", action: #selector(quitApplication(_:)), keyEquivalent: "q"))
+        menu.addItem(Self.makeQuitMenuItem())
 
         for item in menu.items where item.action != nil {
             item.target = self
@@ -292,6 +295,18 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
 
     @objc func quitApplication(_ sender: Any?) {
         NSApp.terminate(sender)
+    }
+
+    static func makeStatusMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        return menu
+    }
+
+    static func makeQuitMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Quit Flint", action: #selector(quitApplication(_:)), keyEquivalent: "q")
+        item.isEnabled = true
+        return item
     }
 
     private func updateCleanupModeUI() {
@@ -666,6 +681,10 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     @objc private func showOnboarding() {
+        showOnboarding(initialStep: .welcome)
+    }
+
+    private func showOnboarding(initialStep: OnboardingStep) {
         if let onboardingWindow {
             onboardingWindow.show()
             return
@@ -695,7 +714,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             },
             onComplete: { [weak self] in
                 self?.completeOnboarding()
-            }
+            },
+            initialStep: initialStep
         )
         onboardingWindow = controller
         controller.show()

@@ -21,7 +21,7 @@ if [[ ! -f "$ICON_PATH" ]]; then
     exit 1
 fi
 
-for command in swift codesign hdiutil shasum; do
+for command in swift codesign hdiutil osascript shasum; do
     if ! command -v "$command" >/dev/null; then
         echo "Required command is unavailable: $command" >&2
         exit 1
@@ -53,12 +53,7 @@ codesign \
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 rm -f "$DMG_PATH" "$DMG_PATH.sha256"
-hdiutil create \
-    -volname Flint \
-    -srcfolder "$STAGING_DIR" \
-    -ov \
-    -format UDZO \
-    "$DMG_PATH"
+"$ROOT_DIR/Scripts/create-dmg.sh" "$STAGING_DIR" "$DMG_PATH" "Flint"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG_PATH")" > "$(basename "$DMG_PATH").sha256")
 
 echo "Created direct-beta DMG: $DMG_PATH"

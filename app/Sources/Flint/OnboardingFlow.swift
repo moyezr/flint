@@ -27,6 +27,21 @@ enum OnboardingStep: CaseIterable, Equatable {
     }
 }
 
+enum OnboardingLaunchPolicy {
+    static func initialStep(
+        hasCompletedOnboarding: Bool,
+        permissionSnapshot: PermissionSnapshot
+    ) -> OnboardingStep? {
+        if !hasCompletedOnboarding {
+            return .welcome
+        }
+        if permissionSnapshot.missingCount > 0 {
+            return .permissions
+        }
+        return nil
+    }
+}
+
 @MainActor
 final class OnboardingFlow: ObservableObject {
     typealias PermissionSnapshotProvider = () -> PermissionSnapshot
