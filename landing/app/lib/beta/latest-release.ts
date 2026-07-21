@@ -15,25 +15,25 @@ export type LatestRelease = {
 };
 
 export function latestRelease(): LatestRelease {
-  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.4";
+  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.5";
   const filename = `Flint-${version}.dmg`;
 
   return {
     version,
-    build: process.env.FLINT_BETA_BUILD?.trim() || "4",
-    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T08:17:29Z",
+    build: process.env.FLINT_BETA_BUILD?.trim() || "5",
+    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T08:27:04Z",
     minimumSystemVersion: "14.0",
     supportedArchitectures: ["arm64"],
     downloadPageURL: new URL("/#download", siteURL).toString(),
     assetURL:
       process.env.FLINT_BETA_DMG_URL?.trim() ||
       new URL(`/downloads/${filename}`, siteURL).toString(),
-    sha256: process.env.FLINT_BETA_SHA256?.trim() || "d32bc292eab1ad9521397d25da8b8fc23b0a9f51ba84efc220730674a6690830",
+    sha256: process.env.FLINT_BETA_SHA256?.trim() || "9665cfb60a14d210a57ab7ade98a7123eeaec55a848620e8f57fae9a6065d006",
     notes: [
+      "Onboarding automatically detects permissions granted in System Settings.",
+      "Clear recovery steps for stale permission entries left by an earlier direct beta.",
       "A compact drag-to-Applications installer with the Flint F/ app icon.",
       "An always-available Quit Flint menu action.",
-      "Hardware-aware model selection and model download progress during onboarding.",
-      "Fn-key dictation support and transient no-speech feedback.",
     ],
   };
 }
