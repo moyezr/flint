@@ -38,7 +38,7 @@ export default function SupportPage() {
             <li>Mac model and Apple chip.</li>
             <li>The target application and its version.</li>
             <li>What you expected, what happened, and whether it repeats.</li>
-            <li>Whether Microphone, Accessibility, and Input Monitoring are enabled.</li>
+            <li>Whether Microphone and Accessibility are enabled.</li>
           </ul>
         </section>
 

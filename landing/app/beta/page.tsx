@@ -60,7 +60,7 @@ export default function BetaGuidePage() {
         <section className="mt-14 border-t border-line pt-9" aria-labelledby="setup-heading">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`} id="setup-heading">3. Complete local setup</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            Onboarding requests Microphone, Accessibility, and Input Monitoring access, then downloads your selected speech model. Once the model is ready, dictation and personalization work without an internet connection.
+            Onboarding requests Microphone and Accessibility access, then downloads your selected speech model. Accessibility covers Flint&apos;s shortcut listener as well as text insertion, so a separate Input Monitoring grant is not required. Once the model is ready, dictation and personalization work without an internet connection.
           </p>
           <p className="mt-4 leading-[1.7] text-muted">
             You can run setup again at any time from the menu bar: Flint → Run Onboarding Again. Existing models, vocabulary, and permissions are preserved.

@@ -32,7 +32,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Permissions and local processing">
-          Flint needs macOS Microphone, Accessibility, and Input Monitoring permissions for recording, shortcut handling, and text insertion. Speech models may require a network download before first use. Dictation processing is performed on your Mac. Data handling is described in the <Link className="border-b border-current text-ink" href="/privacy">Privacy Policy</Link>.
+          Flint needs macOS Microphone and Accessibility permissions for recording, shortcut handling, and text insertion. Accessibility covers both the shortcut listener and insertion, so Flint does not separately require Input Monitoring. Speech models may require a network download before first use. Dictation processing is performed on your Mac. Data handling is described in the <Link className="border-b border-current text-ink" href="/privacy">Privacy Policy</Link>.
         </LegalSection>
 
         <LegalSection title="Acceptable use">
