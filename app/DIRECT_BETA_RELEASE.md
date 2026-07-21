@@ -45,7 +45,7 @@ or notarization.
    privacy policy, beta terms, third-party notices, and a support contact
    alongside the download.
 
-7. Publish both files from a durable public artifact host. Beta 9 is temporarily served from `landing/public/downloads`; move later builds to public object storage rather than accumulating binaries in Git history.
+7. Publish both files from a durable public artifact host. Beta 10 is temporarily served from `landing/public/downloads`; move later builds to public object storage rather than accumulating binaries in Git history.
 8. Update `landing/app/lib/beta/latest-release.ts` (or the corresponding production environment overrides), deploy the landing site, and run:
 
    ```sh
