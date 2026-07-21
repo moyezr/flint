@@ -15,25 +15,25 @@ export type LatestRelease = {
 };
 
 export function latestRelease(): LatestRelease {
-  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.6";
+  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.7";
   const filename = `Flint-${version}.dmg`;
 
   return {
     version,
-    build: process.env.FLINT_BETA_BUILD?.trim() || "6",
-    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T09:17:17Z",
+    build: process.env.FLINT_BETA_BUILD?.trim() || "7",
+    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T09:45:30Z",
     minimumSystemVersion: "14.0",
     supportedArchitectures: ["arm64"],
     downloadPageURL: new URL("/#download", siteURL).toString(),
     assetURL:
       process.env.FLINT_BETA_DMG_URL?.trim() ||
       new URL(`/downloads/${filename}`, siteURL).toString(),
-    sha256: process.env.FLINT_BETA_SHA256?.trim() || "be57d389d073c055c730f7d035bd4f0abd11db9e169d0ebe4b79105068b1ee55",
+    sha256: process.env.FLINT_BETA_SHA256?.trim() || "67861fda1f5537fd276a08ada045fa90c7249461434b2f0a6406acea7add87dc",
     notes: [
-      "Onboarding requests macOS permissions one at a time so system prompts cannot overlap.",
-      "Missing-permission retries open the relevant Privacy & Security pane when macOS does not show another prompt.",
-      "A compact drag-to-Applications installer with the Flint F/ app icon.",
-      "An always-available Quit Flint menu action.",
+      "Independent Accessibility and Input Monitoring recovery controls during onboarding.",
+      "Shortcut monitoring stays paused until macOS reports Input Monitoring ready.",
+      "Permission errors can be dismissed and disappear automatically after five seconds.",
+      "A clear Quit action is available while applying macOS permission changes.",
     ],
   };
 }
