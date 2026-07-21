@@ -15,25 +15,25 @@ export type LatestRelease = {
 };
 
 export function latestRelease(): LatestRelease {
-  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.3";
+  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.4";
   const filename = `Flint-${version}.dmg`;
 
   return {
     version,
-    build: process.env.FLINT_BETA_BUILD?.trim() || "3",
-    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-17T00:00:00Z",
+    build: process.env.FLINT_BETA_BUILD?.trim() || "4",
+    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T08:17:29Z",
     minimumSystemVersion: "14.0",
     supportedArchitectures: ["arm64"],
     downloadPageURL: new URL("/#download", siteURL).toString(),
     assetURL:
       process.env.FLINT_BETA_DMG_URL?.trim() ||
       new URL(`/downloads/${filename}`, siteURL).toString(),
-    sha256: process.env.FLINT_BETA_SHA256?.trim() || "0214c9eaae8e5fec75551cac7febd2619577b27ee557658a5a279c943164d11a",
+    sha256: process.env.FLINT_BETA_SHA256?.trim() || "d32bc292eab1ad9521397d25da8b8fc23b0a9f51ba84efc220730674a6690830",
     notes: [
-      "Lightweight automatic update checks that never block dictation.",
-      "A repeatable onboarding flow for testing setup at any time.",
-      "Local, explicit vocabulary and correction learning.",
-      "Compact Dynamic Island feedback and safer insertion in rich editors.",
+      "A compact drag-to-Applications installer with the Flint F/ app icon.",
+      "An always-available Quit Flint menu action.",
+      "Hardware-aware model selection and model download progress during onboarding.",
+      "Fn-key dictation support and transient no-speech feedback.",
     ],
   };
 }
