@@ -108,7 +108,7 @@ Long-term goal: the app should get better for a given user as they correct its o
 
 ## 4. Permissions & Onboarding
 
-Required: Microphone, Accessibility, and Input Monitoring if needed for the chosen shortcut approach.
+Required: Microphone and Accessibility. Accessibility covers both text insertion and the current shortcut event tap, so Flint does not separately require Input Monitoring.
 
 Onboarding order:
 ```

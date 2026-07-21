@@ -46,7 +46,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 - Left/right modifier handling, toggle mode, Escape cancellation, and shortcut changes while Flint is running.
 - Short, long, and silent dictations; model preparation failure; no network after models are prepared.
 - Sleep/wake, display changes, app switching during transcription, and target field changes before insertion.
-- Permission denial/revocation for Microphone, Accessibility, and Input Monitoring.
+- Permission denial/revocation for Microphone and Accessibility.
 - Clipboard preservation for text, rich text, files, and multiple clipboard items.
 - Model deletion, interrupted model download, corrupted model/tokenizer cache, and low disk space. Flint records a payload fingerprint after download, invalidates changed or empty caches, and enables a clean retry when model preparation fails.
 - Packaged uninstall from a writable installed copy: verify downloaded models and other local data are deleted, Launch at Login is disabled, Flint.app moves to Trash, and Flint quits. Verify `swift run` and the read-only DMG copy refuse self-removal before deleting data.

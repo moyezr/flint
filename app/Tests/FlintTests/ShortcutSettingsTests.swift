@@ -148,6 +148,13 @@ final class ShortcutSettingsTests: XCTestCase {
         XCTAssertFalse(manager.isRunning)
     }
 
+    func testShortcutManagerReportsUnavailableEventTapWithoutEnteringRunningState() {
+        let manager = ShortcutManager { _, _, _ in nil }
+
+        XCTAssertEqual(manager.start(), .eventTapUnavailable)
+        XCTAssertFalse(manager.isRunning)
+    }
+
     func testToggleTransitionsStartAndFinishOnRepeatedShortcutPresses() {
         var interpreter = ShortcutInterpreter(settings: ShortcutSettings(option: .commandShiftSpace, behavior: .toggle))
 

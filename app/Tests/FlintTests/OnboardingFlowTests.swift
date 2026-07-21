@@ -204,13 +204,12 @@ final class OnboardingFlowTests: XCTestCase {
                 promptCount += 1
                 snapshot = PermissionSnapshot(statuses: [
                     PermissionStatus(kind: .microphone, readiness: .ready),
-                    PermissionStatus(kind: .accessibility, readiness: .ready),
-                    PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+                    PermissionStatus(kind: .accessibility, readiness: .ready)
                 ])
             }
         )
 
-        XCTAssertEqual(flow.permissionSnapshot.missingCount, 3)
+        XCTAssertEqual(flow.permissionSnapshot.missingCount, 2)
 
         await flow.promptForPermissions()
 
@@ -322,9 +321,8 @@ final class OnboardingFlowTests: XCTestCase {
 
     func testPermissionMonitorRequestsNextPermissionAfterPartialGrant() async {
         var snapshot = PermissionSnapshot(statuses: [
-            PermissionStatus(kind: .microphone, readiness: .ready),
-            PermissionStatus(kind: .accessibility, readiness: .denied),
-            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+            PermissionStatus(kind: .microphone, readiness: .notDetermined),
+            PermissionStatus(kind: .accessibility, readiness: .denied)
         ])
         var promptCount = 0
         let flow = makeFlow(
@@ -336,8 +334,7 @@ final class OnboardingFlowTests: XCTestCase {
             permissionRefreshDelay: {
                 snapshot = PermissionSnapshot(statuses: [
                     PermissionStatus(kind: .microphone, readiness: .ready),
-                    PermissionStatus(kind: .accessibility, readiness: .ready),
-                    PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+                    PermissionStatus(kind: .accessibility, readiness: .denied)
                 ])
             }
         )
@@ -354,8 +351,7 @@ final class OnboardingFlowTests: XCTestCase {
     func testManualPermissionRecoveryFallsBackToSettingsWhenPromptDoesNotGrantAccess() async {
         let snapshot = PermissionSnapshot(statuses: [
             PermissionStatus(kind: .microphone, readiness: .ready),
-            PermissionStatus(kind: .accessibility, readiness: .ready),
-            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+            PermissionStatus(kind: .accessibility, readiness: .denied)
         ])
         var recoveredKind: PermissionKind?
         let flow = makeFlow(
@@ -366,7 +362,7 @@ final class OnboardingFlowTests: XCTestCase {
 
         await flow.recoverMissingPermissions()
 
-        XCTAssertEqual(recoveredKind, .inputMonitoring)
+        XCTAssertEqual(recoveredKind, .accessibility)
     }
 
     func testSpecificPermissionRecoveryDoesNotWaitForAnEarlierMissingPermission() async {
@@ -380,10 +376,10 @@ final class OnboardingFlowTests: XCTestCase {
             permissionRecoveryAction: { recoveredKind = $0 }
         )
 
-        await flow.recoverPermission(.inputMonitoring)
+        await flow.recoverPermission(.accessibility)
 
-        XCTAssertEqual(requestedKind, .inputMonitoring)
-        XCTAssertEqual(recoveredKind, .inputMonitoring)
+        XCTAssertEqual(requestedKind, .accessibility)
+        XCTAssertEqual(recoveredKind, .accessibility)
     }
 
     func testCannotAdvancePastModelUntilSelectedModelIsInstalled() async {
@@ -470,16 +466,14 @@ final class OnboardingFlowTests: XCTestCase {
     private func missingPermissionSnapshot() -> PermissionSnapshot {
         PermissionSnapshot(statuses: [
             PermissionStatus(kind: .microphone, readiness: .notDetermined),
-            PermissionStatus(kind: .accessibility, readiness: .denied),
-            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+            PermissionStatus(kind: .accessibility, readiness: .denied)
         ])
     }
 
     private func readyPermissionSnapshot() -> PermissionSnapshot {
         PermissionSnapshot(statuses: [
             PermissionStatus(kind: .microphone, readiness: .ready),
-            PermissionStatus(kind: .accessibility, readiness: .ready),
-            PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+            PermissionStatus(kind: .accessibility, readiness: .ready)
         ])
     }
 }

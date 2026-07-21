@@ -288,11 +288,11 @@ private struct OnboardingView: View {
                     .foregroundStyle(FlintBrand.muted)
                     .font(.callout)
                 if flow.permissionSnapshot.missingCount > 0 {
-                    Text("macOS may show each permission prompt only once. Flint requests them one at a time and checks this screen automatically. On a retry, the button opens the relevant System Settings pane.")
+                    Text("Turn on the switch next to Flint in System Settings. This screen checks automatically and changes to Ready as soon as macOS grants access.")
                         .foregroundStyle(FlintBrand.muted.opacity(0.82))
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("If a permission is already enabled but still says Needed after replacing an earlier direct beta, remove the old Flint entry, add /Applications/Flint.app again, then reopen Flint.")
+                    Text("Flint needs Microphone and Accessibility only. A separate Input Monitoring grant is not required.")
                         .foregroundStyle(FlintBrand.muted.opacity(0.82))
                         .font(.caption)
                         .fixedSize(horizontal: false, vertical: true)
@@ -490,7 +490,7 @@ private struct PermissionStatusRow: View {
                     Text("Ready")
                         .foregroundStyle(Color.green)
                 } else {
-                    Button("Open Settings", action: onResolve)
+                    Button(status.kind == .accessibility ? "Turn On in Settings" : "Open Settings", action: onResolve)
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .tint(FlintBrand.signal)

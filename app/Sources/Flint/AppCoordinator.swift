@@ -1059,13 +1059,13 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         switch shortcutManager.start() {
         case .started:
             break
-        case .inputMonitoringMissing:
+        case .eventTapUnavailable:
             guard !shortcutManager.isRunning else { return }
             guard reportFailure else { return }
-            let inputMonitoring = permissionManager.snapshot().status(for: .inputMonitoring)
-            let message = inputMonitoring.isReady
-                ? "Shortcut monitoring could not start. Restart Flint, then check Input Monitoring."
-                : inputMonitoring.failureMessage
+            let accessibility = permissionManager.snapshot().status(for: .accessibility)
+            let message = accessibility.isReady
+                ? PermissionStatus.shortcutMonitoringFailureMessage
+                : accessibility.failureMessage
             overlay.show(state: .error(message))
             dictationFeedback.perform(.failed, settings: appSettingsStore.load())
         }

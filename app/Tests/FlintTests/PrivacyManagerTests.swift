@@ -59,8 +59,7 @@ final class PrivacyManagerTests: XCTestCase {
             learningStore: learningStore,
             permissionSnapshot: PermissionSnapshot(statuses: [
             PermissionStatus(kind: .microphone, readiness: .ready),
-            PermissionStatus(kind: .accessibility, readiness: .denied),
-            PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+            PermissionStatus(kind: .accessibility, readiness: .denied)
         ]))
         let historyStore = try HistoryStore(databaseURL: historyDatabaseURL)
         _ = try historyStore.insert(makeHistoryEntry())
@@ -79,7 +78,7 @@ final class PrivacyManagerTests: XCTestCase {
         XCTAssertTrue(snapshot.statusRows.first { $0.id == "app-modes" }?.detail.contains("1 enabled bundle-ID") == true)
         XCTAssertTrue(snapshot.statusRows.first { $0.id == "history" }?.detail.contains("1 entries") == true)
         XCTAssertEqual(snapshot.statusRows.first { $0.id == "telemetry" }?.detail, "Telemetry is not implemented.")
-        XCTAssertEqual(snapshot.permissionStatuses.map(\.kind), [.microphone, .accessibility, .inputMonitoring])
+        XCTAssertEqual(snapshot.permissionStatuses.map(\.kind), [.microphone, .accessibility])
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "settings" }?.path, "Test UserDefaults \(suiteName!)")
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "vocabulary" }?.path, learningDatabaseURL.path)
         XCTAssertEqual(snapshot.dataLocations.first { $0.id == "model-cache" }?.path, tempRoot.path)

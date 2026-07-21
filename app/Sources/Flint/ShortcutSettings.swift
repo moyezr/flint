@@ -232,7 +232,7 @@ struct ShortcutInterpreter {
 
 enum ShortcutStartResult {
     case started
-    case inputMonitoringMissing
+    case eventTapUnavailable
 }
 
 final class ShortcutManager {
@@ -277,7 +277,7 @@ final class ShortcutManager {
         eventTap = eventTapFactory(CGEventMask(mask), callback, Unmanaged.passUnretained(self).toOpaque())
 
         guard let eventTap else {
-            return .inputMonitoringMissing
+            return .eventTapUnavailable
         }
 
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)

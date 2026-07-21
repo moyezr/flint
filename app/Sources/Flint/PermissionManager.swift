@@ -5,7 +5,6 @@ import Foundation
 enum PermissionKind: CaseIterable, Equatable {
     case microphone
     case accessibility
-    case inputMonitoring
 
     var title: String {
         switch self {
@@ -13,8 +12,6 @@ enum PermissionKind: CaseIterable, Equatable {
             return "Microphone"
         case .accessibility:
             return "Accessibility"
-        case .inputMonitoring:
-            return "Input Monitoring"
         }
     }
 
@@ -23,9 +20,7 @@ enum PermissionKind: CaseIterable, Equatable {
         case .microphone:
             return "Microphone lets Flint record your voice for local transcription."
         case .accessibility:
-            return "Accessibility lets Flint insert text into the field you're typing in."
-        case .inputMonitoring:
-            return "Input Monitoring lets Flint detect your dictation shortcut."
+            return "Accessibility lets Flint detect your shortcut and insert text at the cursor."
         }
     }
 }
@@ -43,6 +38,8 @@ enum PermissionReadiness: Equatable {
 }
 
 struct PermissionStatus: Equatable {
+    static let shortcutMonitoringFailureMessage = "Shortcut monitoring could not start. Quit and reopen Flint once."
+
     let kind: PermissionKind
     let readiness: PermissionReadiness
 
@@ -78,14 +75,12 @@ struct PermissionStatus: Equatable {
         case .microphone:
             return "Microphone permission is required. Allow Flint in Privacy & Security."
         case .accessibility:
-            return "Accessibility is required to insert text at the cursor. Allow Flint in Privacy & Security."
-        case .inputMonitoring:
-            return "Input Monitoring is required for the shortcut. Allow Flint in Privacy & Security."
+            return "Accessibility is required for the shortcut and text insertion. Allow Flint in Privacy & Security."
         }
     }
 
     static func isPermissionFailureMessage(_ message: String) -> Bool {
-        PermissionKind.allCases.contains { kind in
+        message == shortcutMonitoringFailureMessage || PermissionKind.allCases.contains { kind in
             PermissionStatus(kind: kind, readiness: .denied).failureMessage == message
         }
     }
@@ -115,8 +110,6 @@ enum PermissionSettingsRoute {
             anchor = "Privacy_Microphone"
         case .accessibility:
             anchor = "Privacy_Accessibility"
-        case .inputMonitoring:
-            anchor = "Privacy_ListenEvent"
         }
         return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")
     }
@@ -128,7 +121,7 @@ enum PermissionSettingsRoute {
 
 enum ShortcutMonitoringPermissionPolicy {
     static func shouldStart(for snapshot: PermissionSnapshot) -> Bool {
-        snapshot.status(for: .inputMonitoring).isReady
+        snapshot.status(for: .accessibility).isReady
     }
 }
 
@@ -150,18 +143,10 @@ struct PermissionManager {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
-    var inputMonitoringTrusted: () -> Bool = {
-        CGPreflightListenEventAccess()
-    }
-    var requestInputMonitoringAccess: () -> Void = {
-        CGRequestListenEventAccess()
-    }
-
     func snapshot() -> PermissionSnapshot {
         PermissionSnapshot(statuses: [
             microphoneStatus(),
-            PermissionStatus(kind: .accessibility, readiness: accessibilityTrusted() ? .ready : .denied),
-            PermissionStatus(kind: .inputMonitoring, readiness: inputMonitoringTrusted() ? .ready : .denied)
+            PermissionStatus(kind: .accessibility, readiness: accessibilityTrusted() ? .ready : .denied)
         ])
     }
 
@@ -180,18 +165,12 @@ struct PermissionManager {
         requestAccessibilityAccess()
     }
 
-    func requestInputMonitoringPermission() {
-        requestInputMonitoringAccess()
-    }
-
     func requestPermission(_ kind: PermissionKind) async {
         switch kind {
         case .microphone:
             await requestMicrophonePermission()
         case .accessibility:
             requestAccessibilityPermission()
-        case .inputMonitoring:
-            requestInputMonitoringPermission()
         }
     }
 
@@ -207,10 +186,6 @@ struct PermissionManager {
         }
         if !currentSnapshot.status(for: .accessibility).isReady {
             requestAccessibilityAccess()
-            return
-        }
-        if !currentSnapshot.status(for: .inputMonitoring).isReady {
-            requestInputMonitoringAccess()
         }
     }
 

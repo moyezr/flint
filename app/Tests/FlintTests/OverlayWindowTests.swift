@@ -221,10 +221,12 @@ final class OverlayWindowTests: XCTestCase {
         XCTAssertTrue(OverlayState.copiedToClipboard.shouldAutoHide)
         XCTAssertTrue(OverlayState.error(TranscriptionEngine.noSpeechDetectedMessage).shouldAutoHide)
         XCTAssertEqual(OverlayState.error(TranscriptionEngine.noSpeechDetectedMessage).autoHideDelay, 3)
-        let inputMonitoringError = PermissionStatus(kind: .inputMonitoring, readiness: .denied).failureMessage
-        XCTAssertTrue(OverlayState.error(inputMonitoringError).shouldAutoHide)
-        XCTAssertEqual(OverlayState.error(inputMonitoringError).autoHideDelay, 5)
-        XCTAssertTrue(OverlayState.error(inputMonitoringError).showsActions)
+        let accessibilityError = PermissionStatus(kind: .accessibility, readiness: .denied).failureMessage
+        XCTAssertTrue(OverlayState.error(accessibilityError).shouldAutoHide)
+        XCTAssertEqual(OverlayState.error(accessibilityError).autoHideDelay, 5)
+        XCTAssertTrue(OverlayState.error(accessibilityError).showsActions)
+        XCTAssertTrue(OverlayState.error(PermissionStatus.shortcutMonitoringFailureMessage).shouldAutoHide)
+        XCTAssertEqual(OverlayState.error(PermissionStatus.shortcutMonitoringFailureMessage).autoHideDelay, 5)
 
         XCTAssertFalse(OverlayState.listening.shouldAutoHide)
         XCTAssertFalse(OverlayState.preparingModel.shouldAutoHide)
