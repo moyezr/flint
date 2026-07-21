@@ -83,6 +83,12 @@ struct PermissionStatus: Equatable {
             return "Input Monitoring is required for the shortcut. Allow Flint in Privacy & Security."
         }
     }
+
+    static func isPermissionFailureMessage(_ message: String) -> Bool {
+        PermissionKind.allCases.contains { kind in
+            PermissionStatus(kind: kind, readiness: .denied).failureMessage == message
+        }
+    }
 }
 
 struct PermissionSnapshot: Equatable {
@@ -102,18 +108,27 @@ struct PermissionSnapshot: Equatable {
 }
 
 enum PermissionSettingsRoute {
-    static func url(for snapshot: PermissionSnapshot) -> URL? {
+    static func url(for kind: PermissionKind) -> URL? {
         let anchor: String
-        if !snapshot.status(for: .microphone).isReady {
+        switch kind {
+        case .microphone:
             anchor = "Privacy_Microphone"
-        } else if !snapshot.status(for: .accessibility).isReady {
+        case .accessibility:
             anchor = "Privacy_Accessibility"
-        } else if !snapshot.status(for: .inputMonitoring).isReady {
+        case .inputMonitoring:
             anchor = "Privacy_ListenEvent"
-        } else {
-            return nil
         }
         return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")
+    }
+
+    static func url(for snapshot: PermissionSnapshot) -> URL? {
+        snapshot.missingStatuses.first.flatMap { url(for: $0.kind) }
+    }
+}
+
+enum ShortcutMonitoringPermissionPolicy {
+    static func shouldStart(for snapshot: PermissionSnapshot) -> Bool {
+        snapshot.status(for: .inputMonitoring).isReady
     }
 }
 
@@ -167,6 +182,17 @@ struct PermissionManager {
 
     func requestInputMonitoringPermission() {
         requestInputMonitoringAccess()
+    }
+
+    func requestPermission(_ kind: PermissionKind) async {
+        switch kind {
+        case .microphone:
+            await requestMicrophonePermission()
+        case .accessibility:
+            requestAccessibilityPermission()
+        case .inputMonitoring:
+            requestInputMonitoringPermission()
+        }
     }
 
     func requestMissingPermissions() async {

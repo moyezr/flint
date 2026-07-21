@@ -357,16 +357,33 @@ final class OnboardingFlowTests: XCTestCase {
             PermissionStatus(kind: .accessibility, readiness: .ready),
             PermissionStatus(kind: .inputMonitoring, readiness: .denied)
         ])
-        var recoveredSnapshot: PermissionSnapshot?
+        var recoveredKind: PermissionKind?
         let flow = makeFlow(
             snapshotProvider: { snapshot },
             permissionPromptAction: {},
-            permissionRecoveryAction: { recoveredSnapshot = $0 }
+            permissionRecoveryAction: { recoveredKind = $0 }
         )
 
         await flow.recoverMissingPermissions()
 
-        XCTAssertEqual(recoveredSnapshot, snapshot)
+        XCTAssertEqual(recoveredKind, .inputMonitoring)
+    }
+
+    func testSpecificPermissionRecoveryDoesNotWaitForAnEarlierMissingPermission() async {
+        let snapshot = missingPermissionSnapshot()
+        var requestedKind: PermissionKind?
+        var recoveredKind: PermissionKind?
+        let flow = makeFlow(
+            snapshotProvider: { snapshot },
+            permissionPromptAction: {},
+            permissionRequestAction: { requestedKind = $0 },
+            permissionRecoveryAction: { recoveredKind = $0 }
+        )
+
+        await flow.recoverPermission(.inputMonitoring)
+
+        XCTAssertEqual(requestedKind, .inputMonitoring)
+        XCTAssertEqual(recoveredKind, .inputMonitoring)
     }
 
     func testCannotAdvancePastModelUntilSelectedModelIsInstalled() async {
@@ -418,6 +435,7 @@ final class OnboardingFlowTests: XCTestCase {
     private func makeFlow(
         snapshotProvider: @escaping () -> PermissionSnapshot,
         permissionPromptAction: @escaping () async -> Void,
+        permissionRequestAction: @escaping OnboardingFlow.PermissionRequestAction = { _ in },
         permissionRefreshDelay: @escaping OnboardingFlow.PermissionRefreshDelay = {
             try? await Task.sleep(for: .seconds(1))
         },
@@ -432,6 +450,7 @@ final class OnboardingFlowTests: XCTestCase {
             store: AppSettingsStore(defaults: defaults),
             permissionSnapshotProvider: snapshotProvider,
             permissionPromptAction: permissionPromptAction,
+            permissionRequestAction: permissionRequestAction,
             permissionRefreshDelay: permissionRefreshDelay,
             permissionRecoveryAction: permissionRecoveryAction,
             modelInstalledProvider: modelInstalledProvider,

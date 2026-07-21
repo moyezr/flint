@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 298 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 300 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 
@@ -209,7 +209,9 @@ Default data locations:
 - License record, offline lease, and per-device Ed25519 private key: separate `ThisDeviceOnly` Keychain items.
 - Recordings: temporary `.m4a` files deleted after transcription/cancellation.
 
-During onboarding, Flint proactively requests missing microphone, Accessibility, and Input Monitoring permissions one at a time when the permissions step first appears; it never overlaps the Accessibility and Input Monitoring system requests. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive sequence. While the permissions step remains visible, Flint refreshes permission readiness once per second, then requests the next missing permission after the previous status changes. The manual prompt button retries the system API and opens the relevant Privacy & Security pane when access remains missing, because Core Graphics only potentially shows the one-time Input Monitoring prompt. Because direct betas are ad-hoc signed, replacing an older build can leave a stale macOS privacy entry; onboarding tells users to remove the old entry, add the current `/Applications/Flint.app`, and reopen Flint when an enabled permission is still not recognized.
+During onboarding, Flint proactively requests missing microphone, Accessibility, and Input Monitoring permissions one at a time when the permissions step first appears; it never overlaps the Accessibility and Input Monitoring system requests. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive sequence. While the permissions step remains visible, Flint refreshes permission readiness once per second, then requests the next missing permission after the previous status changes. Each missing permission has its own recovery button so a stale Accessibility entry cannot prevent the user from opening Input Monitoring directly. The generic prompt button retries the system API and opens the relevant Privacy & Security pane when access remains missing, because Core Graphics only potentially shows the one-time Input Monitoring prompt. Onboarding also provides an explicit Quit action for permission changes that require relaunch. Because direct betas are ad-hoc signed, replacing an older build can leave a stale macOS privacy entry; onboarding tells users to remove the old entry, add the current `/Applications/Flint.app`, and reopen Flint when an enabled permission is still not recognized.
+
+Do not start the global shortcut event tap while Input Monitoring is reported missing, especially during onboarding. A missing-permission startup failure must not create persistent notch feedback. Permission errors shown from later user actions are dismissible and auto-hide after five seconds.
 
 History is off by default and never stores audio. Explicit learning remains separate from history and stores only user-invoked corrections/mappings. Local metrics are content-free UserDefaults counters and are never uploaded. Telemetry is not implemented.
 

@@ -148,6 +148,25 @@ final class PermissionManagerTests: XCTestCase {
         XCTAssertTrue(microphoneURL?.absoluteString.hasSuffix("Privacy_Microphone") == true)
         XCTAssertTrue(accessibilityURL?.absoluteString.hasSuffix("Privacy_Accessibility") == true)
         XCTAssertTrue(inputMonitoringURL?.absoluteString.hasSuffix("Privacy_ListenEvent") == true)
+        XCTAssertTrue(
+            PermissionSettingsRoute.url(for: .inputMonitoring)?.absoluteString.hasSuffix("Privacy_ListenEvent") == true
+        )
+    }
+
+    func testShortcutMonitoringStartsOnlyWhenInputMonitoringIsReady() {
+        let missing = PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .ready),
+            PermissionStatus(kind: .inputMonitoring, readiness: .denied)
+        ])
+        let ready = PermissionSnapshot(statuses: [
+            PermissionStatus(kind: .microphone, readiness: .ready),
+            PermissionStatus(kind: .accessibility, readiness: .ready),
+            PermissionStatus(kind: .inputMonitoring, readiness: .ready)
+        ])
+
+        XCTAssertFalse(ShortcutMonitoringPermissionPolicy.shouldStart(for: missing))
+        XCTAssertTrue(ShortcutMonitoringPermissionPolicy.shouldStart(for: ready))
     }
 
     func testRequestMissingPermissionsDoesNotReRequestDeniedOrRestrictedMicrophone() async {

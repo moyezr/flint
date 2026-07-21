@@ -63,7 +63,8 @@ enum OverlayState: Equatable {
     }
 
     var showsActions: Bool {
-        self == .inserted || self == .copiedToClipboard
+        if case .error = self { return true }
+        return self == .inserted || self == .copiedToClipboard
     }
 
     var autoHideDelay: TimeInterval? {
@@ -74,6 +75,8 @@ enum OverlayState: Equatable {
             return 6
         case .error(let message) where message == TranscriptionEngine.noSpeechDetectedMessage:
             return 3
+        case .error(let message) where PermissionStatus.isPermissionFailureMessage(message):
+            return 5
         default:
             return nil
         }
@@ -109,10 +112,12 @@ final class OverlayWindow {
 
     func configureActions(
         onFix: @escaping @MainActor () -> Void,
-        onTeach: @escaping @MainActor () -> Void
+        onTeach: @escaping @MainActor () -> Void,
+        onDismiss: @escaping @MainActor () -> Void
     ) {
         model.onFix = onFix
         model.onTeach = onTeach
+        model.onDismiss = onDismiss
     }
 
     func show(state: OverlayState) {
@@ -147,6 +152,11 @@ final class OverlayWindow {
 
     func resetAudioLevel() {
         model.resetAudioLevel()
+    }
+
+    func hide() {
+        let visibilityPlan = autoHideCoordinator.show(.ready)
+        animateWindowOut(generation: visibilityPlan.generation)
     }
 
     private func animateWindow(
@@ -439,6 +449,7 @@ final class OverlayModel: ObservableObject {
 
     var onFix: @MainActor () -> Void = {}
     var onTeach: @MainActor () -> Void = {}
+    var onDismiss: @MainActor () -> Void = {}
 
     var presentation: OverlayPresentation {
         OverlayPresentation(state: state)
@@ -609,14 +620,26 @@ struct OverlayView: View {
             }
             .padding(.trailing, 9)
         case .error(let message):
-            Text(message)
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.82))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 7)
-                .padding(.trailing, 12)
+            HStack(spacing: 4) {
+                Text(message)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button(action: model.onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss Flint status")
+            }
+            .padding(.leading, 7)
+            .padding(.trailing, 7)
         }
     }
 

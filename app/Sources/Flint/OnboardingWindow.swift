@@ -22,8 +22,9 @@ final class OnboardingWindowController {
             store: settingsStore,
             permissionSnapshotProvider: { permissionManager.snapshot() },
             permissionPromptAction: { await permissionManager.requestMissingPermissions() },
-            permissionRecoveryAction: { snapshot in
-                guard let url = PermissionSettingsRoute.url(for: snapshot) else { return }
+            permissionRequestAction: { kind in await permissionManager.requestPermission(kind) },
+            permissionRecoveryAction: { kind in
+                guard let url = PermissionSettingsRoute.url(for: kind) else { return }
                 NSWorkspace.shared.open(url)
             },
             modelInstalledProvider: { tier in modelManager.metadata(for: tier).isInstalled },
@@ -264,7 +265,12 @@ private struct OnboardingView: View {
         case .permissions:
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(flow.permissionSnapshot.statuses, id: \.kind.title) { status in
-                    PermissionStatusRow(status: status)
+                    PermissionStatusRow(
+                        status: status,
+                        onResolve: {
+                            Task { await flow.recoverPermission(status.kind) }
+                        }
+                    )
                 }
                 HStack {
                     Button(flow.isPromptingForPermissions ? "Prompting..." : "Prompt for Missing Permissions") {
@@ -272,9 +278,10 @@ private struct OnboardingView: View {
                     }
                     .disabled(flow.isPromptingForPermissions)
 
-                    Button("Open Privacy & Security") {
-                        guard let url = PermissionSettingsRoute.url(for: flow.permissionSnapshot) else { return }
-                        NSWorkspace.shared.open(url)
+                    Spacer()
+
+                    Button("Quit Flint") {
+                        NSApp.terminate(nil)
                     }
                 }
                 Text(permissionReadinessMessage)
@@ -471,6 +478,7 @@ private struct FlintOnboardingMark: View {
 
 private struct PermissionStatusRow: View {
     let status: PermissionStatus
+    let onResolve: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -478,8 +486,15 @@ private struct PermissionStatusRow: View {
                 Text(status.statusLine)
                     .font(.headline)
                 Spacer()
-                Text(status.isReady ? "Ready" : "Needed")
-                    .foregroundStyle(status.isReady ? Color.green : FlintBrand.signal)
+                if status.isReady {
+                    Text("Ready")
+                        .foregroundStyle(Color.green)
+                } else {
+                    Button("Open Settings", action: onResolve)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(FlintBrand.signal)
+                }
             }
             Text(status.explanation)
                 .foregroundStyle(FlintBrand.muted)

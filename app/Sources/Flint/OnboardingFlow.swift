@@ -46,8 +46,9 @@ enum OnboardingLaunchPolicy {
 final class OnboardingFlow: ObservableObject {
     typealias PermissionSnapshotProvider = () -> PermissionSnapshot
     typealias PermissionPromptAction = () async -> Void
+    typealias PermissionRequestAction = (PermissionKind) async -> Void
     typealias PermissionRefreshDelay = @MainActor () async -> Void
-    typealias PermissionRecoveryAction = @MainActor (PermissionSnapshot) -> Void
+    typealias PermissionRecoveryAction = @MainActor (PermissionKind) -> Void
     typealias ModelInstalledProvider = (ModelTier) -> Bool
     typealias ModelDownloadProgressHandler = @MainActor (Double) -> Void
     typealias ModelDownloadAction = (ModelTier, @escaping ModelDownloadProgressHandler) async throws -> Void
@@ -65,6 +66,7 @@ final class OnboardingFlow: ObservableObject {
     private let store: AppSettingsStore
     private let permissionSnapshotProvider: PermissionSnapshotProvider
     private let permissionPromptAction: PermissionPromptAction
+    private let permissionRequestAction: PermissionRequestAction
     private let permissionRefreshDelay: PermissionRefreshDelay
     private let permissionRecoveryAction: PermissionRecoveryAction
     private let modelInstalledProvider: ModelInstalledProvider
@@ -78,6 +80,7 @@ final class OnboardingFlow: ObservableObject {
         store: AppSettingsStore,
         permissionSnapshotProvider: @escaping PermissionSnapshotProvider,
         permissionPromptAction: @escaping PermissionPromptAction,
+        permissionRequestAction: @escaping PermissionRequestAction = { _ in },
         permissionRefreshDelay: @escaping PermissionRefreshDelay = {
             try? await Task.sleep(for: .seconds(1))
         },
@@ -94,6 +97,7 @@ final class OnboardingFlow: ObservableObject {
         self.store = store
         self.permissionSnapshotProvider = permissionSnapshotProvider
         self.permissionPromptAction = permissionPromptAction
+        self.permissionRequestAction = permissionRequestAction
         self.permissionRefreshDelay = permissionRefreshDelay
         self.permissionRecoveryAction = permissionRecoveryAction
         self.modelInstalledProvider = modelInstalledProvider
@@ -227,8 +231,18 @@ final class OnboardingFlow: ObservableObject {
 
     func recoverMissingPermissions() async {
         await promptForPermissions()
-        guard permissionSnapshot.missingCount > 0 else { return }
-        permissionRecoveryAction(permissionSnapshot)
+        guard let missingKind = permissionSnapshot.missingStatuses.first?.kind else { return }
+        permissionRecoveryAction(missingKind)
+    }
+
+    func recoverPermission(_ kind: PermissionKind) async {
+        guard !isPromptingForPermissions else { return }
+        isPromptingForPermissions = true
+        await permissionRequestAction(kind)
+        isPromptingForPermissions = false
+        refreshPermissionSnapshot()
+        guard !permissionSnapshot.status(for: kind).isReady else { return }
+        permissionRecoveryAction(kind)
     }
 
     func monitorPermissionChanges() async {

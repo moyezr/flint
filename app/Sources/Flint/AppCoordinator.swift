@@ -123,7 +123,8 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         updateModelMenuUI()
         overlay.configureActions(
             onFix: { [weak self] in self?.showQuickCorrection() },
-            onTeach: { [weak self] in self?.showQuickVocabulary() }
+            onTeach: { [weak self] in self?.showQuickVocabulary() },
+            onDismiss: { [weak self] in self?.overlay.hide() }
         )
         overlay.show(state: .ready)
         licenseAuthorization.start()
@@ -146,13 +147,17 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 await self?.cancelDictation()
             }
         }
-        ensureShortcutMonitoringStarted()
+        let permissionSnapshot = permissionManager.snapshot()
+        let onboardingStep = OnboardingLaunchPolicy.initialStep(
+            hasCompletedOnboarding: settings.hasCompletedOnboarding,
+            permissionSnapshot: permissionSnapshot
+        )
+        if ShortcutMonitoringPermissionPolicy.shouldStart(for: permissionSnapshot) {
+            ensureShortcutMonitoringStarted(reportFailure: onboardingStep == nil)
+        }
         updatePermissionMenuItem()
         prepareSelectedModelIfInstalled()
-        if let onboardingStep = OnboardingLaunchPolicy.initialStep(
-            hasCompletedOnboarding: settings.hasCompletedOnboarding,
-            permissionSnapshot: permissionManager.snapshot()
-        ) {
+        if let onboardingStep {
             showOnboarding(initialStep: onboardingStep)
         }
         scheduleAutomaticUpdateCheck()
@@ -543,7 +548,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
             Task { @MainActor in
                 await permissionManager.requestMissingPermissions()
                 updatePermissionMenuItem()
-                ensureShortcutMonitoringStarted()
+                synchronizeShortcutMonitoringWithPermissions(reportFailure: true)
             }
         default:
             break
@@ -685,6 +690,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
     }
 
     private func showOnboarding(initialStep: OnboardingStep) {
+        overlay.hide()
         if let onboardingWindow {
             onboardingWindow.show()
             return
@@ -709,8 +715,7 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
                 self?.applyOnboardingSettings(settings)
             },
             onPermissionsChanged: { [weak self] in
-                self?.updatePermissionMenuItem()
-                self?.ensureShortcutMonitoringStarted()
+                self?.synchronizeShortcutMonitoringWithPermissions(reportFailure: false)
             },
             onComplete: { [weak self] in
                 self?.completeOnboarding()
@@ -1040,12 +1045,23 @@ final class AppCoordinator: NSObject, NSMenuDelegate {
         activeProcessingID = nil
     }
 
-    private func ensureShortcutMonitoringStarted() {
+    private func synchronizeShortcutMonitoringWithPermissions(reportFailure: Bool) {
+        let snapshot = permissionManager.snapshot()
+        updatePermissionMenuItem()
+        guard ShortcutMonitoringPermissionPolicy.shouldStart(for: snapshot) else {
+            shortcutManager.stop()
+            return
+        }
+        ensureShortcutMonitoringStarted(reportFailure: reportFailure)
+    }
+
+    private func ensureShortcutMonitoringStarted(reportFailure: Bool = true) {
         switch shortcutManager.start() {
         case .started:
             break
         case .inputMonitoringMissing:
             guard !shortcutManager.isRunning else { return }
+            guard reportFailure else { return }
             let inputMonitoring = permissionManager.snapshot().status(for: .inputMonitoring)
             let message = inputMonitoring.isReady
                 ? "Shortcut monitoring could not start. Restart Flint, then check Input Monitoring."
