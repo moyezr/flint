@@ -39,7 +39,7 @@ export function BetaDownload() {
             {planDetails.map((detail) => <li className="border-b border-line py-3 text-[15px]" key={detail}>{detail}</li>)}
           </ul>
           <p className="mt-6 mb-0 text-[13px] leading-[1.45] text-muted">
-            Your email is used to provide beta access and essential release information. Optional product updates require the checkbox above. See the{" "}
+            Your email is used only to provide beta access and essential release information. See the{" "}
             <Link className="border-b border-current text-ink hover:text-signal" href="/privacy">privacy policy</Link> and <Link className="border-b border-current text-ink hover:text-signal" href="/terms">beta terms</Link>.
           </p>
         </div>

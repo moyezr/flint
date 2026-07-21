@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         <h1 className={`${spaceGrotesk.className} text-[64px] leading-[0.95] font-semibold max-[520px]:text-[44px]`}>
           Your words stay yours.
         </h1>
-        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 17, 2026.</p>
+        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 21, 2026.</p>
 
         <section className="mt-16 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Dictation data</h2>
@@ -36,7 +36,7 @@ export default function PrivacyPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Beta download emails</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            The website stores the email address you submit, your required first name and optional last name, when the email was verified, the time you requested access, whether you separately opted into occasional product updates, and aggregate download timestamps and counts. It does not store your dictation content. These records are used for beta access, essential release communication, support, and—only when selected—occasional product updates.
+            The website stores the email address you submit, your required first name and optional last name, when the email was verified, the time you requested access, and aggregate download timestamps and counts. It does not store your dictation content. These records are used for beta access, essential release communication, and support. New beta signups are not enrolled in optional product marketing emails.
           </p>
         </section>
 

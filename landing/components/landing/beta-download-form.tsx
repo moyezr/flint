@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { betaDownloadFormIsReady } from "@/lib/beta-download-form";
+
 type SubmissionState = "idle" | "requesting-code" | "verifying" | "error";
 
 export function BetaDownloadForm() {
@@ -13,13 +15,20 @@ export function BetaDownloadForm() {
   const [email, setEmail] = useState("");
   const [verificationID, setVerificationID] = useState<string | null>(null);
   const [verificationCode, setVerificationCode] = useState("");
-  const [marketingConsent, setMarketingConsent] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
   const [pendingDownloadURL, setPendingDownloadURL] = useState<string | null>(null);
   const [isInstallNoticeOpen, setIsInstallNoticeOpen] = useState(false);
   const isBusy = submissionState === "requesting-code" || submissionState === "verifying";
+  const isReadyToSubmit = betaDownloadFormIsReady({
+    firstName,
+    email,
+    acceptedTerms,
+    verificationID,
+    verificationCode,
+    pendingDownloadURL,
+  });
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +63,7 @@ export function BetaDownloadForm() {
           email,
           firstName,
           lastName,
-          marketingConsent,
+          marketingConsent: false,
           source: "landing-download",
           website: websiteRef.current?.value ?? "",
           startedAt: startedAt.current ?? Date.now() - 1_000,
@@ -245,17 +254,6 @@ export function BetaDownloadForm() {
             <input autoComplete="off" id="beta-website" name="website" ref={websiteRef} tabIndex={-1} type="text" />
           </div>
 
-          <label className="flex cursor-pointer items-start gap-3 text-[13px] leading-[1.45] text-muted">
-            <input
-              checked={marketingConsent}
-              className="mt-1 size-4 accent-signal"
-              disabled={isBusy}
-              onChange={(event) => setMarketingConsent(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Email me occasional Flint product updates. This is optional.</span>
-          </label>
-
           <div className="flex items-start gap-3 text-[13px] leading-[1.45] text-muted">
             <input
               checked={acceptedTerms}
@@ -275,8 +273,8 @@ export function BetaDownloadForm() {
       )}
 
       <button
-        className="inline-flex min-h-12 items-center justify-center bg-signal px-5 font-mono text-[12px] font-semibold text-paper tabular-nums transition-colors hover:bg-ink disabled:cursor-wait disabled:opacity-70"
-        disabled={isBusy}
+        className="inline-flex min-h-12 items-center justify-center bg-signal px-5 font-mono text-[12px] font-semibold text-paper tabular-nums transition-colors hover:bg-ink disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+        disabled={isBusy || !isReadyToSubmit}
         type="submit"
       >
         {submissionState === "requesting-code"

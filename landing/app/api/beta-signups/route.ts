@@ -28,7 +28,7 @@ const signupSchema = z.object({
   email: z.string().trim().email().max(320),
   firstName: requiredFirstNameSchema,
   lastName: optionalNameSchema.default(""),
-  marketingConsent: z.boolean().default(false),
+  marketingConsent: z.literal(false).default(false),
   source: z.string().trim().min(1).max(80).default("landing"),
   website: z.string().max(0).default(""),
   startedAt: z.number().int().positive(),
