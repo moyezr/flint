@@ -46,7 +46,6 @@ cp "$FONT_LICENSE_SOURCE_DIR"/*.txt "$APP_PATH/Contents/Resources/FontLicenses/"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/LICENSE" "$APP_PATH/Contents/Resources/ArgmaxOSS-LICENSE.txt"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/NOTICES" "$APP_PATH/Contents/Resources/ArgmaxOSS-NOTICES.txt"
 cp "$ROOT_DIR/.build/checkouts/swift-argument-parser/LICENSE.txt" "$APP_PATH/Contents/Resources/SwiftArgumentParser-LICENSE.txt"
-cp "$ROOT_DIR/Distribution/READ ME FIRST.txt" "$STAGING_DIR/READ ME FIRST.txt"
 ln -s /Applications "$STAGING_DIR/Applications"
 sed \
     -e "s/__FLINT_VERSION__/$VERSION/g" \

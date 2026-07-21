@@ -48,16 +48,11 @@ fi
 
 ditto "$SOURCE_DIR" "$MOUNT_PATH"
 
-HAS_README=false
-if [[ -f "$MOUNT_PATH/READ ME FIRST.txt" ]]; then
-    HAS_README=true
-fi
 MOUNT_NAME="$(basename "$MOUNT_PATH")"
 
-osascript - "$MOUNT_NAME" "$HAS_README" <<'APPLESCRIPT'
+osascript - "$MOUNT_NAME" <<'APPLESCRIPT'
 on run arguments
     set mountedVolumeName to item 1 of arguments
-    set hasReadme to item 2 of arguments is "true"
 
     tell application "Finder"
         tell disk mountedVolumeName
@@ -80,9 +75,6 @@ on run arguments
 
             set position of item "Flint.app" to {170, 170}
             set position of item "Applications" to {470, 170}
-            if hasReadme then
-                set position of item "READ ME FIRST.txt" to {320, 330}
-            end if
 
             update without registering applications
             delay 2
