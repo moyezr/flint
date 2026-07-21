@@ -28,3 +28,6 @@ app/Distribution/releases/
 app/dist/
 landing/coverage/
 landing/.vercel/
+
+
+.vscode/
