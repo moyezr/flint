@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 306 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 307 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 
@@ -209,7 +209,7 @@ Default data locations:
 - License record, offline lease, and per-device Ed25519 private key: separate `ThisDeviceOnly` Keychain items.
 - Recordings: temporary `.m4a` files deleted after transcription/cancellation.
 
-During onboarding, Flint proactively requests missing microphone and Accessibility permissions one at a time when the permissions step first appears. Accessibility covers both AX insertion and the current global shortcut event tap, so Flint does not separately request or gate onboarding on Input Monitoring. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive sequence. While the permissions step remains visible, Flint refreshes permission readiness once per second, then requests Accessibility after the microphone status changes. Each missing permission has its own recovery button, the generic prompt button retries the system API and opens the relevant Privacy & Security pane when access remains missing, and onboarding provides an explicit Quit action for permission changes that require relaunch. Because direct betas are ad-hoc signed, replacing an older build can leave a stale macOS Accessibility entry; if an enabled permission is still not recognized, remove the old entry, add the current `/Applications/Flint.app`, and reopen Flint.
+During onboarding, Flint proactively requests missing microphone and Accessibility permissions one at a time when the permissions step first appears. Accessibility covers both AX insertion and the current global shortcut event tap, so Flint does not separately request or gate onboarding on Input Monitoring. On launch, a fresh setup opens at Welcome; a previously completed setup with missing permissions reopens directly at Permissions and triggers the same proactive sequence. While the permissions step remains visible, Flint refreshes permission readiness once per second, then requests Accessibility after the microphone status changes. Each missing permission has its own recovery button, the generic prompt button retries the system API and opens the relevant Privacy & Security pane when access remains missing, and onboarding provides an explicit Quit action for permission changes that require relaunch. Public betas use one persistent private certificate-backed designated requirement so updates retain the same macOS privacy identity. Users moving from an older ad-hoc beta must remove the stale Accessibility row, add the current `/Applications/Flint.app`, and reopen Flint once; onboarding shows that migration guidance only for previously completed setups with missing Accessibility.
 
 Do not start the global shortcut event tap while Accessibility is reported missing, especially during onboarding. A missing-permission startup failure must not create persistent notch feedback. Permission errors shown from later user actions are dismissible and auto-hide after five seconds.
 
@@ -272,11 +272,13 @@ For insertion QA, verify exact-once output and unchanged clipboard contents on f
 
 ## Release Paths
 
-Ad-hoc direct beta (not Apple-verified):
+Privately signed direct beta (not Apple-verified):
 
 ```sh
 cd app
+Scripts/setup-beta-signing-identity.sh
 FLINT_VERSION=0.1.0-beta.1 Scripts/package-direct-beta-dmg.sh
+Scripts/verify-beta-update-identity.sh <previous.dmg> <new.dmg>
 ```
 
 Production path:
@@ -288,14 +290,14 @@ FLINT_VERSION=1.0.0 FLINT_BUILD=1 FLINT_SIGNING_IDENTITY="Developer ID Applicati
 FLINT_DMG_PATH=dist/Flint-1.0.0.dmg FLINT_NOTARY_PROFILE=<profile> Scripts/notarize-dmg.sh
 ```
 
-Never describe the ad-hoc beta as signed/notarized or Apple-verified. Never modify a published DMG in place; publish a new version and checksum.
+Never describe the private beta signature as Developer ID signing, notarization, or Apple verification. Never modify a published DMG in place; publish a new version and checksum. The private identity, keychain password, certificate, and encrypted `.p12` backup live outside the repository under `~/Library/Application Support/Flint Beta Signing`; never stage or commit them, and never regenerate them while this beta channel remains active.
 
 ## Current Launch Gates
 
 These are the material remaining items as of the date at the top of this file:
 
 1. Complete the remaining Apple Silicon manual reliability evidence: a clean-standard-user onboarding pass, a 10–15 minute dictation, silence, permission revocation, model interruption/corruption/low-disk recovery, target switching, and recorded exact-once/clipboard checks. Ordinary browser use and sleep/wake have developer smoke coverage but the formal matrix remains incomplete.
-2. The free beta may remain transparently ad-hoc signed and unnotarized because no Apple Developer Program membership is available. Developer ID signing/notarization remains a later paid/lower-friction release gate, not a claim for the current beta.
+2. The free beta uses a persistent private signing identity to preserve macOS privacy permissions across updates but remains transparently unnotarized because no Apple Developer Program membership is available. Developer ID signing/notarization remains a later paid/lower-friction release gate, not a claim for the current beta.
 3. Deploy migrations through `0005`, configure the verified Resend beta sender and OTP pepper, and deploy the hardened landing build plus ARM64 release metadata with production PostgreSQL, HTTPS, backups, monitoring, and abuse controls. Run both production verifiers and one restore drill against real infrastructure.
 4. Payment selection, commerce fulfillment, and license activation are deliberately deferred until the free beta has validated retention and a paid release is chosen.
 5. Enable `FlintLicenseEnforcement` only after the deployed API and a real beta key pass activation/renewal/offline tests.

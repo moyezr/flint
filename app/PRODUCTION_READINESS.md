@@ -53,7 +53,7 @@ Run `FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionInte
 
 ## Free Public Beta Gates
 
-- Package an ad-hoc-signed, ARM64-only, immutable versioned DMG and describe it accurately as not Apple-notarized.
+- Package a privately signed, ARM64-only, immutable versioned DMG, verify its designated requirement against the previous beta, and describe it accurately as not Apple-notarized.
 - Test Gatekeeper approval, permissions, model preparation, dictation, local-data deletion, and the packaged uninstall flow from a clean standard macOS user account.
 - Complete at least one 10–15 minute dictation test on the supported Apple Silicon QA Mac; do not advertise unlimited recording length.
 - Deploy migrations, production security headers, beta rate limits, legal/support pages, backup policy, monitoring, and both production smoke verifiers.

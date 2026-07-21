@@ -31,14 +31,30 @@ final class OnboardingVisualTests: XCTestCase {
         XCTAssertGreaterThan(png.count, 20_000)
     }
 
+    func testPermissionScreenRendersStableIdentityMigrationHelpForExistingUsers() throws {
+        let png = try render(
+            step: .permissions,
+            snapshot: PermissionSnapshot(statuses: [
+                PermissionStatus(kind: .microphone, readiness: .ready),
+                PermissionStatus(kind: .accessibility, readiness: .denied)
+            ]),
+            hasCompletedOnboarding: true,
+            filename: "Flint-Onboarding-Permission-Migration.png"
+        )
+
+        XCTAssertGreaterThan(png.count, 20_000)
+    }
+
     private func render(
         step: OnboardingStep,
         snapshot: PermissionSnapshot,
+        hasCompletedOnboarding: Bool = false,
         filename: String
     ) throws -> Data {
         let suiteName = "FlintTests.OnboardingVisual.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding")
 
         let flow = OnboardingFlow(
             store: AppSettingsStore(defaults: defaults),

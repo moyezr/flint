@@ -18,6 +18,10 @@ node_modules/
 *.p12
 *.p8
 *.key
+*.cer
+*.crt
+*.keychain
+*.keychain-db
 
 # Local release artifacts and database tooling state
 app/Distribution/releases/

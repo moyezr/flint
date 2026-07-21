@@ -5,9 +5,9 @@ Native macOS dictation utility prototype.
 Requires an Apple Silicon Mac with macOS 14 or newer for the current direct beta. The current DMG is ARM64-only; Intel support is not advertised or qualified.
 
 For the current direct-download beta release path, see
-[DIRECT_BETA_RELEASE.md](./DIRECT_BETA_RELEASE.md). It produces an ad-hoc-signed
-DMG and checksum without requiring an Apple Developer ID certificate; it is not
-a notarized production release.
+[DIRECT_BETA_RELEASE.md](./DIRECT_BETA_RELEASE.md). It produces a privately
+signed DMG and checksum without requiring an Apple Developer ID certificate;
+it is not a notarized production release.
 
 ## Phase 1 Scaffold
 
@@ -29,7 +29,7 @@ Flint captures the focused text target when recording starts and tries that targ
 
 Use the Permissions menu item to check Microphone and Accessibility readiness. Microphone lets Flint record your voice for local transcription. Accessibility lets Flint detect the dictation shortcut and insert text into the field you're typing in.
 
-Flint requests macOS permissions one at a time so simultaneous system prompts cannot suppress one another. Accessibility already grants the event-listening access used by Flint's shortcut, so onboarding does not require the separate Input Monitoring permission. Each missing permission has its own Settings action, onboarding refreshes its permission state automatically while that step is visible, and it provides a Quit button for changes that require a relaunch. The direct beta is ad-hoc signed, so macOS may retain an Accessibility entry for an older Flint build after the app is replaced. If Accessibility is visibly enabled but Flint still reports it as missing, remove the old Flint row in System Settings, add the current `/Applications/Flint.app` again, and reopen Flint.
+Flint requests macOS permissions one at a time so simultaneous system prompts cannot suppress one another. Accessibility already grants the event-listening access used by Flint's shortcut, so onboarding does not require the separate Input Monitoring permission. Each missing permission has its own Settings action, onboarding refreshes its permission state automatically while that step is visible, and it provides a Quit button for changes that require a relaunch. The public beta now uses one persistent private signing identity so future beta updates share a stable macOS privacy identity. Users migrating from an older ad-hoc beta must remove the old Flint row in System Settings, add the current `/Applications/Flint.app`, and reopen Flint once; onboarding shows those instructions when a previously configured installation cannot regain Accessibility.
 
 Onboarding shares the landing page's design system: bundled Space Grotesk headings, Inter body copy, IBM Plex Mono labels, the warm Flint palette, square bordered surfaces, the `FLINT/` wordmark, and the subtle orange dot field. The matching SIL Open Font License texts are included with packaged builds under `Contents/Resources/FontLicenses`.
 

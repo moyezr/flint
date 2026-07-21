@@ -65,6 +65,12 @@ export default function BetaGuidePage() {
           <p className="mt-4 leading-[1.7] text-muted">
             You can run setup again at any time from the menu bar: Flint → Run Onboarding Again. Existing models, vocabulary, and permissions are preserved.
           </p>
+          <aside className="mt-6 border border-signal bg-[color-mix(in_srgb,var(--color-signal)_6%,var(--color-paper))] p-5">
+            <p className="font-mono text-[11px] font-semibold text-signal">UPDATING FROM BETA 10 OR EARLIER</p>
+            <p className="mt-3 text-sm leading-[1.7] text-muted">
+              This release moves Flint from per-build ad-hoc signing to one stable private beta identity. If Accessibility is enabled but onboarding still says it is needed, quit Flint, remove the existing Flint row from System Settings → Privacy &amp; Security → Accessibility, click + to add <code className="font-mono text-ink">/Applications/Flint.app</code>, enable it, and reopen Flint. This migration is required once; later beta updates retain the same permission identity.
+            </p>
+          </aside>
         </section>
 
         <section className="mt-14 border-t border-line pt-9" aria-labelledby="uninstall-heading">

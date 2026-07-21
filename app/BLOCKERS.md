@@ -9,8 +9,9 @@ client, and Next.js licensing API are implemented.
 
 ### Developer ID and Notarization
 
-- Current state: direct beta packaging produces an ad-hoc-signed ARM64 DMG with
-  honest Gatekeeper instructions.
+- Current state: direct beta packaging produces a privately certificate-signed
+  ARM64 DMG with a stable designated requirement and honest Gatekeeper
+  instructions. It is still not Developer ID signed or notarized.
 - External blocker: no Apple Developer Program membership, Developer ID
   Application certificate, or notarytool profile is available.
 - Beta decision: ship transparently without notarization. Revisit Developer ID

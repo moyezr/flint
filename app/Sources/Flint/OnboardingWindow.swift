@@ -302,6 +302,19 @@ struct OnboardingView: View {
                         .foregroundStyle(FlintBrand.muted.opacity(0.82))
                         .font(FlintTypography.body(size: 12))
                         .fixedSize(horizontal: false, vertical: true)
+                    if flow.settings.hasCompletedOnboarding,
+                       !flow.permissionSnapshot.status(for: .accessibility).isReady {
+                        Text("Updating from an earlier beta? Remove the existing Flint row with −, click +, choose /Applications/Flint.app, and enable it again. This one-time migration gives future beta updates a stable permission identity.")
+                            .foregroundStyle(FlintBrand.ink)
+                            .font(FlintTypography.body(size: 12, weight: .medium))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(10)
+                            .background(FlintBrand.signal.opacity(0.07))
+                            .overlay {
+                                Rectangle()
+                                    .stroke(FlintBrand.signal.opacity(0.48), lineWidth: 1)
+                            }
+                    }
                     Text("Flint needs Microphone and Accessibility only. A separate Input Monitoring grant is not required.")
                         .foregroundStyle(FlintBrand.muted.opacity(0.82))
                         .font(FlintTypography.body(size: 12))
