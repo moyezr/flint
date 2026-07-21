@@ -15,25 +15,25 @@ export type LatestRelease = {
 };
 
 export function latestRelease(): LatestRelease {
-  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.8";
+  const version = process.env.FLINT_BETA_VERSION?.trim() || "0.1.0-beta.9";
   const filename = `Flint-${version}.dmg`;
 
   return {
     version,
-    build: process.env.FLINT_BETA_BUILD?.trim() || "8",
-    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T10:02:11Z",
+    build: process.env.FLINT_BETA_BUILD?.trim() || "9",
+    publishedAt: process.env.FLINT_BETA_PUBLISHED_AT?.trim() || "2026-07-21T10:34:24Z",
     minimumSystemVersion: "14.0",
     supportedArchitectures: ["arm64"],
     downloadPageURL: new URL("/#download", siteURL).toString(),
     assetURL:
       process.env.FLINT_BETA_DMG_URL?.trim() ||
       new URL(`/downloads/${filename}`, siteURL).toString(),
-    sha256: process.env.FLINT_BETA_SHA256?.trim() || "6125d04600cbf6d63af3c1c7917e6d1a19dfe59c12d3be9da276a8199f5a3e54",
+    sha256: process.env.FLINT_BETA_SHA256?.trim() || "f21839ed6781d360736835d6ae4e53100d88d79e57c51a230404493966c09e2c",
     notes: [
-      "Setup now requires only Microphone and Accessibility.",
-      "Accessibility covers both Flint's shortcut listener and text insertion.",
-      "The redundant Input Monitoring gate has been removed from onboarding.",
-      "Onboarding detects the Accessibility switch automatically after it is enabled.",
+      "Onboarding now matches Flint's landing-page typography and visual system.",
+      "Space Grotesk, Inter, and IBM Plex Mono are bundled with the app.",
+      "Warm Flint colors, square actions, and editorial surfaces replace the previous material-card treatment.",
+      "Onboarding behavior, permission handling, and setup steps are unchanged.",
     ],
   };
 }
