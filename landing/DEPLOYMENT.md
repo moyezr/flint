@@ -34,7 +34,10 @@ source. It is not required by the server at runtime.
 3. Run `npm run landing:db:migrate` against the production database. It is safe
    to rerun. Migration `0005_require_beta_first_name.sql` must be present before
    deploying the matching application build.
-4. Upload the current versioned DMG and checksum to a durable public artifact host. Beta 11 is temporarily shipped from `public/downloads`; use public object storage for repeated releases. Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*` environment variables match that artifact.
+4. Upload the current versioned DMG and checksum to GitHub Releases or another
+   durable public artifact host. Release binaries do not belong in Git history.
+   Confirm `landing/app/lib/beta/latest-release.ts` or the `FLINT_BETA_*`
+   environment variables match that artifact.
 5. For the verification command only, set `FLINT_BETA_TEST_EMAIL` to an inbox
    you control that supports plus-addressing. It is not a production runtime
    variable. Then run the complete disposable OTP/signup/download check against

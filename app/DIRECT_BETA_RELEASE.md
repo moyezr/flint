@@ -70,7 +70,16 @@ Gatekeeper and does not replace Developer ID signing or notarization.
    privacy policy, beta terms, third-party notices, and a support contact
    alongside the download.
 
-8. Publish both files from a durable public artifact host. Beta 11 is temporarily served from `landing/public/downloads`; move later builds to public object storage rather than accumulating binaries in Git history.
+8. Publish both files from a durable public artifact host. Release DMGs and
+   checksums must not be committed to Git. For GitHub Releases, authenticate the
+   GitHub CLI and run:
+
+   ```sh
+   FLINT_VERSION=0.1.0-beta.11 Scripts/publish-github-release.sh
+   ```
+
+   The script verifies the checksum and creates or updates the corresponding
+   `v<version>` prerelease. An external object host is also acceptable.
 9. Update `landing/app/lib/beta/latest-release.ts` (or the corresponding production environment overrides), deploy the landing site, and run:
 
    ```sh
