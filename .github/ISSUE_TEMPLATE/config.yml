@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://github.com/moyezr/flint/security/policy
+    about: Read the private vulnerability reporting policy before opening an issue.
+  - name: Flint support
+    url: https://flint.moyezrabbani.dev/support
+    about: Get help using the official Flint beta.

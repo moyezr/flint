@@ -9,6 +9,7 @@ OUTPUT_DIR="${FLINT_OUTPUT_DIR:-$ROOT_DIR/dist}"
 ICON_PATH="$ROOT_DIR/Distribution/Flint.icns"
 FONT_SOURCE_DIR="$ROOT_DIR/Sources/Flint/Resources/Fonts"
 FONT_LICENSE_SOURCE_DIR="$ROOT_DIR/Sources/Flint/Resources/FontLicenses"
+FLINT_LICENSE_PATH="$ROOT_DIR/../LICENSE"
 BETA_SIGNING_DIR="${FLINT_BETA_SIGNING_DIR:-$HOME/Library/Application Support/Flint Beta Signing}"
 BETA_SIGNING_IDENTITY="${FLINT_BETA_SIGNING_IDENTITY:-Flint Beta Signing}"
 BETA_SIGNING_KEYCHAIN="${FLINT_BETA_SIGNING_KEYCHAIN:-$BETA_SIGNING_DIR/FlintBeta.keychain-db}"
@@ -33,6 +34,10 @@ fi
 
 if [[ ! -d "$FONT_SOURCE_DIR" || ! -d "$FONT_LICENSE_SOURCE_DIR" ]]; then
     echo "Missing bundled Flint font resources." >&2
+    exit 1
+fi
+if [[ ! -f "$FLINT_LICENSE_PATH" ]]; then
+    echo "Missing Flint license: $FLINT_LICENSE_PATH" >&2
     exit 1
 fi
 
@@ -74,6 +79,7 @@ cp "$ROOT_DIR/.build/release/Flint" "$APP_PATH/Contents/MacOS/Flint"
 cp "$ICON_PATH" "$APP_PATH/Contents/Resources/Flint.icns"
 cp "$FONT_SOURCE_DIR"/*.ttf "$APP_PATH/Contents/Resources/Fonts/"
 cp "$FONT_LICENSE_SOURCE_DIR"/*.txt "$APP_PATH/Contents/Resources/FontLicenses/"
+cp "$FLINT_LICENSE_PATH" "$APP_PATH/Contents/Resources/Flint-LICENSE.txt"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/LICENSE" "$APP_PATH/Contents/Resources/ArgmaxOSS-LICENSE.txt"
 cp "$ROOT_DIR/.build/checkouts/argmax-oss-swift/NOTICES" "$APP_PATH/Contents/Resources/ArgmaxOSS-NOTICES.txt"
 cp "$ROOT_DIR/.build/checkouts/swift-argument-parser/LICENSE.txt" "$APP_PATH/Contents/Resources/SwiftArgumentParser-LICENSE.txt"

@@ -1,4 +1,4 @@
-name: macOS CI
+name: CI
 
 on:
   pull_request:
@@ -6,9 +6,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   landing:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -22,14 +30,18 @@ jobs:
       - name: Install landing dependencies
         run: npm ci --prefix landing
 
+      - name: Test landing
+        run: npm run landing:test
+
       - name: Lint landing
         run: npm run landing:lint
 
       - name: Build landing
         run: npm run landing:build
 
-  test-and-build:
+  native:
     runs-on: macos-15
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4

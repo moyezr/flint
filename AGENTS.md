@@ -2,7 +2,7 @@
 
 This is the first file an agent should read before changing Flint. It records the current product behavior, architectural boundaries, local workflows, and release state that are easy to lose between sessions.
 
-Last reconciled with the working tree on 2026-07-21.
+Last reconciled with the working tree on 2026-07-22.
 
 ## Product North Star
 
@@ -22,7 +22,7 @@ Core promises:
 - Free public beta through a direct `.dmg`; the later paid release is planned as a one-time purchase, not a subscription.
 - Preserve the user's clipboard and never insert a dictation twice.
 - Personalization is local, per user, explicit, reviewable, scoped, and deletable.
-- Do not copy VoiceInk or another product's code, assets, copy, name, icon, or layout. This is a clean-room proprietary implementation.
+- Flint's original code is MIT-licensed. Do not copy VoiceInk or another product's code, assets, copy, name, icon, or layout; this remains a clean-room implementation.
 
 Prefer readable, direct Swift over speculative abstraction. Do not introduce plugin systems, event buses, dependency-injection frameworks, or future-proof layers without a second real use case.
 
@@ -98,14 +98,14 @@ FLINT_RUN_ACCESSIBILITY_INTEGRATION=1 swift test --filter TextInsertionIntegrati
 Run and validate the website:
 
 ```sh
-npm install
+npm ci --prefix landing
 npm run landing:dev
 npm run landing:test
 npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 307 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 309 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 

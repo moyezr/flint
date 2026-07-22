@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         <h1 className={`${spaceGrotesk.className} text-[64px] leading-[0.95] font-semibold max-[520px]:text-[44px]`}>
           Your words stay yours.
         </h1>
-        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 21, 2026.</p>
+        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 22, 2026.</p>
 
         <section className="mt-16 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Dictation data</h2>
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Control and contact</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            You can ask to access or delete your beta email record, or unsubscribe from optional updates, by emailing <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20privacy">moyezrabbani.work@gmail.com</a>. Local application data can be removed from Flint&apos;s Privacy screen. Its Uninstall Flint action deletes downloaded models and other local data before moving the app to Trash.
+            You can ask to access or delete your beta email record by emailing <a className="border-b border-current text-ink" href="mailto:moyezrabbani.work@gmail.com?subject=Flint%20privacy">moyezrabbani.work@gmail.com</a>. New signups are not enrolled in optional product marketing. Local application data can be removed from Flint&apos;s Privacy screen. Its Uninstall Flint action deletes downloaded models and other local data before moving the app to Trash.
           </p>
         </section>
       </article>

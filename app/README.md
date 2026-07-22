@@ -1,6 +1,7 @@
 # Flint
 
-Native macOS dictation utility prototype.
+Native macOS dictation utility. The repository-level [README](../README.md)
+contains the product overview, architecture, and complete contributor setup.
 
 Requires an Apple Silicon Mac with macOS 14 or newer for the current direct beta. The current DMG is ARM64-only; Intel support is not advertised or qualified.
 
@@ -9,7 +10,7 @@ For the current direct-download beta release path, see
 signed DMG and checksum without requiring an Apple Developer ID certificate;
 it is not a notarized production release.
 
-## Phase 1 Scaffold
+## Development
 
 Build:
 

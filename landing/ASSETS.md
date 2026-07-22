@@ -1,6 +1,8 @@
 # Landing Page Asset Brief
 
-The prototype uses code-native visual placeholders. Replace them with production media before launch without changing the layout or copy.
+The landing page uses code-native visuals today. Add product screenshots or demo
+media when suitable launch assets are available without changing the established
+layout or copy hierarchy.
 
 ## 1. Flint Command Surface
 

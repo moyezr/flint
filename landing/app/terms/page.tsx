@@ -17,14 +17,14 @@ export default function TermsPage() {
         <h1 className={`${spaceGrotesk.className} text-[64px] leading-[0.95] font-semibold max-[520px]:text-[44px]`}>
           Free public beta terms.
         </h1>
-        <p className="mt-7 text-lg leading-[1.65] text-muted">Effective: July 20, 2026.</p>
+        <p className="mt-7 text-lg leading-[1.65] text-muted">Effective: July 22, 2026.</p>
 
         <LegalSection title="Agreement">
           By selecting the terms checkbox, downloading, installing, or using Flint, you agree to these terms. Flint is provided by Moyez Rabbani as an independent developer. If you do not agree, do not download or use the beta.
         </LegalSection>
 
-        <LegalSection title="Beta license">
-          You receive a limited, personal, non-exclusive, non-transferable, revocable license to install and use the free Flint public beta on your own compatible Mac for evaluation and feedback. Flint and its original code, design, name, and assets remain proprietary. Third-party components remain governed by their own licenses, listed in the <Link className="border-b border-current text-ink" href="/third-party-notices">Third-Party Notices</Link>.
+        <LegalSection title="Open-source license and official builds">
+          Flint&apos;s original source code is available under the <a className="border-b border-current text-ink" href="https://github.com/moyezr/flint/blob/main/LICENSE">MIT License</a>. These beta terms govern the official download service and prebuilt beta distributed by the Flint project; they do not reduce rights granted by the MIT License. Third-party components remain governed by their own licenses, listed in the <Link className="border-b border-current text-ink" href="/third-party-notices">Third-Party Notices</Link>. The Flint name and logo may not be used to imply that a modified build is an official release or is endorsed by the project.
         </LegalSection>
 
         <LegalSection title="Early software">
@@ -36,7 +36,7 @@ export default function TermsPage() {
         </LegalSection>
 
         <LegalSection title="Acceptable use">
-          You may not use Flint unlawfully, interfere with the download or release services, bypass reasonable access or abuse controls, distribute altered builds as Flint, or use Flint&apos;s name or assets to imply endorsement. Restrictions apply only to the extent permitted by applicable law and do not limit rights granted by third-party open-source licenses.
+          You may not interfere with the download or release services, bypass reasonable access or abuse controls, or use Flint&apos;s name or assets to imply that an unofficial build is endorsed by the project. This does not limit the rights granted by Flint&apos;s MIT License or any third-party open-source license.
         </LegalSection>
 
         <LegalSection title="Price and refunds">

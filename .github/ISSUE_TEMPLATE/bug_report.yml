@@ -1,0 +1,61 @@
+name: Bug report
+description: Report reproducible Flint app or website behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include private transcripts, credentials, OTPs, or license keys.
+        Report security vulnerabilities privately according to SECURITY.md.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - macOS app
+        - Onboarding or permissions
+        - Dictation or insertion
+        - Landing page
+        - Beta download or email verification
+        - Licensing service
+        - Build or release tooling
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Flint version or commit
+      placeholder: 0.1.0-beta.11 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include macOS and Mac model for native issues, or browser and deployment type for web issues.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open Flint…
+        2. Select…
+        3. Observe…
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized logs or screenshots if useful.

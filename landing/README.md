@@ -1,19 +1,22 @@
 # Flint Landing
 
-Next.js 16 App Router prototype for the Flint marketing site.
+Next.js 16 App Router project for the Flint marketing site, beta download flow,
+release metadata, and optional licensing service.
 
 ## Development
 
 From the repository root:
 
 ```sh
-npm --prefix landing install
+npm ci --prefix landing
 npm run landing:dev
 ```
 
 The production URL is configured with `NEXT_PUBLIC_SITE_URL`. Set it before deployment so canonical URLs, the sitemap, and robots metadata use the real domain.
 
-Run `npm run landing:lint` and `npm run landing:build` before publishing. The production visual asset requirements are in [ASSETS.md](./ASSETS.md).
+Run `npm run landing:test`, `npm run landing:lint`, and
+`npm run landing:build` before publishing. The production visual asset
+requirements are in [ASSETS.md](./ASSETS.md).
 
 ## Public beta downloads
 

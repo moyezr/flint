@@ -45,7 +45,7 @@ export default function ThirdPartyNoticesPage() {
         <h1 className={`${spaceGrotesk.className} text-[64px] leading-[0.95] font-semibold max-[520px]:text-[44px]`}>
           Third-party notices.
         </h1>
-        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 21, 2026.</p>
+        <p className="mt-7 text-lg leading-[1.65] text-muted">Last updated: July 22, 2026.</p>
 
         <section className="mt-16 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Flint macOS application</h2>
@@ -88,7 +88,7 @@ export default function ThirdPartyNoticesPage() {
         <section className="mt-14 border-t border-line pt-9">
           <h2 className={`${spaceGrotesk.className} text-3xl font-semibold`}>Scope</h2>
           <p className="mt-4 leading-[1.7] text-muted">
-            These acknowledgements do not imply endorsement by any third-party project or trademark owner. Third-party license terms apply only to their respective components and do not license Flint&apos;s original proprietary code, name, or assets.
+            These acknowledgements do not imply endorsement by any third-party project or trademark owner. Flint&apos;s original source code is available under the MIT License; third-party components remain under their respective licenses. Neither license grants permission to imply that a fork or modified build is an official Flint release.
           </p>
         </section>
       </article>

@@ -15,7 +15,7 @@ import {
 import { database } from "../licenses/database";
 
 const tokenLifetimeMinutes = 15;
-export const currentBetaTermsVersion = "2026-07-20";
+export const currentBetaTermsVersion = "2026-07-22";
 
 export type BetaSignupInput = {
   email: string;

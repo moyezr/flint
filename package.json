@@ -1,6 +1,8 @@
 {
   "name": "flint-monorepo",
   "private": true,
+  "license": "MIT",
+  "repository": "https://github.com/moyezr/flint",
   "scripts": {
     "landing:dev": "npm --prefix landing run dev",
     "landing:build": "npm --prefix landing run build",

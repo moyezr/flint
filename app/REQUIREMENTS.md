@@ -1,5 +1,10 @@
 # Flint — Project Requirements
 
+> Historical product brief. It records Flint's original direction, but some UI,
+> implementation, sequencing, and release details have been superseded. Use the
+> repository [README](../README.md), [architecture guide](../docs/ARCHITECTURE.md),
+> current source, and tests for contributor decisions.
+
 Native macOS dictation app. Hold a key, speak, release, clean text appears at the cursor. Runs 100% locally. Distributed as a `.dmg` for a one-time payment. No subscription, no cloud transcription, no account required to dictate.
 
 Core loop — this is the whole product, get it right before anything else:
@@ -8,7 +13,7 @@ Core loop — this is the whole product, get it right before anything else:
 hold shortcut → speak → release → local transcription → cleanup → text inserted at cursor
 ```
 
-VoiceInk (GPLv3) is a useful functionality benchmark. Do not port, copy, or adapt any of its code, assets, icon, name, copy, or layout — this is a clean-room, proprietary implementation. It's fine to know it exists and behaves a certain way; it's not fine to look at or reuse its source.
+VoiceInk is a useful functionality benchmark. Do not port, copy, or adapt any of its code, assets, icon, name, copy, or layout. Flint's original code is MIT-licensed, but it remains a clean-room implementation. It is fine to know a competing product exists and behaves a certain way; do not reuse its source or protected assets.
 
 ---
 

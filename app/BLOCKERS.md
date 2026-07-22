@@ -1,5 +1,10 @@
 # Flint Blockers
 
+> Maintainer release checklist, not a general contributor roadmap. The current
+> source, tests, root [README](../README.md), and
+> [production-readiness checklist](./PRODUCTION_READINESS.md) are authoritative
+> for implemented behavior.
+
 These are the remaining items that require credentials, external systems,
 physical testing, provider configuration, or a product decision. The native
 dictation loop, explicit personalization, release-manifest updater, licensing
