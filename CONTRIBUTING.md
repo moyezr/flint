@@ -20,7 +20,8 @@ Follow the native and website setup in the [README](./README.md). The architectu
 and safety invariants are documented in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 Create a focused branch and keep generated build output, environment files,
-database exports, signing material, and release binaries out of Git.
+database exports, and signing material out of Git. Only maintainer release work
+may update the five-version DMG archive under `landing/public/downloads`.
 
 ## Validation
 
@@ -53,7 +54,8 @@ and the user's clipboard is restored unchanged.
 - Update public documentation when behavior, data storage, permissions, or setup
   changes.
 - Do not combine broad formatting changes with logic changes.
-- Do not commit `.dmg` files. Maintainer releases are uploaded separately.
+- Do not commit `.dmg` files outside a maintainer release change that adds the
+  newest beta and removes the oldest retained version.
 
 By contributing, you agree that your contribution may be distributed under the
 repository's [MIT License](./LICENSE).

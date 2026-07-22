@@ -26,8 +26,6 @@ node_modules/
 # Local release artifacts and database tooling state
 app/Distribution/releases/
 app/dist/
-landing/public/downloads/*.dmg
-landing/public/downloads/*.dmg.sha256
 landing/coverage/
 landing/.vercel/
 

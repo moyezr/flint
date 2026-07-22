@@ -70,16 +70,17 @@ Gatekeeper and does not replace Developer ID signing or notarization.
    privacy policy, beta terms, third-party notices, and a support contact
    alongside the download.
 
-8. Publish both files from a durable public artifact host. Release DMGs and
-   checksums must not be committed to Git. For GitHub Releases, authenticate the
-   GitHub CLI and run:
+8. Copy the new immutable DMG and checksum into `landing/public/downloads`:
 
    ```sh
-   FLINT_VERSION=0.1.0-beta.11 Scripts/publish-github-release.sh
+   release_version=0.1.0-beta.11
+   cp "dist/Flint-$release_version.dmg" \
+      "dist/Flint-$release_version.dmg.sha256" \
+      ../landing/public/downloads/
    ```
 
-   The script verifies the checksum and creates or updates the corresponding
-   `v<version>` prerelease. An external object host is also acceptable.
+   Retain the newest five version pairs in that directory and remove anything
+   older from the current branch. Never replace a published file in place.
 9. Update `landing/app/lib/beta/latest-release.ts` (or the corresponding production environment overrides), deploy the landing site, and run:
 
    ```sh

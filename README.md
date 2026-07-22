@@ -174,9 +174,11 @@ local data before moving the packaged app to Trash.
 
 ## Releases
 
-Official release artifacts belong in GitHub Releases or external object storage,
-not in Git history. Release credentials and the private beta-signing identity are
-maintainer-owned local secrets and are never required to build Flint from source.
+The official beta download archive under `landing/public/downloads` retains the
+latest five immutable DMGs and their SHA-256 checksums. When a sixth version is
+published, the oldest pair is removed from the current branch. Release
+credentials and the private beta-signing identity are maintainer-owned local
+secrets and are never required to build Flint from source.
 
 The current direct beta is privately signed to preserve its macOS permission
 identity across updates, but it is not Developer ID signed, notarized, or
