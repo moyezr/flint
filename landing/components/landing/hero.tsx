@@ -20,7 +20,7 @@ export function Hero() {
           Flint places your voice exactly where your cursor already is.
         </p>
         <div className="flex items-center justify-center gap-6 max-[520px]:flex-col max-[520px]:gap-4">
-          <Link className="inline-flex min-h-12 items-center bg-signal px-6 font-mono text-[12px] font-semibold text-paper transition-colors hover:bg-ink" href="#download">
+          <Link className="inline-flex min-h-12 items-center bg-signal px-6 font-mono text-[12px] font-semibold text-paper transition-colors hover:bg-ink" href="/#download">
             DOWNLOAD FREE BETA ↓
           </Link>
           <Link className="inline-flex items-center gap-[9px] border-b border-current pb-[5px] font-mono text-[13px] font-medium hover:text-signal" href="#typing-test">
