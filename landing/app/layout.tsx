@@ -32,11 +32,28 @@ export const metadata: Metadata = {
     title: "Flint - Local Dictation for Mac",
     description: "Speak naturally. Flint puts the words where your cursor is.",
     siteName: "Flint",
+    images: [
+      {
+        url: "/og_image.webp",
+        width: 1450,
+        height: 747,
+        alt: "Flint — local dictation for Mac",
+        type: "image/webp",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Flint - Local Dictation for Mac",
     description: "Speak naturally. Flint puts the words where your cursor is.",
+    images: [
+      {
+        url: "/og_image.webp",
+        width: 1450,
+        height: 747,
+        alt: "Flint — local dictation for Mac",
+      },
+    ],
   },
   robots: {
     index: true,
