@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 // React/Turbopack uses eval and a WebSocket for development diagnostics and
 // hot reload. Keep both out of the production policy.
 const isDevelopment = process.env.NODE_ENV === "development";
+const demoAssetOrigin = "https://ee7apxf8lxdpfnbh.public.blob.vercel-storage.com";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -10,8 +11,10 @@ const contentSecurityPolicy = [
   `connect-src 'self'${isDevelopment ? " ws:" : ""}`,
   "font-src 'self'",
   "form-action 'self'",
+  `frame-src 'self' ${demoAssetOrigin}`,
   "frame-ancestors 'none'",
   "img-src 'self' data: blob:",
+  `media-src 'self' ${demoAssetOrigin}`,
   "object-src 'none'",
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",

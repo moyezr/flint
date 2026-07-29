@@ -1,4 +1,4 @@
-import { DemoSurface } from "./demo-surface";
+import DemoVideo from "./demo-video";
 import { SectionHeading } from "./section-heading";
 
 export function DemoSection() {
@@ -11,7 +11,9 @@ export function DemoSection() {
           title={<>Your hands can stay<br />on the work.</>}
           description="Hold your shortcut. Speak. Release. Flint takes care of the space between thought and text."
         />
-        <div className="mt-[68px] max-[520px]:mt-[46px]"><DemoSurface /></div>
+        <div className="mt-[68px] max-[520px]:mt-[46px]">
+          <DemoVideo />
+        </div>
       </div>
     </section>
   );
