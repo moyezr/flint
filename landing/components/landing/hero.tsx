@@ -11,7 +11,7 @@ export function Hero() {
         <Link href="#top" aria-label="Flint home"><BrandMark /></Link>
         <Link className="inline-flex min-h-10 items-center border border-signal bg-signal px-4 font-mono text-[11px] font-semibold text-paper tabular-nums transition-colors hover:bg-paper hover:text-signal max-[520px]:min-h-9 max-[520px]:px-3 max-[520px]:text-[10px]" href="/#download">DOWNLOAD BETA</Link>
       </nav>
-      <div className="relative z-10 mx-auto max-w-[960px] pt-24 text-center max-[840px]:pt-32 max-[520px]:pt-[132px]">
+      <div className="relative z-10 mx-auto max-w-[960px] pt-16 text-center max-[840px]:pt-24 max-[520px]:pt-[104px]">
         <p className="mb-[22px] font-mono text-[11px] font-semibold text-signal tabular-nums max-[520px]:text-[10px]">LOCAL DICTATION FOR MAC</p>
         <h1 className={`${spaceGrotesk.className} mb-[26px] text-[100px] leading-[0.91] font-semibold max-[840px]:text-[66px] max-[520px]:text-[49px] max-[520px]:leading-[0.95]`} id="hero-title">
           Your thoughts move fast.<br /><span className="text-signal">Your fingers don&apos;t.</span>
