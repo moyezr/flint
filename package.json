@@ -16,5 +16,8 @@
     "landing:licenses:bootstrap": "npm --prefix landing run licenses:bootstrap",
     "landing:licenses:verify": "npm --prefix landing run licenses:verify",
     "landing:production:verify": "npm --prefix landing run production:verify"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }

@@ -3,7 +3,7 @@ import "./globals.css";
 import { ibmPlexMono, inter, spaceGrotesk } from "../lib/fonts";
 import { resolveBaseTheme } from "./lib/theme";
 import { cn } from "@/lib/utils";
-
+import { Analytics } from "@vercel/analytics/next"
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://flint.moyezrabbani.dev";
 
 export const metadata: Metadata = {
