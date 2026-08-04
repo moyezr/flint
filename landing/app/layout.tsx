@@ -68,14 +68,18 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)}>
-      <body
-        className={`${spaceGrotesk.variable} ${inter.variable} ${ibmPlexMono.variable} ${inter.className}`}
-        data-base-theme={resolveBaseTheme()}
-      >
-    
-        {children}
-      </body>
-    </html>
+    <>
+      <html lang="en" className={cn("font-sans", inter.variable)}>
+        <body
+          className={`${spaceGrotesk.variable} ${inter.variable} ${ibmPlexMono.variable} ${inter.className}`}
+          data-base-theme={resolveBaseTheme()}
+        >
+
+          {children}
+        </body>
+      </html>
+
+      <Analytics />
+    </>
   );
 }
