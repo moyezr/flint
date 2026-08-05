@@ -4,23 +4,18 @@ type DemoVideoProps = {
 };
 
 export default function DemoVideo({ className, autoPlay = false }: DemoVideoProps) {
-  const src = "https://ee7apxf8lxdpfnbh.public.blob.vercel-storage.com/flint%20demo";
+  const src = "https://www.youtube.com/embed/YHKTbN2mvGU";
 
   return (
     <div className={className}>
-      <video
-        className="w-full rounded-xl shadow-sm"
+      <iframe
+        className="aspect-video w-full rounded-xl shadow-sm"
         aria-label="Flint demo video"
-        autoPlay={autoPlay}
-        controls
-        muted={autoPlay}
-        playsInline
-        preload="metadata"
-        poster="/flint%20video%20thumbnail.webp"
-      >
-        <source src={src} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+        src={`${src}?autoplay=${autoPlay ? 1 : 0}&mute=${autoPlay ? 1 : 0}&controls=1&playsinline=1`}
+        title="Flint demo video"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
     </div>
   );
 }

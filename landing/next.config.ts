@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 // hot reload. Keep both out of the production policy.
 const isDevelopment = process.env.NODE_ENV === "development";
 const demoAssetOrigin = "https://ee7apxf8lxdpfnbh.public.blob.vercel-storage.com";
+const youtubeEmbedOrigin = "https://www.youtube.com";
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -11,7 +12,7 @@ const contentSecurityPolicy = [
   `connect-src 'self'${isDevelopment ? " ws:" : ""}`,
   "font-src 'self'",
   "form-action 'self'",
-  `frame-src 'self' ${demoAssetOrigin}`,
+  `frame-src 'self' ${demoAssetOrigin} ${youtubeEmbedOrigin}`,
   "frame-ancestors 'none'",
   "img-src 'self' data: blob:",
   `media-src 'self' ${demoAssetOrigin}`,
