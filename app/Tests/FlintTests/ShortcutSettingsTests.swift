@@ -170,7 +170,16 @@ final class ShortcutSettingsTests: XCTestCase {
 
         XCTAssertEqual(interpreter.interpret(event(.keyDown, keyCode: KeyCode.space, modifiers: [.control])), .start)
         XCTAssertEqual(interpreter.interpret(event(.keyDown, keyCode: KeyCode.escape)), .cancel)
+        XCTAssertEqual(interpreter.interpret(event(.keyDown, keyCode: KeyCode.escape)), .none)
         XCTAssertEqual(interpreter.interpret(event(.keyUp, keyCode: KeyCode.space)), .none)
+    }
+
+    func testEscapeDoesNothingWhenShortcutInterpretationIsInactive() {
+        var interpreter = ShortcutInterpreter(settings: ShortcutSettings(option: .controlSpace, behavior: .pushToTalk))
+
+        XCTAssertEqual(interpreter.interpret(event(.keyDown, keyCode: KeyCode.escape)), .none)
+        XCTAssertFalse(interpreter.isActive)
+        XCTAssertFalse(interpreter.isShortcutDown)
     }
 
     private func event(

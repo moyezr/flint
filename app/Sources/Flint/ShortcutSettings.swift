@@ -142,7 +142,7 @@ struct ShortcutInterpreter {
     }
 
     mutating func interpret(_ event: ShortcutEvent) -> ShortcutAction {
-        if event.type == .keyDown, event.keyCode == KeyCode.escape {
+        if event.type == .keyDown, event.keyCode == KeyCode.escape, isActive {
             isActive = false
             return .cancel
         }
