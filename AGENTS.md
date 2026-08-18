@@ -105,7 +105,7 @@ npm run landing:lint
 npm run landing:build
 ```
 
-Current verified baseline: 309 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 13 landing tests plus lint/build succeed.
+Current verified baseline: 310 Swift tests pass, two desktop Accessibility probes are skipped by default, the release build succeeds, and 14 landing tests plus lint/build succeed.
 
 ## Native App Architecture
 

@@ -73,7 +73,7 @@ Gatekeeper and does not replace Developer ID signing or notarization.
 8. Copy the new immutable DMG and checksum into `landing/public/downloads`:
 
    ```sh
-   release_version=0.1.0-beta.11
+   release_version=0.1.0-beta.12
    cp "dist/Flint-$release_version.dmg" \
       "dist/Flint-$release_version.dmg.sha256" \
       ../landing/public/downloads/
